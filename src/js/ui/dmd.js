@@ -91,12 +91,18 @@ export class DMD {
     const art = (kind === 'mode' || kind === 'multiball' || kind === 'wizard') && this.art[a.id || kind];
     if (art) {
       // painting on the left (slides in), title and goal wrapped on the right
+      // title (one or two lines) on the right, the objective as one scrolling line under it, the art on the left
+      const lines = DMD.wrap(c.text || '', 14).slice(0, 2);
+      let y = lines.length > 1 ? 2 : 6;
+      for (const l of lines) { this.text(l, 44, y, 1, 3); y += 9; }
+      if (c.sub) {
+        const w = textWidth(c.sub), room = DW - 44;
+        const off2 = w <= room ? 0 : Math.max(0, (age - 500) / 30) % (w + 30);
+        this.text(c.sub, 44 - Math.round(off2), y + 3, 1, 2);
+      }
+      for (let yy = 0; yy < DH; yy++) for (let x = 0; x < 43; x++) this.buf[yy * DW + x] = 0;   // keep scrolled text out of the art
       const off = Math.max(0, 40 - Math.floor(age / 8));
-      for (let y = 0; y < 32; y++) for (let x = 0; x < 40; x++) { const v = art[y * 40 + x]; if (v) this.px(x - off, y, v); }
-      const lines = DMD.wrap(c.text || '', 14).slice(0, 2), sub = DMD.wrap(c.sub || '', 14).slice(0, 4 - lines.length);
-      let y = Math.round((DH - (lines.length + sub.length) * 8) / 2);
-      for (const l of lines) { this.text(l, 44, y, 1, 3); y += 8; }
-      for (const l of sub) { this.text(l, 44, y, 1, 2); y += 8; }
+      for (let yy = 0; yy < 32; yy++) for (let x = 0; x < 40; x++) { const v = art[yy * 40 + x]; if (v) this.px(x - off, yy, v); }
       return;
     }
     if (kind === 'mode') { this.rect(1, 1, DW - 2, DH - 2, 1); }
@@ -184,4 +190,66 @@ export function ditherArt(img) {
     out[i] = Math.max(0, Math.min(3, Math.floor(Math.pow(L, 0.8) * 3.6 + B[(y % 4) * 4 + (x % 4)] / 16 - 0.35)));
   }
   return out;
+}
+
+/**
+ * Authored 40×32 silhouettes for mode and multiball intros (clean shapes read better on a dot display than dithered
+ * paintings): drawn with canvas paths, then quantised to the four dot levels.
+ */
+export function makeSilhouettes() {
+  const art = {};
+  const draw = (id, fn) => {
+    const c = document.createElement('canvas'); c.width = 40; c.height = 32;
+    const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 40, 32);
+    g.strokeStyle = g.fillStyle = '#fff'; g.lineWidth = 1.6; g.lineCap = 'round'; g.lineJoin = 'round';
+    fn(g);
+    const d = g.getImageData(0, 0, 40, 32).data, out = new Uint8Array(1280);
+    for (let i = 0; i < 1280; i++) out[i] = Math.min(3, Math.round((d[i * 4] / 255) * 3.2));
+    art[id] = out;
+  };
+  const poly = (g, pts, fill = true) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); fill ? g.fill() : g.stroke(); };
+  const steam = (g, x, y, h) => { g.globalAlpha = 0.6; g.beginPath(); for (let k = 0; k <= h; k++) g.lineTo(x + Math.sin(k * 0.8) * 1.5, y - k); g.stroke(); g.globalAlpha = 1; };
+  draw('derby', (g) => {   // a galloping horse with a rider
+    poly(g, [[6, 17], [12, 13], [24, 13], [29, 9], [33, 8], [35, 11], [31, 13], [30, 18], [27, 19], [14, 19]]);
+    g.lineWidth = 2; for (const [x0, x1] of [[9, 4], [13, 16], [26, 31], [28, 24]]) { g.beginPath(); g.moveTo(x0 + 2, 18); g.lineTo(x1, 27); g.stroke(); }
+    g.beginPath(); g.arc(21, 8, 2.2, 0, Math.PI * 2); g.fill(); poly(g, [[18, 13], [20, 9], [23, 10], [24, 13]]);
+    g.lineWidth = 1; g.beginPath(); g.moveTo(2, 29); g.lineTo(38, 29); g.stroke();
+  });
+  draw('raid', (g) => {    // a three-reel slot machine
+    poly(g, [[8, 6], [28, 6], [30, 9], [30, 28], [6, 28], [6, 9]], false);
+    g.fillRect(8, 24, 20, 2);
+    for (let r = 0; r < 3; r++) { g.strokeRect(9 + r * 6.5, 12, 5, 7); g.fillRect(10.5 + r * 6.5, 14.5, 2, 2); }
+    g.beginPath(); g.moveTo(31, 18); g.lineTo(35, 18); g.lineTo(35, 8); g.stroke(); g.beginPath(); g.arc(35, 6.5, 2, 0, Math.PI * 2); g.fill();
+  });
+  draw('tower', (g) => {   // a lattice observation tower on a ridge
+    g.lineWidth = 1.2; g.beginPath(); g.moveTo(14, 29); g.lineTo(19, 9); g.moveTo(26, 29); g.lineTo(21, 9); g.stroke();
+    for (let y = 12; y < 29; y += 4) { const w = (y - 9) * 0.25; g.beginPath(); g.moveTo(19 - w, y); g.lineTo(21 + w, y + 4); g.moveTo(21 + w, y); g.lineTo(19 - w, y + 4); g.stroke(); }
+    g.fillRect(15, 5, 10, 4); g.fillRect(17, 2, 6, 2); g.beginPath(); g.moveTo(20, 2); g.lineTo(20, 0); g.stroke();
+    poly(g, [[0, 31], [8, 27], [16, 29], [26, 28], [33, 26], [40, 29], [40, 32], [0, 32]]);
+  });
+  draw('tub', (g) => {     // a clawfoot tub on wheels, steaming
+    poly(g, [[5, 14], [35, 14], [33, 22], [28, 25], [12, 25], [7, 22]]);
+    g.beginPath(); g.arc(11, 27, 2.2, 0, Math.PI * 2); g.arc(29, 27, 2.2, 0, Math.PI * 2); g.fill();
+    steam(g, 14, 12, 9); steam(g, 20, 12, 10); steam(g, 26, 12, 8);
+  });
+  draw('coaster', (g) => { // a wooden coaster hill
+    g.lineWidth = 1.8; g.beginPath(); for (let x = 0; x <= 40; x++) g.lineTo(x, 22 - Math.sin((x / 40) * Math.PI * 1.6) * 14); g.stroke();
+    g.lineWidth = 1; for (let x = 3; x < 40; x += 5) { const y = 22 - Math.sin((x / 40) * Math.PI * 1.6) * 14; g.beginPath(); g.moveTo(x, y); g.lineTo(x, 31); g.stroke(); }
+    g.fillRect(12, 4, 6, 3);
+  });
+  draw('soak', (g) => {    // a bathhouse front with a dome, steaming
+    g.fillRect(5, 16, 30, 13); g.beginPath(); g.arc(20, 16, 6, Math.PI, 0); g.fill(); g.fillRect(19, 7, 2, 4);
+    g.fillStyle = '#000'; for (let a = 0; a < 5; a++) { g.beginPath(); g.arc(9 + a * 5.5, 25, 1.8, Math.PI, 0); g.rect(7.2 + a * 5.5, 25, 3.6, 4); g.fill(); }
+    g.fillStyle = '#fff'; steam(g, 8, 14, 9); steam(g, 32, 14, 9);
+  });
+  draw('multiball', (g) => { // the Arlington's twin towers
+    g.fillRect(4, 18, 32, 11); g.fillRect(9, 9, 7, 20); g.fillRect(24, 9, 7, 20);
+    poly(g, [[8, 9], [12.5, 3], [17, 9]]); poly(g, [[23, 9], [27.5, 3], [32, 9]]);
+    g.fillStyle = '#000'; for (let x = 6; x < 35; x += 4) g.fillRect(x, 21, 2, 3);
+  });
+  draw('wizard', (g) => {  // the valley of the vapors: ridges and rising steam
+    poly(g, [[0, 30], [9, 18], [15, 23], [23, 13], [31, 21], [40, 16], [40, 32], [0, 32]]);
+    g.lineWidth = 1.4; steam(g, 12, 19, 14); steam(g, 22, 14, 13); steam(g, 30, 19, 15);
+  });
+  return art;
 }

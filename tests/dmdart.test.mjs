@@ -1,7 +1,7 @@
 // DMD mode-intro paintings render (kept as a small regression capture).
 export const tests = [
   {
-    name: 'DMD shows the dithered painting at a mode start',
+    name: 'DMD shows the mode silhouette at a mode start',
     viewports: ['desktop'],
     async run(t) {
       await t.game('newGame', { balls: 3, seed: 4 });

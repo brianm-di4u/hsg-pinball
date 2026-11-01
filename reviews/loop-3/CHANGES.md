@@ -1,0 +1,9 @@
+- Hardware: guide and outer-rail tops are now half-round brushed-brass rails (no longer flat slabs); posts get chrome dome bolt heads; slingshot faces are separate black rubber bands that bulge out when they kick; bumpers sink deeper on a hit and flash a ring on the playfield.
+- Bathhouse façades stand about 1.7× taller behind their targets so each reads from the player's camera.
+- Lighting: the playfield's clear coat and reflections are softer (less sheen), the blue rim light is weaker, chrome and bumper bases reflect less; contact shadows are darker. Mode and multiball mood lighting now blends on game time (so it holds in still frames), tints the fill more strongly, and the wizard dims both key and fill.
+- Lamps: the skill-shot lane flashes at full strength while the other lanes sit dim; the wizard light show keeps every shot arrow lit.
+- Lettering: SHOOT AGAIN, mode names and multiplier labels larger on plates; CENTRAL AVENUE moved above the spinner; THE VAPORS ends before the SPA CITY logo; MOUNTAIN TOWER moved clear of its arrow. The playfield texture is higher resolution at High.
+- Flipper bats carry a SPA CITY decal.
+- DMD: mode and multiball intros use authored 1-bit silhouettes (horse and rider, slot machine, lattice tower, tub, coaster, bathhouse, twin towers, steaming valley) with the title and one scrolling objective line; dithered paintings removed.
+- Phone portrait: the DMD takes the full width; the ☰ button floats over the apron; the corner chip shows mode/tower progress, switching to the score while the DMD shows a callout (the score is never shown twice).
+- Help: extra space above the pinned Back button.

@@ -69,6 +69,7 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .screen .small { font-size: 0.86em; color: var(--muted); }
 .menu { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; align-items: stretch; }
 /* long dialogs scroll their body; the action row stays pinned to the bottom of the card */
+.screen.dialog .cols { padding-bottom: 18px; }
 .screen.dialog .menu { position: sticky; bottom: -24px; margin: 16px -28px -24px; padding: 12px 28px 18px; background: linear-gradient(rgba(22, 19, 36, 0), rgba(22, 19, 36, 0.97) 30%); }
 .screen.title { background: linear-gradient(180deg, rgba(20, 18, 31, 0.9), rgba(20, 18, 31, 0.96)); max-width: 420px; }
 .screen.title h1 { display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }
@@ -101,7 +102,7 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
   .side { order: -1; padding: 8px 10px 4px; gap: 8px; max-width: none; flex-direction: row; align-items: center; }
   .side .dmd-frame { flex: 1; min-width: 0; }
   .side .info { display: contents; }
-  .side .controls-hint { display: none; }
+  .side .controls-hint, .side .mode-line { display: none; }
   /* the score stays on screen while the DMD shows callouts: a small plate in the dark corner above the arch */
   .side .score-line { display: flex; position: fixed; left: 12px; top: calc(var(--dmd-h, 92px) + 14px); z-index: 4; pointer-events: none; }
   .side .score-line .ballno { display: none; }
@@ -110,6 +111,7 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
   .info .controls-hint { display: none; }
   .score-line { display: none; }
   .buttons { flex-direction: row; }
+  #b-menu { position: fixed; left: 13vw; bottom: 6px; z-index: 5; height: 46px; background: rgba(30, 26, 48, 0.78); }   /* over the apron: the DMD gets the full width */
   .btn.launch { position: fixed; right: 13vw; bottom: 6px; z-index: 5; flex: none; width: 92px; height: 46px; visibility: hidden; background: rgba(30, 26, 48, 0.78); }   /* over the apron, clear of the shooter lane */
   .btn.launch.ready { visibility: visible; }
   .btn.icon .lbl { display: none; }

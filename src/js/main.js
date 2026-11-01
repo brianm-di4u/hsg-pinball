@@ -7,7 +7,7 @@ import { createGame, newGame, tick, flipper, plunger, nudge, gameState, setGameS
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
 import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
-import { DMD, paintDMD, ditherArt } from './ui/dmd.js';
+import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { audio, unlock, sfx, setVolumes, startMusic } from './ui/audio.js';
@@ -35,6 +35,7 @@ let renderClock = null, clockBase = 0, view = null, view2d = null, loading = tru
 const prev = new Map();
 let lastDots = null, lastDmdW = 0;
 const uiCache = {};
+const touchChip = () => matchMedia('(max-aspect-ratio: 4 / 5)').matches;   // the phone-portrait score plate
 const setText = (sel, v) => { if (uiCache[sel] !== v) { uiCache[sel] = v; $(sel).textContent = v; } };
 const dmd = new DMD();
 const effects = [];   // flashes, steam, shake → the view
@@ -259,7 +260,8 @@ function render(alpha) {
   }
   // side panel: touch the DOM only when a value changes
   const p = G.player;
-  setText('#score', demo ? '' : fmt(p.score));
+  const chip = touchChip() && dmd.cur ? fmt(p.score) : touchChip() ? `Modes ${G.f.modesPlayed.reduce((a, b) => a + b, 0)}/6 · Tower ${G.f.towerLevel}/3` : fmt(p.score);
+  setText('#score', demo ? '' : chip);
   setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
   setText('#modeline', demo ? '' : G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : G.mode.id[0].toUpperCase() + G.mode.id.slice(1)} · ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak', valley: 'Valley of the Vapors' }[G.mb.kind] : `Modes ${G.f.modesPlayed.reduce((a, b) => a + b, 0)}/6 · Tower ${G.f.towerLevel}/3`);   // fact: raid
   const showLaunch = !demo && !paused && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150);
@@ -320,15 +322,6 @@ window.__game = {
   },
 };
 
-// dithered mode paintings for the DMD (data URLs, so reading their pixels is allowed even from file://)
-async function dmdArt() {
-  const src = window.__PB_ART || {};
-  const map = { derby: 'pf-derby', raid: 'pf-raid', tub: 'pf-tub', coaster: 'pf-coaster', soak: 'pf-row', tower: 'backglass', multiball: 'pf-vapors', wizard: 'pf-mountain' };
-  await Promise.all(Object.entries(map).map(([id, k]) => src[k] && new Promise((res) => {
-    const img = new Image(); img.onload = () => { try { dmd.art[id] = ditherArt(img); } catch { /* optional */ } res(); }; img.onerror = res; img.src = src[k];
-  })));
-}
-
 // ------------------------------------------------------------------------------------------------- boot
 (async function boot() {
   try {
@@ -339,7 +332,7 @@ async function dmdArt() {
     const packs = typeof PB_ASSETS !== 'undefined' ? PB_ASSETS : [];
     await Promise.all(packs.map((f) => loadScript('assets/' + f)));
     if (window.__PB_ART && window.__PB_ART.backglass) $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`;
-    await dmdArt();
+    try { dmd.art = makeSilhouettes(); } catch { /* optional */ }
     await initView();
     startDemo();
     screens.title();

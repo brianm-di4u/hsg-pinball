@@ -1,0 +1,132 @@
+{
+  "loop": 2,
+  "scores": {
+    "art": 6.5,
+    "toys": 5.5,
+    "lighting": 6,
+    "animation": 6,
+    "ui": 6,
+    "typography": 5.5,
+    "readability": 6,
+    "mobile": 6.5,
+    "authenticity": 6.5
+  },
+  "judged": {
+    "art": 6.5,
+    "toys": 5,
+    "lighting": 5.5,
+    "animation": 6,
+    "ui": 6,
+    "typography": 6,
+    "readability": 6,
+    "mobile": 6.5,
+    "authenticity": 6.5
+  },
+  "total": 54.5,
+  "best": 54.5,
+  "held": [
+    "toys 5→5.5 (A/B new/new)",
+    "lighting 5.5→6 (A/B new/tie)",
+    "typography 6→5.5 (A/B new/tie)"
+  ],
+  "ab": {
+    "art": [
+      "new",
+      "new"
+    ],
+    "toys": [
+      "new",
+      "new"
+    ],
+    "lighting": [
+      "new",
+      "tie"
+    ],
+    "animation": [
+      "new",
+      "tie"
+    ],
+    "ui": [
+      "new",
+      "new"
+    ],
+    "typography": [
+      "new",
+      "tie"
+    ],
+    "readability": [
+      "tie",
+      "tie"
+    ],
+    "mobile": [
+      "new",
+      "new"
+    ],
+    "authenticity": [
+      "new",
+      "new"
+    ]
+  },
+  "measured": {
+    "perf": true,
+    "ip": true
+  },
+  "critics": {
+    "critic-claude": {
+      "art": 6.5,
+      "toys": 5,
+      "lighting": 5.5,
+      "animation": 5.5,
+      "ui": 6,
+      "typography": 6,
+      "readability": 6,
+      "mobile": 6,
+      "authenticity": 6.5
+    },
+    "critic-codex": {
+      "art": 7,
+      "toys": 5.5,
+      "lighting": 6,
+      "animation": 6.5,
+      "ui": 7,
+      "typography": 6.5,
+      "readability": 6,
+      "mobile": 7,
+      "authenticity": 7.5
+    },
+    "prosecutor": {
+      "art": 6,
+      "toys": 5,
+      "lighting": 5,
+      "animation": 5.5,
+      "ui": 6,
+      "typography": 6,
+      "readability": 5.5,
+      "mobile": 6,
+      "authenticity": 6.5
+    },
+    "advocate": {
+      "art": 7,
+      "toys": 5.5,
+      "lighting": 6,
+      "animation": 6.5,
+      "ui": 6.5,
+      "typography": 6.5,
+      "readability": 6.5,
+      "mobile": 7,
+      "authenticity": 7
+    }
+  },
+  "gates": {
+    "art": 7,
+    "toys": 7,
+    "lighting": 7,
+    "animation": 7,
+    "ui": 7,
+    "typography": 7,
+    "readability": 7,
+    "mobile": 7,
+    "authenticity": 6
+  },
+  "verdict": "continue"
+}

@@ -7,7 +7,7 @@ import { paintPlayfield } from './playfield.js';
 import { CX, BATHHOUSES, VAP } from '../sim/table-spa-city.js';
 
 const TIERS = {
-  high: { ratio: 2, msaa: 4, shadow: 2048, bloom: 1, pf: 3, steam: 220, gi: 4, flashers: 2, cube: 20 },
+  high: { ratio: 2, msaa: 4, shadow: 2048, bloom: 1, pf: 3.7, steam: 220, gi: 4, flashers: 2, cube: 20 },
   medium: { ratio: 1.5, msaa: 0, shadow: 1024, bloom: 0.5, pf: 2.2, steam: 120, gi: 2, flashers: 0, cube: 0 },
   low: { ratio: 0.75, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 24, gi: 0, flashers: 0, cube: 0 },
 };
@@ -80,7 +80,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     chrome: new THREE.MeshStandardMaterial({ color: '#e8ecf2', roughness: 0.16, metalness: 1, envMapIntensity: 0.6 }),
     steel: new THREE.MeshStandardMaterial({ color: '#232036', roughness: 0.32, metalness: 0.15 }),   // inner guides: dark lacquer
     railCap: new THREE.MeshStandardMaterial({ color: '#a8843a', roughness: 0.55, metalness: 0.75, envMapIntensity: 0.5 }),   // brushed brass: no mirror glare
-    lacquerTop: new THREE.MeshStandardMaterial({ color: '#c9a050', roughness: 0.28, metalness: 0.9, envMapIntensity: 0.7 }),
+    lacquerTop: new THREE.MeshStandardMaterial({ color: '#8f7030', roughness: 0.5, metalness: 0.85, envMapIntensity: 0.5 }),   // brushed: rounded caps must not bloom
     rubber: new THREE.MeshStandardMaterial({ color: '#cfc8ba', roughness: 0.7, metalness: 0 }),
     blackRubber: new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.7, metalness: 0 }),
     target: new THREE.MeshStandardMaterial({ color: '#d9c9a3', roughness: 0.35, metalness: 0.1, emissive: '#ffd877', emissiveIntensity: 0 }),
@@ -97,7 +97,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   let pf = paintPlayfield(T, lamps, packs.art, Q.pf);
   const pfTex = new THREE.CanvasTexture(pf.canvas);
   pfTex.colorSpace = THREE.SRGBColorSpace; pfTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const pfMat = new THREE.MeshPhysicalMaterial({ map: pfTex, roughness: 0.5, metalness: 0, clearcoat: 0.55, clearcoatRoughness: 0.22 });
+  const pfMat = new THREE.MeshPhysicalMaterial({ map: pfTex, roughness: 0.5, metalness: 0, clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.55 });
   const pfLow = new THREE.MeshStandardMaterial({ map: pfTex, roughness: 0.55, metalness: 0 });
   const pfMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), pfMat);
   function applyMaterials() { pfMesh.material = tierName === 'low' ? pfLow : pfMat; }
@@ -119,7 +119,12 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     geo[bucket].push(g);
   };
   const cyl = (x, y, r, h, y0, bucket, seg = 20) => { const g = new THREE.CylinderGeometry(r, r, h, seg); const m = P(x, y, y0 + h / 2); g.translate(m.x, m.y, m.z); geo[bucket].push(g); };
-  const targets = [];
+  const targets = [], slingBands = [];
+  const roundCap = (a, b, r, y0, bucket) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) + r * 2;
+    const g = new THREE.CylinderGeometry(r, r, L, 10, 1); g.rotateZ(Math.PI / 2); g.rotateY(Math.atan2(dy, dx));
+    const m = P((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, y0); g.translate(m.x, m.y, m.z); geo[bucket].push(g);
+  };
   T.segs.forEach((s, i) => {
     if (s.vis === 'none') return;
     const a = [s.ax, s.ay], b = [s.bx, s.by];
@@ -127,11 +132,19 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       if (s.kind === K.WALL) {
         const outer = s.group === 'rail';
         box(a, b, s.r * 2, outer ? 34 : 22, 0, outer ? 'wood' : 'steel', s.r * 2);
-        if (outer) box(a, b, s.r * 2 + 2, 2.5, 34, 'railCap', s.r * 2);
-        else box(a, b, s.r * 2 + 1, 1.5, 22, 'brass', s.r * 2);
+        if (outer) roundCap(a, b, s.r + 1.2, 34, 'railCap');
+        else roundCap(a, b, s.r + 0.6, 22, 'brass');
       } else if (s.kind === K.RUBBER || s.kind === K.SLING) {
-        box(a, b, s.r * 2, 11, 2, s.kind === K.SLING ? 'rubber' : 'rubber', s.r * 2);
-        box(a, b, s.r * 2 - 2, 9, 13, 'steel', 0);
+        if (s.kind === K.SLING) {
+          const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          const band = new THREE.Mesh(new THREE.CapsuleGeometry(s.r, L, 4, 10), M.blackRubber);
+          band.rotation.order = 'YXZ'; band.rotation.y = Math.atan2(b[1] - a[1], b[0] - a[0]); band.rotation.z = Math.PI / 2;
+          band.position.copy(P((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 7)); band.castShadow = true; scene.add(band);
+          slingBands.push({ mesh: band, base: band.position.clone(), n: [s.nx, s.ny], side: s.sw >= 0 ? T.swName[s.sw].slice(-1) : 'L' });
+        } else {
+          box(a, b, s.r * 2, 11, 2, 'rubber', s.r * 2);
+          box(a, b, s.r * 2 - 2, 9, 13, 'steel', 0);
+        }
       } else if (s.kind === K.TARGET) {
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const g = new THREE.BoxGeometry(L * 0.86, 8, 3); const mesh = new THREE.Mesh(g, M.target.clone());
@@ -196,6 +209,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     if (c.kind === K.BUMPER) { bumpers.push(c); continue; }
     if (!(c.mask & LAYER.FIELD)) continue;
     cyl(c.x, c.y, c.r * 0.42, 15, 0, 'chrome', 14);
+    { const bolt = new THREE.SphereGeometry(c.r * 0.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2); const m = P(c.x, c.y, 15); bolt.translate(m.x, m.y, m.z); geo.chrome.push(bolt); }
     const ring = new THREE.TorusGeometry(c.r * 0.86, c.r * 0.4, 10, 24); ring.rotateX(Math.PI / 2);
     const m = P(c.x, c.y, 7); ring.translate(m.x, m.y, m.z); geo.rubber.push(ring);
   }
@@ -270,7 +284,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         if (m.name === 'bumper_cap') { m.map = decals.cap; m.color.set('#ffffff'); m.roughness = 0.35; }
         if (m.name === 'sign_panel') { m.map = decals.sign; m.emissiveMap = decals.sign; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 1.4; m.color.set('#ffffff'); glowMats.push(m); }
         if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#d8d8d8'); m.metalness = 0.15; m.roughness = 0.45; m.envMapIntensity = 0.4; }
-        if (m.name === 'flipper_body') { m.color.set('#e2ddd3'); m.roughness = 0.38; }
+        if (m.name === 'flipper_body') { m.color.set('#ffffff'); m.map = decals.flipper; m.roughness = 0.36; }
+        if (m.name === 'bumper_base' || m.name === 'chrome') m.envMapIntensity = 0.45;
         if (m.name === 'chrome') { m.metalness = 1; m.roughness = 0.12; }
       }
       n.material = Array.isArray(n.material) ? mats : mats[0];
@@ -286,7 +301,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     if (!nm) continue;
     const s = T.segs[t.seg];
     let nx = s.nx, ny = s.ny; if (ny < 0) { nx = -nx; ny = -ny; }  // back = up the table
-    place('bh_' + nm, (s.ax + s.bx) / 2 + nx * 2.5, (s.ay + s.by) / 2 + ny * 2.5, 0, face(-nx, -ny), 900);
+    const bh = place('bh_' + nm, (s.ax + s.bx) / 2 + nx * 2.5, (s.ay + s.by) / 2 + ny * 2.5, 0, face(-nx, -ny), 900);
+    if (bh) bh.scale.set(900, 1550, 900);   // standups: taller so each façade reads from the player's camera
   }
   // landmarks sized to read from the player's camera: the tower stands in the dead area right of the ramp mouth,
   // the Arlington's twin towers rise twice as tall behind the lock, the Vapors sign is enlarged over its scoop
@@ -301,7 +317,11 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     body.position.y = 13; const cap = new THREE.Mesh(new THREE.CylinderGeometry(c.r, c.r, 6, 28), new THREE.MeshStandardMaterial({ color: '#fff4dc', roughness: 0.3 })); cap.position.y = 27;
     g.add(body, cap); g.position.copy(P(c.x, c.y, 0)); scene.add(g); glowMats.push(body.material); return { c, o: g };
   });
-  for (const b of bumperObjs) b.mats = []; bumperObjs.forEach((b) => b.o.traverse((n) => { if (n.isMesh) (Array.isArray(n.material) ? n.material : [n.material]).forEach((m) => { if (m.emissive && m.emissiveIntensity > 0) b.mats.push(m); }); }));
+  for (const b of bumperObjs) {
+    b.mats = [];
+    const ring = new THREE.Mesh(new THREE.RingGeometry(b.c.r * 1.05, b.c.r * 1.55, 32), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb060').multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.copy(P(b.c.x, b.c.y, 0.6)); scene.add(ring); b.ring = ring;
+  } bumperObjs.forEach((b) => b.o.traverse((n) => { if (n.isMesh) (Array.isArray(n.material) ? n.material : [n.material]).forEach((m) => { if (m.emissive && m.emissiveIntensity > 0) b.mats.push(m); }); }));
   // flippers
   const flipperObjs = T.flippers.map((f) => {
     let o = place('flipper', f.x, f.y, 0, f.rest, 1000);
@@ -334,7 +354,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     for (const n of ['slingBodyL', 'slingBodyR']) { const pts = T.spec.walls.find((w) => w.name === n).pts; const cx = pts.reduce((a, q) => a + q[0], 0) / pts.length, cy = pts.reduce((a, q) => a + q[1], 0) / pts.length; spots.push([cx + 3, cy - 4, 70, 140, 0.3 * (n.endsWith('L') ? -1 : 1), 0.45]); }
     spots.push([CX, 772, 64, 34, 0, 0.6], [458, 487, 44, 44, 0, 0.6], [VAP.x, VAP.y + 6, 60, 46, 0.25, 0.5]);
     const sg = new THREE.PlaneGeometry(1, 1); sg.rotateX(-Math.PI / 2);
-    const sm = new THREE.InstancedMesh(sg, new THREE.MeshBasicMaterial({ map: softTexture(THREE), color: '#000000', transparent: true, opacity: 0.6, depthWrite: false }), spots.length);
+    const sm = new THREE.InstancedMesh(sg, new THREE.MeshBasicMaterial({ map: softTexture(THREE), color: '#000000', transparent: true, opacity: 0.78, depthWrite: false }), spots.length);
     spots.forEach(([x, y, w, h, r, d], i) => { sm.setMatrixAt(i, new THREE.Matrix4().compose(P(x, y, 0.25), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r, 0)), new THREE.Vector3(w, 1, h))); });
     sm.renderOrder = 0; sm.frustumCulled = false; scene.add(sm);
   }
@@ -379,6 +399,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     const pnl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), panelMat); pnl.position.copy(P(x, y, z)); pnl.lookAt(P(W / 2, 520, 0)); pnl.layers.set(1); scene.add(pnl);
   }
   let cubeAge = 1e9, cubeDone = false;
+  const moodState = { key: 'none', t0: 0, fromC: new THREE.Color('#9fb4ff'), fromK: 1.35, fromH: 0.42 };
 
   // ------------------------------------------------------------------------------------------- balls
   const ballGeo = new THREE.SphereGeometry(BALL_R, 40, 28);
@@ -409,7 +430,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const key = new THREE.DirectionalLight('#ffe6c4', 1.35);
   key.position.copy(P(CX - 140, -700, 1500)); key.target.position.copy(P(CX, 520, 0));
   scene.add(key, key.target);
-  const rim = new THREE.DirectionalLight('#8fb0ff', 0.6); rim.position.set(-400, 600, -800); scene.add(rim);
+  const rim = new THREE.DirectionalLight('#8fb0ff', 0.25); rim.position.set(-400, 600, -800); scene.add(rim);
   // point lights cost every lit pixel, so the tier decides how many exist (GI pairs top to bottom, flashers for events)
   const flasherPool = [0, 1].map(() => new THREE.PointLight('#ffb070', 0, 260, 2));
   const giPool = [[60, 300], [420, 300], [150, 900], [330, 900]].map(([x, y]) => { const l = new THREE.PointLight('#ffcf88', 2200, 560, 2); l.position.copy(P(x, y, 110)); return l; });
@@ -577,7 +598,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const hit = fx.find((e) => e.k === 'flash' && e.name === 'bumper' + (i + 1) && t - e.t < 0.18);
         const k = hit ? 1 - (t - hit.t) / 0.18 : 0;
         for (const m of b.mats) m.emissiveIntensity = 0.3 + k * 3.2;
-        b.o.position.y = -k * 2.5;
+        b.o.position.y = -k * 4;
+        if (b.ring) { b.ring.material.opacity = k * 0.9; b.ring.scale.setScalar(1 + (1 - k) * 0.6); }
       });
       // flashers follow recent big events
       const big = fx.filter((e) => e.k === 'flash' && t - e.t < 0.2).slice(-3);
@@ -616,12 +638,17 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const hit = fx.find((e) => e.k === 'flash' && e.name === 'sling' + side && t - e.t < 0.2);
         pl.material.emissiveIntensity = 0.25 + (hit ? 2.2 * (1 - (t - hit.t) / 0.2) : 0);
         pl.position.y = hit ? -1.5 * (1 - (t - hit.t) / 0.2) : 0;
+        for (const sb of slingBands) if (sb.side === side) { const k = hit ? Math.sin(Math.min(1, (t - hit.t) / 0.12) * Math.PI) : 0; sb.mesh.position.set(sb.base.x + sb.n[0] * 4 * k, sb.base.y, sb.base.z - sb.n[1] * 4 * k); }
       }
       // mood lighting per mode and multiball (lerped, never strobing)
-      const mood = G.mb ? { valley: ['#b48cff', 0.45], soak: ['#7fe0d0', 1], arlington: ['#ffd27a', 1] }[G.mb.kind]
+      const mood = G.mb ? { valley: ['#b48cff', 0.35], soak: ['#5fe8d0', 1], arlington: ['#ffc860', 1] }[G.mb.kind]
         : G.mode ? { soak: ['#8fe6d6', 1], derby: ['#ffc070', 1], raid: ['#ff8a8a', 0.85], tower: ['#9cc8ff', 1], tub: ['#7fe0e8', 1], coaster: ['#ff9ad6', 1] }[G.mode.id] : null;
-      tmpC.set(mood ? mood[0] : '#9fb4ff'); hemi.color.lerp(tmpC, Math.min(1, dt * 3));
-      const keyTarget = 1.35 * (mood ? mood[1] : 1); key.intensity += (keyTarget - key.intensity) * Math.min(1, dt * 3);
+      const moodKey = mood ? mood.join() : 'none';
+      if (moodKey !== moodState.key) { moodState.key = moodKey; moodState.t0 = G.t; moodState.fromC = hemi.color.clone(); moodState.fromK = key.intensity; moodState.fromH = hemi.intensity; }
+      const mk = Math.min(1, Math.max(0, (G.t - moodState.t0) / 0.6));
+      hemi.color.copy(moodState.fromC).lerp(tmpC.set(mood ? mood[0] : '#9fb4ff'), mk);
+      key.intensity = moodState.fromK + (1.35 * (mood ? mood[1] : 1) - moodState.fromK) * mk;
+      hemi.intensity = moodState.fromH + ((tierName === 'low' ? 0.85 : 0.42) * (mood ? (mood[1] < 1 ? 0.55 : 1.5) : 1) - moodState.fromH) * mk;
       // camera shake (nudge, tilt, a small kick on bumper hits); none with reduced motion
       // follow camera: track the lowest ball (the one the player must deal with), eased
       if (follow && camMode === 'full' && interp.balls.length) {
@@ -713,5 +740,10 @@ function makeDecals(THREE) {
     g.fillStyle = '#1e5b8a'; for (let i = 0; i < 7; i++) { const x = 18 + i * 37; g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + 16, 10); g.lineTo(x + 32, h / 2); g.lineTo(x + 16, h - 10); g.closePath(); g.fill(); }
     g.fillStyle = '#d4af37'; g.fillRect(0, 0, w, 6); g.fillRect(0, h - 6, w, 6);
   });
-  return { cap, sign, spinner };
+  const flipper = tex(256, 64, (g, w, h) => {
+    g.fillStyle = '#ece6da'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#c9a050'; g.lineWidth = 4; g.strokeRect(10, 8, w - 20, h - 16);
+    g.fillStyle = '#a9432c'; g.font = '900 26px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SPA CITY', w / 2, h / 2 + 1);
+  });
+  return { cap, sign, spinner, flipper };
 }

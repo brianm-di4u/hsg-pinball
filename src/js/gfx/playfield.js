@@ -93,13 +93,13 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
   label('SPA CITY', CX + 14, 522, 27, '#ffd877', 0, SERIF, 900, 0.08);
   label('BATHHOUSE ROW · HOT SPRINGS', CX + 14, 499, 7.5, '#e8d9b0', 0, FONT, 700, 0.18);
   // feature names
-  label('CENTRAL AVENUE', 36, 690, 8, '#9fdcff', Math.PI / 2);
+  label('CENTRAL AVENUE', 36, 772, 8, '#9fdcff', Math.PI / 2);   // above the spinner
   label('RESERVE ST', 404, 735, 7, '#8ff0dc', Math.PI / 2);
-  label('MOUNTAIN TOWER', 362, 395, 9, '#ffd877', Math.atan2(0.893, 0.45));
-  label('THE VAPORS', 181, 554, 8, '#ff9a7e', -1.33);
+  label('MOUNTAIN TOWER', 328, 380, 9, '#ffd877', Math.atan2(0.893, 0.45), FONT, 800, 0.1, true);   // left of its arrow and lamps
+  label('THE VAPORS', 186, 590, 7, '#ff9a7e', -1.33, FONT, 800, 0.08, true);   // ends above the SPA CITY logo
   label('LOCK', CX, 610, 8, '#ff7e70');
   label('THE ARLINGTON', CX, 678, 6.5, '#ffb0a8');
-  label('SHOOT AGAIN', CX, 160, 6.5, '#ff9a8e');
+  label('SHOOT AGAIN', CX, 157, 8, '#ffb0a6', 0, FONT, 800, 0.08, true);
   label('EXTRA BALL', VAP.x + 30, VAP.y - 140, 5.5, '#a8f0a0', 0);
   label('THERMAL SPRINGS', 84, 760, 6.5, '#ffb08a', Math.PI / 2);
   ['S', 'P', 'A'].forEach((l, i) => label(l, 356 + i * 40, 908, 11, '#ffd877'));
@@ -115,8 +115,8 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
       label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * (t + shift) + nx * 30, a[1] + (b[1] - a[1]) * (t + shift) + ny * 30, 4.6, '#f4ecd8', ang, FONT, 800, 0, true, 22.5);
     }
   }
-  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 16, 6.2, '#ecd8ff', 0, FONT, 800, 0.06, true); });
-  for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 14, 6.5, '#ffd877', 0, FONT, 800, 0.06, true);
+  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 17, 7.2, '#ecd8ff', 0, FONT, 800, 0.04, true, 30); });
+  for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 15, 8, '#ffd877', 0, FONT, 800, 0.04, true);
   label('VALLEY OF THE VAPORS', CX, 448, 6.5, '#ffffff');
 
   // 6. inserts: unlit plastic look (dark tinted with a light rim). The lit glow is a separate emissive layer.
