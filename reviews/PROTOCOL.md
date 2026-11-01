@@ -15,7 +15,8 @@ advocate. `RUBRIC.md` defines the scores, `schema.json` the output shape, `brief
 
 The developer (the main session) writes `CHANGES.md` (facts only), opens every capture before the review, and never
 edits a reviewer's output. Claude reviewers write their own output file (`loop-N/<role>.md`) and touch nothing else;
-Codex runs read-only and its reply is saved verbatim by the developer.
+Codex either runs read-only with its reply saved verbatim, or (from loop 5) writes its own `critic-codex.md` and
+nothing else.
 
 ## The loop (N = loop number)
 1. `npm run build`; the full test suite green.

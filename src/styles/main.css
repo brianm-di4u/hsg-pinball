@@ -105,7 +105,8 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
   .side .info { display: contents; }
   .side .controls-hint, .side .mode-line { display: none; }
   /* the score stays on screen while the DMD shows callouts: a small plate in the dark corner above the arch */
-  .side .score-line { display: flex; position: fixed; left: 12px; top: calc(var(--dmd-h, 92px) + 14px); z-index: 4; pointer-events: none; }
+  .side { flex-wrap: wrap; }
+  .side .score-line { display: flex; flex-basis: 100%; order: 2; justify-content: flex-start; pointer-events: none; margin-top: -2px; }
   .side .score-line .ballno { display: none; }
   .side .score { font-size: 0.95em; background: rgba(12, 10, 20, 0.72); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.5); }
   .dmd-frame { padding: 5px; border-radius: 6px; }
@@ -142,5 +143,5 @@ body.closeup .stage { grid-template-columns: 1fr; }
 body.closeup .table { width: 100vw; }
 /* help: the body is its own scroll area, ending above the Back button */
 .screen.dialog.wide { overflow: hidden; display: flex; flex-direction: column; }
-.screen.dialog.wide .cols { -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); overflow-y: auto; min-height: 0; flex: 1; padding-bottom: 12px; margin-right: -8px; padding-right: 8px; }
+.screen.dialog.wide .cols { padding-bottom: 40px !important; -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); overflow-y: auto; min-height: 0; flex: 1; padding-bottom: 12px; margin-right: -8px; padding-right: 8px; }
 .screen.dialog.wide .menu { position: static; margin: 12px 0 0; padding: 0; background: none; }

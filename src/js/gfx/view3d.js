@@ -77,7 +77,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const M = {
     wood: new THREE.MeshStandardMaterial({ color: '#3a2214', roughness: 0.55, metalness: 0 }),
     woodTop: new THREE.MeshStandardMaterial({ color: '#c9a050', roughness: 0.3, metalness: 0.85 }),
-    chrome: new THREE.MeshStandardMaterial({ color: '#e8ecf2', roughness: 0.16, metalness: 1, envMapIntensity: 0.6 }),
+    chrome: new THREE.MeshStandardMaterial({ color: '#e8ecf2', roughness: 0.18, metalness: 1, envMapIntensity: 0.42 }),
     steel: new THREE.MeshPhysicalMaterial({ color: '#3a1d10', roughness: 0.45, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.2 }),   // inner guides: lacquered walnut
     railCap: new THREE.MeshStandardMaterial({ color: '#a8843a', roughness: 0.55, metalness: 0.75, envMapIntensity: 0.5 }),   // brushed brass: no mirror glare
     lacquerTop: new THREE.MeshStandardMaterial({ color: '#b8923e', roughness: 0.4, metalness: 1, envMapIntensity: 0.5 }),   // brushed: rounded caps must not bloom
@@ -92,8 +92,14 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     ball: new THREE.MeshStandardMaterial({ color: '#f4f6f9', roughness: 0.08, metalness: 1, envMapIntensity: 1.35 }),
     gate: new THREE.MeshStandardMaterial({ color: '#d8dde4', roughness: 0.2, metalness: 1 }),
     wireChrome: new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.28, metalness: 1, envMapIntensity: 0.35 }),
+    blade: new THREE.MeshStandardMaterial({ color: '#9aa1ab', roughness: 0.38, metalness: 0.9, envMapIntensity: 0.4 }),
+    bladeTop: new THREE.MeshStandardMaterial({ color: '#c9cdd3', roughness: 0.25, metalness: 1, envMapIntensity: 0.45 }),
+    rampWall: new THREE.MeshPhysicalMaterial({ color: '#d8ecff', roughness: 0.06, metalness: 0, transparent: true, opacity: 0.28, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
+    rampLip: new THREE.MeshPhysicalMaterial({ color: '#eef8ff', roughness: 0.1, metalness: 0, transparent: true, opacity: 0.75, clearcoat: 1 }),
     steelFlap: new THREE.MeshStandardMaterial({ color: '#9aa2ad', roughness: 0.35, metalness: 1, envMapIntensity: 0.6 }),
   };
+
+  const decals = makeDecals(THREE);
 
   // ------------------------------------------------------------------------------------------- playfield
   let pf = paintPlayfield(T, lamps, packs.art, Q.pf);
@@ -111,7 +117,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   cab.position.set(0, -20.5, 0); scene.add(cab);
 
   // ------------------------------------------------------------------------------------------- walls
-  const geo = { wire: [], railCap: [], wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [], brass: [] };
+  const geo = { blackRubber: [], blade: [], bladeTop: [], rampRibbon: [], rampLip: [], wire: [], railCap: [], wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [], brass: [] };
   const box = (a, b, w, h, y0, bucket, extra = 0) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) + extra;
     const g = new THREE.BoxGeometry(L, h, w);
@@ -133,9 +139,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     if (s.mask === LAYER.FIELD) {
       if (s.kind === K.WALL) {
         const outer = s.group === 'rail';
-        box(a, b, s.r * 2, outer ? 34 : 13, 0, outer ? 'wood' : 'steel', s.r * 2);
-        if (outer) roundCap(a, b, s.r + 1.2, 34, 'railCap');
-        else roundCap(a, b, s.r + 0.6, 13, 'brass');
+        if (outer) { box(a, b, s.r * 2, 34, 0, 'wood', s.r * 2); roundCap(a, b, s.r * 0.8, 34, 'railCap'); }
+        else { box(a, b, 2.2, 12, 0, 'blade', 0); roundCap(a, b, 1.5, 12, 'bladeTop'); }   // a thin stainless guide with a rolled top
       } else if (s.kind === K.RUBBER || s.kind === K.SLING) {
         if (s.kind === K.SLING) {
           const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -185,17 +190,25 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); fg.computeVertexNormals();
     geo.ramp.push(fg);
   }
-  T.segs.forEach((s) => {
-    if (!(s.mask & LAYER.RAMP) || !ramp) return;
-    const za = rampZ(ramp, s.ax, s.ay), zb = rampZ(ramp, s.bx, s.by);
-    const n = Math.max(1, Math.ceil(Math.hypot(s.bx - s.ax, s.by - s.ay) / 7));
-    for (let k = 0; k < n; k++) {
-      const t0 = k / n, t1 = (k + 1) / n;
-      const a = [s.ax + (s.bx - s.ax) * t0, s.ay + (s.by - s.ay) * t0], b = [s.ax + (s.bx - s.ax) * t1, s.ay + (s.by - s.ay) * t1];
-      const z = za + (zb - za) * (t0 + t1) / 2;
-      box(a, b, 3, 16, z, 'rampEdge', 1.5);
+  if (ramp) for (const wl of T.spec.walls.filter((q) => (q.mask || 1) & LAYER.RAMP)) {
+    // one continuous wall per rail: a vertical ribbon 16 mm tall following the ramp's height, plus a rounded lip
+    const pts = [];
+    for (let i = 0; i < wl.pts.length - 1; i++) {
+      const [x0, y0] = wl.pts[i], [x1, y1] = wl.pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6));
+      for (let k = 0; k < n; k++) { const t = k / n; pts.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t]); }
     }
-  });
+    pts.push(wl.pts[wl.pts.length - 1]);
+    const pos = [], lip = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], z0 = rampZ(ramp, x0, y0), z1 = rampZ(ramp, x1, y1);
+      const a0 = P(x0, y0, z0), a1 = P(x1, y1, z1), b0 = P(x0, y0, z0 + 16), b1 = P(x1, y1, z1 + 16);
+      pos.push(...a0.toArray(), ...a1.toArray(), ...b0.toArray(), ...b0.toArray(), ...a1.toArray(), ...b1.toArray());
+    }
+    for (const [x, y] of pts) lip.push(P(x, y, rampZ(ramp, x, y) + 16));
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    geo.rampRibbon.push(g);
+    if (lip.length > 1) geo.rampLip.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lip, false, 'centripetal'), lip.length * 2, 1.4, 6, false));
+  }
   if (wire) {
     for (const s of T.segs.filter((q) => q.mask === LAYER.WIRE)) {
       const za = rampZ(wire, s.ax, s.ay), zb = rampZ(wire, s.bx, s.by);
@@ -233,8 +246,13 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     const sl = T.segs.find((q) => q.name === 'slingBody' + side);
     const pts = T.spec.walls.find((wl) => wl.name === 'slingBody' + side).pts;
     const shp = new THREE.Shape(); pts.forEach((p, i) => { const v = P(p[0], p[1]); i ? shp.lineTo(v.x, -v.z) : shp.moveTo(v.x, -v.z); }); shp.closePath();
-    const g = new THREE.ExtrudeGeometry(shp, { depth: 2, bevelEnabled: false }); g.rotateX(-Math.PI / 2); g.translate(0, 26, 0);
-    const plastic = new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: side === 'L' ? '#ff7a5c' : '#3fbfb5', roughness: 0.2, transparent: true, opacity: 0.62, clearcoat: 1, emissive: side === 'L' ? '#ff5a3c' : '#2fbfae', emissiveIntensity: 0.25 }));
+    const g = new THREE.ExtrudeGeometry(shp, { depth: 3.5, bevelEnabled: true, bevelSize: 0.8, bevelThickness: 0.8, bevelSegments: 2 }); g.rotateX(-Math.PI / 2); g.translate(0, 24, 0);
+    // planar UVs over the plastic's footprint so the printed art lands on it
+    { const pa = g.attributes.position, uv = new Float32Array(pa.count * 2); const xs = pts.map((p) => P(p[0], p[1])); const minX = Math.min(...xs.map((v) => v.x)), maxX = Math.max(...xs.map((v) => v.x)), minZ = Math.min(...xs.map((v) => v.z)), maxZ = Math.max(...xs.map((v) => v.z));
+      for (let k = 0; k < pa.count; k++) { uv[k * 2] = (pa.getX(k) - minX) / (maxX - minX); uv[k * 2 + 1] = 1 - (pa.getZ(k) - minZ) / (maxZ - minZ); } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }
+    const plastic = new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ map: decals.sling[side], roughness: 0.18, transparent: true, opacity: 0.9, clearcoat: 1, emissive: side === 'L' ? '#ff5a3c' : '#2fbfae', emissiveIntensity: 0.12 }));
+    // a chrome post with a black rubber ring at each corner
+    for (const p of pts) { cyl(p[0], p[1], 2.4, 23, 0, 'chrome', 12); const ring = new THREE.TorusGeometry(5.2, 2.2, 8, 20); ring.rotateX(Math.PI / 2); const m = P(p[0], p[1], 8); ring.translate(m.x, m.y, m.z); geo.blackRubber.push(ring); }
     plastic.castShadow = true; scene.add(plastic);
     (window.__pbSlings ||= {})[side] = plastic;
   }
@@ -268,11 +286,11 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const merge = THREE.mergeGeometries;
   const addMerged = (list, mat, cast = true) => { if (!list.length) return null; const m = new THREE.Mesh(merge(list.map((g) => g.index ? g.toNonIndexed() : g)), mat); m.castShadow = cast; m.receiveShadow = true; scene.add(m); return m; };
   addMerged(geo.wood, M.wood); addMerged(geo.chrome, M.chrome); addMerged(geo.steel, M.steel); addMerged(geo.rubber, M.rubber);
-  addMerged(geo.gate, M.gate); addMerged(geo.rampEdge, M.rampEdge, false); addMerged(geo.brass, M.lacquerTop); addMerged(geo.railCap, M.railCap); addMerged(geo.wire, M.wireChrome);
+  addMerged(geo.gate, M.gate); addMerged(geo.rampEdge, M.rampEdge, false); addMerged(geo.brass, M.lacquerTop); addMerged(geo.railCap, M.railCap); addMerged(geo.wire, M.wireChrome); addMerged(geo.blade, M.blade); addMerged(geo.bladeTop, M.bladeTop); addMerged(geo.blackRubber, M.blackRubber);
+  const ribbon = addMerged(geo.rampRibbon, M.rampWall, false); if (ribbon) ribbon.renderOrder = 2; addMerged(geo.rampLip, M.rampLip, false);
   const rampMesh = addMerged(geo.ramp, M.rampPlastic, false); if (rampMesh) rampMesh.renderOrder = 2;
 
   // ------------------------------------------------------------------------------------------- models
-  const decals = makeDecals(THREE);
   const models = {};
   for (const [k, b64] of Object.entries(packs.models)) models[k] = await parseGLB(THREE, b64);
   const glowMats = [];
@@ -292,7 +310,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         if (/neon/.test(m.name)) { m.emissive = m.color.clone(); m.emissiveIntensity = 2.2; glowMats.push(m); }
         if (m.name === 'bumper_body') { m.emissive = new THREE.Color('#3fe0c5'); m.emissiveIntensity = 0.35; m.color.set('#1f7f78'); m.opacity = 0.72; m.roughness = 0.15; }   // translucent spring-water teal, lit from inside
         if (m.name === 'bumper_cap') { m.map = decals.cap; m.color.set('#ffffff'); m.roughness = 0.35; }
-        if (m.name === 'sign_panel') { m.map = decals.sign; m.emissiveMap = decals.sign; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 1.4; m.color.set('#ffffff'); glowMats.push(m); }
+        if (m.name === 'sign_panel') { m.map = decals.sign; m.emissiveMap = decals.sign; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0.85; m.color.set('#ffffff'); glowMats.push(m); }
         if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#8a8a8a'); m.metalness = 0.15; m.roughness = 0.45; m.envMapIntensity = 0.4; }
         if (m.name === 'flipper_body') { m.color.set('#ffffff'); m.map = decals.flipper; m.roughness = 0.36; }
         if (m.name === 'bumper_base' || m.name === 'chrome') m.envMapIntensity = 0.45;
@@ -404,7 +422,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   { const band = new THREE.Mesh(new THREE.CylinderGeometry(1400, 1400, 260, 48, 1, true), new THREE.MeshBasicMaterial({ color: '#07060c', side: THREE.BackSide }));
     band.position.copy(P(W / 2, 520, 150)); band.layers.set(1); scene.add(band); }
   // reflection-only light panels (layer 1): the cabinet's lamps and backbox the ball would mirror
-  const panelMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff1d8').multiplyScalar(3.0), side: THREE.DoubleSide, toneMapped: false });
+  const panelMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#f2f4f8').multiplyScalar(2.0), side: THREE.DoubleSide, toneMapped: false });
   for (const [x, y, w, h, z] of [[W / 2, 1250, 520, 160, 420], [-120, 520, 60, 900, 420], [W + 120, 520, 60, 900, 420], [W / 2, -250, 400, 90, 420], [W / 2, 560, 360, 520, 900]]) {
     const pnl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), panelMat); pnl.position.copy(P(x, y, z)); pnl.lookAt(P(W / 2, 520, 0)); pnl.layers.set(1); scene.add(pnl);
   }
@@ -431,7 +449,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
   const steam = new THREE.Points(sGeo, new THREE.PointsMaterial({ map: soft, size: 95, transparent: true, opacity: 0.06, depthWrite: false, blending: THREE.AdditiveBlending, color: '#dff6ff', sizeAttenuation: true }));
   steam.renderOrder = 3; scene.add(steam);
-  const steamSources = bumpers.map((c) => [c.x, c.y]).concat([[150, 1000], [300, 1040], [90, 960]]);
+  const steamSources = bumpers.map((c) => [c.x, c.y]).concat([[300, 930], [250, 960]]);
   for (let i = 0; i < steamN; i++) { sLife[i] = Math.random(); sSrc[i] = i % steamSources.length; }
 
   // ------------------------------------------------------------------------------------------- lights
@@ -467,7 +485,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   let follow = null;   // {d, yMin, yMax, y} when following
   function fitCamera(aspect) {
     camera.aspect = aspect; camera.updateProjectionMatrix();
-    PITCH = aspect < 0.75 ? 0.32 : Math.min(1.22, 0.32 + (aspect - 0.75) * 0.85);
+    PITCH = aspect < 0.75 ? 0.32 : Math.min(0.92, 0.32 + (aspect - 0.75) * 0.6);
     follow = null;
     if (aspect > 1.2 && false) {   // (follow camera kept for reference; full fit reads better)
       PITCH = 0.62;
@@ -551,6 +569,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     },
     hide() { canvas.style.visibility = 'hidden'; },
     /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */
+    /** The rendered (uploaded) brightness of a lamp's insert, for tests. */
+    lampLevel(name) { const i = lamps.findIndex((l) => l.name === name); if (i < 0) return null; const li = lampInst[i], c = new THREE.Color(); li.mesh.getColorAt(li.k, c); return li.mesh.instanceColor.version > 0 ? Math.max(c.r, c.g, c.b) : 0; },
     setCamera(m) {
       camMode = m || 'full';
       if (camMode === 'full') { fitCamera(camera.aspect); return; }
@@ -591,7 +611,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       const touched = new Set();
       lamps.forEach((l, i) => {
         const v = lampOn[l.name] || 0, li = lampInst[i];
-        li.mesh.setColorAt(li.k, tmpC.copy(lampBase[i]).multiplyScalar(0.1 + v * 2.9)); touched.add(li.mesh);
+        li.mesh.setColorAt(li.k, tmpC.copy(lampBase[i]).multiplyScalar(0.1 + v * (l.group === 'row' ? 1.5 : 2.9))); touched.add(li.mesh);   // target inserts sit under their name plates: kept below bloom clip
         halos.setColorAt(i, tmpC.copy(lampBase[i]).multiplyScalar(v * (l.group === 'spa' ? 0.75 : 0.2)));
       });
       for (const m of touched) m.instanceColor.needsUpdate = true;
@@ -606,9 +626,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       // bumpers
       bumperObjs.forEach((b, i) => {
         const hit = fx.find((e) => e.k === 'flash' && e.name === 'bumper' + (i + 1) && t - e.t < 0.18);
-        const k = hit ? 1 - (t - hit.t) / 0.18 : 0;
+        const k = hit ? Math.min(1, 2 * (1 - (t - hit.t) / 0.18)) : 0;   // hold, then recover
         for (const m of b.mats) m.emissiveIntensity = 0.3 + k * 3.2;
-        b.o.position.y = -k * 4;
+        b.o.position.y = -k * 6;
         if (b.ring) { b.ring.material.opacity = k * 0.4; b.ring.scale.setScalar(1 + (1 - k) * 0.6); }
       });
       // flashers follow recent big events
@@ -620,7 +640,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const pos = e.name && e.name.startsWith('bumper') ? bumpers[+e.name[6] - 1] : e.name && e.name.startsWith('sling') ? { x: e.name === 'slingL' ? 118 : 367, y: 260 } : { x: CX, y: 600 };
         l.position.copy(P(pos.x, pos.y, 70)); l.intensity = 9000 * k;
       });
-      for (const m of glowMats) if (m.name && /glass_lit|neon|sign/.test(m.name)) m.emissiveIntensity = (/neon/.test(m.name) ? 2.0 : /sign/.test(m.name) ? 1.4 : 0.9) * (0.88 + 0.12 * Math.sin(t * 3 + m.id));
+      for (const m of glowMats) if (m.name && /glass_lit|neon|sign/.test(m.name)) m.emissiveIntensity = (/neon/.test(m.name) ? 1.5 : /sign/.test(m.name) ? 0.85 : 0.9) * (0.88 + 0.12 * Math.sin(t * 3 + m.id));
       // spinner
       for (const e of fx) if (e.k === 'spin' && !e.used) { e.used = true; spinVel += e.n * 3.5 * (e.dir || 1); }
       spinVel *= Math.pow(0.25, dt); spinAngle += spinVel * dt;
@@ -637,7 +657,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         if (sLife[i] > 1) { sLife[i] = 0; sSrc[i] = (puffs.length && Math.random() < 0.6) ? puffs[0] : (i * 7 + Math.floor(t * 3)) % steamSources.length; src = steamSources[sSrc[i]]; }
         const a = sLife[i], seed = i * 12.9898;
         const x = src[0] + Math.sin(seed + t * 0.7) * 10 * a + (Math.sin(seed) * 8), y = src[1] + a * 30 + Math.cos(seed) * 8;
-        sPos[i * 3] = x - ox; sPos[i * 3 + 1] = 30 + a * 90; sPos[i * 3 + 2] = oz - y;
+        sPos[i * 3] = x - ox; sPos[i * 3 + 1] = 25 + a * 55; sPos[i * 3 + 2] = oz - y;
       }
       sGeo.attributes.position.needsUpdate = true;
       steam.material.opacity = G.f && G.f.boilUntil > G.t ? 0.11 : 0.06;
@@ -659,7 +679,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       hemi.color.copy(moodState.fromC).lerp(tmpC.set(mood ? mood[0] : '#9fb4ff'), mk);
       key.intensity = moodState.fromK + (1.35 * (mood ? mood[1] : 1) - moodState.fromK) * mk;
       hemi.intensity = moodState.fromH + ((tierName === 'low' ? 0.85 : 0.42) * (mood ? mood[1] : 1) - moodState.fromH) * mk;
-      for (const l of giLights) l.intensity = l.userData.base * (moodState.fromK / 1.35 + ((mood ? mood[1] : 1) - moodState.fromK / 1.35) * mk);
+      const moodScale = moodState.fromK / 1.35 + ((mood ? mood[1] : 1) - moodState.fromK / 1.35) * mk;
+      for (const l of giLights) l.intensity = l.userData.base * moodScale;
+      scene.environmentIntensity = 0.32 * moodScale;   // the room reflections dim with the lights
       // camera shake (nudge, tilt, a small kick on bumper hits); none with reduced motion
       // follow camera: track the lowest ball (the one the player must deal with), eased
       if (follow && camMode === 'full' && interp.balls.length) {
@@ -758,5 +780,14 @@ function makeDecals(THREE) {
     g.strokeStyle = '#c9a050'; g.lineWidth = 4; g.strokeRect(10, 8, w - 20, h - 16);
     g.fillStyle = '#a9432c'; g.font = '900 26px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SPA CITY', w / 2, h / 2 + 1);
   });
-  return { cap, sign, spinner, flipper };
+  const slingArt = (base, accent) => tex(256, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, base); gr.addColorStop(1, accent); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(255,236,190,0.85)'; g.lineWidth = 3;
+    for (let r = 30; r < 360; r += 26) { g.beginPath(); g.arc(w * 0.5, h * 1.05, r, Math.PI, 2 * Math.PI); g.stroke(); }   // deco sunrise
+    g.lineWidth = 6; g.strokeStyle = 'rgba(255,255,255,0.7)';
+    for (let i = 0; i < 3; i++) { g.beginPath(); for (let y = 0; y <= 70; y += 4) g.lineTo(w * (0.38 + i * 0.12) + Math.sin(y / 9 + i) * 6, h * 0.62 - y); g.stroke(); }   // steam wisps
+    g.strokeStyle = '#d4af37'; g.lineWidth = 10; g.strokeRect(5, 5, w - 10, h - 10);
+  });
+  const sling = { L: slingArt('#ff7a5c', '#a02a1a'), R: slingArt('#3fbfb5', '#1a5f66') };
+  return { cap, sign, spinner, flipper, sling };
 }

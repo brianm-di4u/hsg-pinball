@@ -51,7 +51,7 @@ async function initView() {
   const want = qs.get('tier') || app.settings.tier;
   if (want !== '2d' && !window.THREE) await loadScript('vendor/three-r186.min.js');
   if (want !== '2d' && probeGL()) {
-    try { view = await createView3D(canvasGL, T, LAMPS, { tier: want, reducedMotion }); } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
+    try { view = await createView3D(canvasGL, T, LAMPS, { tier: want, reducedMotion }); } catch (e) { console.error('3D view failed, using 2D', e); view = null; }   // an error, so tests catch it
   }
   if (!view) view = view2d;
   // the governor's last step: software GL still too slow at Low → the flat 2D table
@@ -314,6 +314,7 @@ window.__game = {
       case 'award': return mystery(G, a[0]);
       case 'lamps': G.lampShow = { name: a[0], until: G.t + (a[1] || 3) }; return true;
       case 'camera': if (view && view.setCamera) view.setCamera(a[0]); return true;
+      case 'lampLevel': return view && view.lampLevel ? view.lampLevel(a[0]) : null;
       case 'switch': { const id = G.T.sw[a[0]]; G.w.events.push({ t: a[1] || 'hit', sw: id, speed: 1000, dir: 1, ball: (w.balls[0] || {}).id }); return id; }
       case 'multiball': (api[{ arlington: 'startArlington', soak: 'startGrandSoak', valley: 'startValley' }[a[0]]])(G); return true;
       case 'demo': if (a[0]) { screens.close(); startDemo(); } return demo;

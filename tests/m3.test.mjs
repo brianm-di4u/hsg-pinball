@@ -168,6 +168,19 @@ export const tests = [
       t.expect(['arrow', 'circle', 'star', 'rect', 'triangle'].every((k) => shapes.has(k)), 'five insert shapes');
     },
   },
+  {
+    name: 'AC23 lit inserts reach the GPU (rendered brightness follows lamp state)',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('newGame', { balls: 3, seed: 4 });
+      await t.game('pause'); await t.game('step', 30);
+      await t.game('setState', { player: { bonusX: 3 } });
+      await t.game('step', 1); await t.waitFrames(3);
+      const lit = await t.game('act', 'lampLevel', 'bonus3x'), off = await t.game('act', 'lampLevel', 'bonus5x');
+      t.log('bonus3x', lit, 'bonus5x', off);
+      if (lit !== null) t.expect(lit > off * 4 && lit > 1, 'a lit insert renders far brighter than an unlit one');
+    },
+  },
   // ---------------------------------------------------------------- render captures
   {
     name: 'AC22 table render and close views',

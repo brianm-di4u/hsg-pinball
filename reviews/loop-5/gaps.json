@@ -1,0 +1,192 @@
+[
+  {
+    "id": "G-mood-depth",
+    "category": "lighting",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r07-mode",
+      "desktop/r06-multiball",
+      "desktop/r08-wizard",
+      "strips/s03-multiball"
+    ],
+    "fix": "One mood scalar for every mode and multiball, applied to ambient, hemisphere, env-map intensity and playfield base emissive, reaching target within 0.6 s of start. Test: unlit-patch luma vs r03 <= 0.88 in r07, <= 0.76 in r06, <= 0.62 in r08 on both viewports.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-ball-chrome-contrast",
+    "category": "readability",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "strips/s02-bumpers",
+      "desktop/r05-ramp",
+      "desktop/r04-bumpers"
+    ],
+    "fix": "Remove the ball's emissive halo and warm tint; metalness 1 with a dark-horizon env map; soft contact shadow under the ball. Test: ball neutral silver in all eight s02 frames; local luma contrast >= 3:1 at the ball in desktop r04 and r05.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-glare-hotspots",
+    "category": "lighting",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/r03-play",
+      "desktop/s02-bumpers-0",
+      "desktop/s03-multiball-0"
+    ],
+    "fix": "Cap specular on the CENTRAL AVENUE plate and spinner flag, mask emissive under 143°F decals, clamp lamp distance or add cabinet side walls. Test: no white bar on plate in c04, no left-orbit streak in r03, 143°F legible on lit caps in s02, luma <= 12 outside the cabinet in s03-0.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-bumper-kick",
+    "category": "animation",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s02-bumpers",
+      "desktop/r04-bumpers",
+      "mobile/r04-bumpers"
+    ],
+    "fix": "Deepen existing cap/ring travel to ~3 mm held 3-4 frames with cap flash; 2-3 px camera nudge on hard hits and multiball start; re-stage r04 so the ball contacts a lit bumper. Test: obvious displacement between consecutive s02 frames; r04 on both viewports shows a lit, struck bumper.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-phone-steam-hud",
+    "category": "mobile",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r08-wizard",
+      "mobile/r11-landscape",
+      "mobile/r02-serve"
+    ],
+    "fix": "Scale steam puff sprites by DPR/tier to match desktop, clip steam to playfield bounds, give the score chip its own row above the cabinet rail. Test: no puff < 20 device px and no steam above the table in mobile r08 and r11; chip box does not intersect the cabinet in mobile r02.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-playfield-labels",
+    "category": "typography",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS4",
+    "evidence": [
+      "mobile/r05-ramp",
+      "desktop/r03-play",
+      "desktop/c01-row"
+    ],
+    "fix": "Print bathhouse names and mode legends inside their inserts (dark-on-lit / light-on-unlit) at >= 7 CSS px cap height at 390 portrait; drop the BATHHOUSE ROW subline; EXTRA BALL on a dark plate. Test: every insert and target name reads at 1x in mobile/r03-play.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-superior-plate",
+    "category": "typography",
+    "expectedGain": 0.2,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/c01-row",
+      "desktop/c04-vapors"
+    ],
+    "fix": "Move the SUPERIOR tag clear of the HALE lamp/tag and the Vapors marquee footprint. Test: full word SUPERIOR visible in c01 and c04.",
+    "priority": 0.3,
+    "selected": true
+  },
+  {
+    "id": "G-arlington-base",
+    "category": "toys",
+    "expectedGain": 0.2,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c06-arlington",
+      "desktop/c01-row"
+    ],
+    "fix": "Seat the Arlington on a terrace or plinth behind the lock gate (or make the gate its porte-cochere) with a contact shadow. Test: in c06 the building meets a ground surface, not the gold crossbar.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-landscape-framing",
+    "category": "mobile",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape"
+    ],
+    "fix": "Flatten the landscape camera pitch so the table fills the height; slim side rail with score, ball count and DMD. Test: table spans >= 90% of viewport height in mobile/r11-landscape with no black band above.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-contact-shadows",
+    "category": "lighting",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c06-arlington",
+      "desktop/c01-row"
+    ],
+    "fix": "Baked soft contact-shadow decal (~0.4 opacity AO blob) under every bathhouse, the Arlington, Vapors, bumpers, posts and tower. Test: each toy has a visible darkened footprint in c01 and c06.",
+    "priority": 0.225,
+    "selected": false
+  },
+  {
+    "id": "G-hardware-kit",
+    "category": "toys",
+    "expectedGain": 0.6,
+    "severity": 4,
+    "effort": "L",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c05-tower",
+      "desktop/c03-flippers",
+      "desktop/c04-vapors"
+    ],
+    "fix": "BIG LEVER. (a) Re-loft the ramp as one continuous clear-plastic mesh with mitred walls, a single flange-edge highlight and a printed arrow decal; (b) slings as black rubber bands between 2-3 chrome posts with thick plastics carrying printed themed art; (c) replace fat brass-tube guides with thin wire or flat metal guides on posts with rubber rings. Test: no seam or wall offset in c05; rubber, >= 2 posts and non-flat art per sling in c03; guide diameter < half the ball in c04.",
+    "priority": 0.225,
+    "bigLever": true,
+    "selected": true
+  },
+  {
+    "id": "G-vapors-marquee",
+    "category": "authenticity",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c01-row",
+      "desktop/r03-play"
+    ],
+    "fix": "Dark backing panel, thin neon tubes with emissive capped below bloom threshold, magenta 'The' and cyan 'VAPORS'; tilt canopy and breeze-block face 15-20 degrees toward the camera. Test: VAPORS legible in c04; in r03 the Vapors reads as a lit sign, not a white box.",
+    "priority": 0.09,
+    "selected": false
+  }
+]

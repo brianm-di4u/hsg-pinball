@@ -129,3 +129,7 @@ Screenshots at desktop (D) and mobile (M) under `screenshots/<milestone>/<viewpo
 | D16 | M2 tests | Lock-lane switch counted only downward crossings | trigger reoriented; lane closed at the top behind the Arlington toy | m1 › AC3 |
 | D17 | M1 boot | Mobile boot threw on a resize before the view existed | resize guard | m1 › boot |
 | C1–C5 | campaign | see `TEST-CAMPAIGN.md` | | campaign |
+| D18 | review loop 4 | Mood darkening never showed in still captures: the blend started when the renderer first noticed the mode, and captures freeze game time | blend timed from the rules' own mode/multiball start | review captures r06–r08 |
+| D19 | review loop 6 | 3D view crashed to the 2D fallback: sling plastics used the decals before they were created; the fallback only logged a warning | decals created first; a 3D failure now logs a console error so every test fails | m1 boot (console error), m3 › AC22 |
+| D20 | review loop 6 | No insert lit on screen: an inline comment swallowed `touched.add(...)`, so lamp colours never reached the GPU | restored; lamp brightness now readable through `act('lampLevel')` | m3 › AC23 lit inserts reach the GPU |
+| D21 | review loop 3 | Vapors marquee and bumper-cap decals rendered mirrored or upside down (glTF UV orientation) | per-decal canvas flips | review close-ups c02, c04 |

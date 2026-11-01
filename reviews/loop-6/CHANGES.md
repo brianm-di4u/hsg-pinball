@@ -1,0 +1,10 @@
+- Big lever, hardware kit: (a) the ramp's side walls are one continuous clear ribbon per rail following the ramp's height, each with a rounded clear lip, instead of short boxes; (b) slingshots carry thick bevelled plastics printed with a deco sunrise and steam wisps, and a chrome post with a black rubber ring at each corner; (c) inner guides are thin brushed-stainless blades with a rolled top (the fat walnut-and-brass walls are gone); the outer rail cap is slimmer.
+- Mood lighting also dims the room reflections (environment) with the lights.
+- Ball: reflection panels are neutral and dimmer (no warm halo); chrome hardware reflects less of the studio room.
+- Bathhouse target inserts glow less (kept below bloom clipping) so their name plates stay legible when lit.
+- Steam rises only from the springs, lower, and no longer drifts above the arch.
+- Bumpers sink 6 mm on a hit and hold briefly before recovering.
+- The Vapors marquee neon is less intense; mode legends larger; the BATHHOUSE ROW subline under the logo is removed; EXTRA BALL on a plate; SUPERIOR's plate moved clear of the marquee.
+- Phone landscape camera flatter (less tilt) so the table fills more of the height.
+- Phone portrait: the progress/score chip sits on its own row under the DMD instead of over the cabinet.
+- Help: more bottom padding inside the scroll area.

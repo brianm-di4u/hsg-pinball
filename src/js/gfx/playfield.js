@@ -101,11 +101,11 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
     for (let i = 0; i < 4; i++) {
       const t = (i + 0.5) / 4;
-      const shift = off + i === 0 ? 0.22 : 0;   // Superior sits clear of the Vapors scoop
-      label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * (t + shift) + nx * 30, a[1] + (b[1] - a[1]) * (t + shift) + ny * 30, 4.6, '#f4ecd8', ang, FONT, 800, 0, true, 22.5);
+      const shift = off + i === 0 ? 0.22 : 0, out = off + i === 0 ? 40 : 30;   // Superior sits clear of the Vapors marquee
+      label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * (t + shift) + nx * out, a[1] + (b[1] - a[1]) * (t + shift) + ny * out, 4.6, '#f4ecd8', ang, FONT, 800, 0, true, 22.5);
     }
   }
-  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 17, 7.2, '#ecd8ff', 0, FONT, 800, 0.04, true, 30); });
+  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 18, 8.6, '#ecd8ff', 0, FONT, 800, 0.02, true, 34); });
   for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 15, 8, '#ffd877', 0, FONT, 800, 0.04, true);
 
   // 6. inserts: unlit plastic look (dark tinted with a light rim). The lit glow is a separate emissive layer.
