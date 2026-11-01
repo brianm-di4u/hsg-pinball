@@ -10,7 +10,7 @@ multiballs and a wizard mode, "Valley of the Vapors". Places appear as setting o
 any business shown, and every fact on screen comes from the collection's research notes (`research/town-content.md`).
 
 ## Play
-Open `index.html` (works from `file://` too). Left Shift or Z and Right Shift or / flip; hold Space, Enter or ↓
+Open `index.html` (works from `file://` too). Z and / (or Left and Right Shift) flip; hold Space, Enter or ↓
 to pull the plunger and release to fire; X, . and ↑ nudge (careful: tilt); Esc pauses. Touch: tap the left or right
 half of the table, hold Launch. Gamepads work too.
 

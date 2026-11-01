@@ -39,3 +39,18 @@ node tools/flow.mjs --n 4000 --seed 2026
 | C3 | Pausing while a flipper key was held left the flipper up (key-up arrived while paused) | pause releases flippers and plunger | campaign › pause during a held flip |
 | C4 | Race: a flip queued for a later substep fired after the pause released it | pause clears pending timed inputs | campaign › pause during a held flip (3 repeat runs) |
 | C5 | Esc could not close the pause menu (menu-open key filter swallowed it) | Esc always reaches the app; backs out of sub-screens | m2 › AC20, campaign › menus |
+| C6 | Windows, both Shift keys: the second Shift's keydown arrives flagged as a repeat and was ignored (that flipper did not rise), and the first Shift released sends no keyup at all (its flipper stayed up). Confirmed with real `keybd_event` input in Edge | a repeat for a key not yet down counts as a press; any key event that reports Shift up releases every Shift still recorded as down | input › Windows dual-Shift reports |
+| C7 | A press late in a frame longer than 100 ms was stamped later than its own release (the frame steps at most 0.1 s, the event mapping did not cap), and the time-sorted queue ran the release first: the flipper stuck up. 7 of 48 stalled press/release pairs on v1.0.0 | the event offset is capped like the frame step; queued inputs for one flipper apply in arrival order | input › a press late in a stalled frame; input › release queued earlier (Node) |
+| C8 | A key released while a menu was open stayed recorded as down, so its first press after resume was ignored | key state is tracked whatever has the keys; only the dispatch is gated | input › a key released behind the pause menu |
+| C9 | A quick tap of Launch or Space drew about 4 mm of plunger: the ball never left the lane | a release under 6 mm of pull (about 150 ms) fires at 0.85, like a launch button | input › quick plunger tap |
+| C10 | Losing focus, or the mouse leaving Launch, played plunger and flipper-down sounds with nothing held | only held keys are released on blur; the plunger sounds only when it was drawn | input suite (sound list) |
+
+## Input (v1.0.1)
+`tests/input.test.mjs` covers the input path end to end: synthetic key events shaped exactly like real Windows
+dual-Shift input, real Playwright Shift keys, 48 press/release pairs each landing at the end of a 110–250 ms stalled
+frame, a key released behind the pause menu, release sounds on focus loss, flip latency at 1× and 4× CPU throttle,
+and the plunger tap. On v1.0.0 six of the eight fail; on v1.0.1 all pass.
+
+One Windows limit remains and no browser can see past it: while one Shift is held, releasing the other sends
+nothing until both are up. Z and / (or the arrows) have no such limit; the help screen says so.
+

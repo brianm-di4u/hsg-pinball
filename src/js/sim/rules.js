@@ -612,7 +612,7 @@ function endMultiball(G) {
 // ------------------------------------------------------------------------------------------------- player input
 export function flipper(G, side, down, at) {
   if (G.player.tilted && down) return;
-  if (at != null) queueInput(G.w, at, (w) => setFlipper(w, side, down));
+  if (at != null) queueInput(G.w, at, (w) => setFlipper(w, side, down), side);
   else setFlipper(G.w, side, down);
   if (down && G.scene === 'game') { laneChange(G, side === 'R' ? 1 : -1); sound(G, 'flip'); }
   if (!down && G.scene === 'game') sound(G, 'flipDown');
@@ -620,8 +620,9 @@ export function flipper(G, side, down, at) {
 
 export function plunger(G, holding) {
   if (G.scene !== 'game') return;
+  const was = G.w.plunger.holding;
   setPlunger(G.w, holding);
-  if (!holding) sound(G, 'plunger');
+  if (!holding && was) sound(G, 'plunger');
 }
 
 export function nudge(G, dir) {

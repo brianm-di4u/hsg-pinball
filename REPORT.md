@@ -81,8 +81,8 @@ of its drains are outlane drains plus centre drains with no flip. The bot is a c
 was measured. See Known gaps.
 
 ## Tests
-- Playwright harness, 70 tests across m1–m5, the campaign suite, visual captures and the DMD art test:
-  - 70/70 pass on SwiftShader with `--slow`.
+- Playwright harness, 79 test runs across m1–m5, the campaign and input suites, visual captures and the DMD art test:
+  - v1.0.1: 79/79 pass on a real GPU (`--slow --gpu`), and 77/77 load from `file://` (`--file-url`).
   - The final run on a real GPU (`--milestone final --gpu`) and the offline run (`--file-url`) are recorded in
     `screenshots/final*/report.json`.
 - Node tools:
@@ -99,6 +99,12 @@ was measured. See Known gaps.
 - **Physics:** a three-ball fuzz had no escapes, plus the edge cases listed in `TEST-CAMPAIGN.md`.
 - **Defects found:** five (C1–C5). Two were game-hanging tilt bugs; the others were a stuck flipper after pause, a
   race between pause and a queued flip, and Esc not closing the pause menu. Each has a regression test.
+- **v1.0.1 input pass (C6–C10):** players on Windows saw flippers stick up once the ball was in play. With both Shift
+  keys down, Windows flags the second Shift's keydown as a repeat and never sends a keyup for the first Shift
+  released (confirmed with real injected keystrokes). Separately, a press late in a frame over 100 ms could be
+  stamped after its own release. Also fixed: a key released behind a menu swallowing the next press, the quick-tap
+  plunger, and stray release sounds. `tests/input.test.mjs` fails six of eight checks on v1.0.0 and passes all
+  eight on v1.0.1.
 
 ## Visual review campaign (`reviews/`)
 The Tub Rally protocol was adapted for pinball: blind Claude and Codex critics with seeded A/B pairs, then a
@@ -160,7 +166,14 @@ half a point under. Perf and IP gates passed every loop. The full record is in `
 The governor steps down from High to Medium to Low, and finally to the flat 2D table when software GL is still too
 slow.
 
+v1.0.1 adds frame-spike and flip-latency probes (real GPU, desktop High): frames hold 16.7 ms at p50 and 16.8 ms at
+max, with the ball in the lane and in play alike, and no long tasks. A flip moves the flipper on the next frame (17 ms
+median) at full speed, and within two frames (19 ms median, 33 ms max) at 4× CPU throttle.
+
 ## Known gaps
+- **Two Shift keys on Windows:** while one Shift is held, Windows reports nothing when the other is released, so that
+  flipper stays up until both are up. No browser can see that release. Z and / (or the arrows) have no such limit,
+  and the help screen says so.
 - **Balance:** the bot's ball time (about 28 s) is below the 45–90 s target. Human play testing is needed before
   tuning further. The levers are outlane geometry, ball-save length and flipper strength.
 - **Visual gates:** six categories at 6.5 against gates of 7 (see above). The next real levers would be a typeface

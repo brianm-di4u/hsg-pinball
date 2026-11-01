@@ -27,7 +27,7 @@ export function createScreens(root, app) {
           <button type="button" id="b-scores" class="btn">High scores</button>
           <button type="button" id="b-settings" class="btn">Settings</button>
         </div>
-        <p class="hint">${app.touch ? 'Tap the left or right side to flip' : 'Shift or Z and / to flip · hold Space to plunge'}</p>
+        <p class="hint">${app.touch ? 'Tap the left or right side to flip' : 'Z and / (or Shift) to flip · Space to plunge'}</p>
       </section>`);
       on('#b-play', () => app.start());
       on('#b-help', () => S.help('title'));
@@ -87,14 +87,15 @@ export function createScreens(root, app) {
             <h3>Controls</h3>
             <table class="keys"><tbody>${app.touch ? `
               <tr><th>Flippers</th><td>Tap and hold the left or right half of the table</td></tr>
-              <tr><th>Plunger</th><td>Hold Launch, then let go (longer = stronger)</td></tr>
+              <tr><th>Plunger</th><td>Hold Launch, then let go (longer = stronger). A quick tap launches.</td></tr>
               <tr><th>Nudge</th><td>Two-finger tap. Too many and the table tilts.</td></tr>
               <tr><th>Pause</th><td>The ☰ button</td></tr>` : `
               <tr><th>Left flipper</th><td>Left Shift · Z · ←</td></tr>
               <tr><th>Right flipper</th><td>Right Shift · / · →</td></tr>
-              <tr><th>Plunger</th><td>Hold Space · Enter · ↓, then release (longer = stronger)</td></tr>
+              <tr><th>Plunger</th><td>Hold Space · Enter · ↓, then release (longer = stronger). A quick tap launches.</td></tr>
               <tr><th>Nudge</th><td>X (left) · . (right) · ↑. Too many and the table tilts.</td></tr>
-              <tr><th>Pause</th><td>Esc · P · the menu button</td></tr>`}
+              <tr><th>Pause</th><td>Esc · P · the menu button</td></tr>
+              <tr><th>Tip</th><td>On Windows, Z and / work best: while one Shift is held, Windows hides the other Shift's release.</td></tr>`}
             </tbody></table>
             <h3>The table</h3>
             <ul>

@@ -10,21 +10,40 @@ export const KEYS = {
   pause: ['Escape', 'KeyP'],
 };
 
+const SHIFTS = ['ShiftLeft', 'ShiftRight'];
+
 export function createInput(target, handlers) {
   const down = new Set();
   const which = (code) => Object.keys(KEYS).find((k) => KEYS[k].includes(code));
+  // an action is held while any of its keys is down: it presses on the first key and releases on the last
+  const held = (a) => KEYS[a].some((c) => down.has(c));
+  const release = (code, ts, src) => {
+    if (!down.delete(code)) return;
+    const a = which(code);
+    if (!held(a)) handlers.action(a, false, ts, src);
+  };
   const onKey = (e, isDown) => {
+    // Windows sends no keyup for the first Shift released while both are down; the last one's keyup (and every
+    // later key event) reports Shift up, so any Shift still recorded as down was released
+    if (!e.getModifierState('Shift')) for (const c of SHIFTS) if (c !== e.code) release(c, e.timeStamp, 'key');
     const a = which(e.code);
     if (!a) return;
-    if (handlers.wantsKeys && !handlers.wantsKeys(a, e)) return;
-    e.preventDefault();
-    if (isDown) { if (down.has(e.code) || e.repeat) return; down.add(e.code); } else down.delete(e.code);
-    handlers.action(a, isDown, e.timeStamp, 'key');
+    const wanted = !handlers.wantsKeys || handlers.wantsKeys(a, e);
+    if (wanted) e.preventDefault();
+    if (!isDown) { release(e.code, e.timeStamp, 'key'); return; }   // tracked even while a menu has the keys
+    // a repeat for a key not yet down is a real press: Windows flags the second Shift's keydown as a repeat
+    if (down.has(e.code) || !wanted) return;
+    const first = !held(a);
+    down.add(e.code);
+    if (first) handlers.action(a, true, e.timeStamp, 'key');
   };
   const kd = (e) => onKey(e, true), ku = (e) => onKey(e, false);
+  // focus lost: keyups will never arrive, so let go of every held key (and the plunger, however it is held)
+  const releaseAll = () => { const ts = performance.now(); for (const c of [...down]) release(c, ts, 'blur'); handlers.action('plunge', false, ts, 'blur'); };
   window.addEventListener('keydown', kd);
   window.addEventListener('keyup', ku);
-  window.addEventListener('blur', () => { for (const a of ['flipL', 'flipR', 'plunge']) handlers.action(a, false, performance.now(), 'blur'); down.clear(); });
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 
   // touch on the table area
   const touches = new Map();  // id → action
