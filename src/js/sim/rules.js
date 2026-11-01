@@ -9,7 +9,7 @@ import { FACTS, fact } from './facts.js';
 export const MODES = [
   { id: 'soak', name: 'BATHHOUSE SOAK', short: 'SOAK', goal: 'HIT 6 LIT BATHHOUSES', dur: 40 },
   { id: 'derby', name: 'DERBY DAY', short: 'DERBY', goal: 'RAMPS AND ORBITS: WIN THE RACE', dur: 45 },
-  { id: 'raid', name: 'RAID! 1967', short: 'RAID', goal: 'FIND 3 SLOTS, THEN THE VAPORS', dur: 45 },
+  { id: 'raid', name: 'RAID! 1967', short: 'RAID', goal: 'FIND 3 SLOTS, THEN THE VAPORS', dur: 45 }, // fact: raid, slots
   { id: 'tower', name: 'TOWER CLIMB', short: 'TOWER', goal: 'SHOOT THE RAMP 3 TIMES', dur: 40 },
   { id: 'tub', name: 'TUB RACE', short: 'TUBS', goal: 'ALTERNATE LEFT AND RIGHT', dur: 40 },
   { id: 'coaster', name: 'COASTER HILL', short: 'COASTER', goal: 'RIDE THE ORBIT 4 LAPS', dur: 40 },

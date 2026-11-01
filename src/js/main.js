@@ -257,7 +257,7 @@ window.__game = {
     const s = gameState(G);
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
-    s.screen = screens.current; s.settings = { ...app.settings }; s.scores = loadScores(); s.frame = frameNo;
+    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(); s.frame = frameNo;
     s.audio = { ctx: !!audio.ctx, played: [...audio.played] };
     return s;
   },
@@ -315,6 +315,7 @@ window.__game = {
     startDemo();
     screens.title();
     loading = false;
+    window.__bootMs = Math.round(performance.now());
     lastNow = performance.now();
     requestAnimationFrame(frame);
   } catch (e) {
