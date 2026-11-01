@@ -29,7 +29,7 @@ const bad = [];
 for (let i = 0; i < N; i++) {
   const w = createWorld(T);
   let x, y;
-  do { x = 20 + rnd() * 450; y = 150 + rnd() * 900; } while (inside(T, x, y, 1) || (Math.hypot(x - 264, y - 830) > 240 && y > 830) || (x > 437 && x < 483 && y > 450 && y < 868) || (x > 380 && y > 440 && y < 600 && (y - 470) > (x - 400) * 1.333 - 10 && x > 380 && y < 560 && x < 483 && (y - 458) > -0.75 * (x - 415) && false) || inMouth(x, y) || x > 476);
+  do { x = 20 + rnd() * 450; y = 150 + rnd() * 900; } while (inside(T, x, y, 1) || (Math.hypot(x - 264, y - 830) > 240 && y > 830) || (x > 437 && x < 483 && y > 450 && y < 868) || (x > 380 && y > 440 && y < 600 && (y - 470) > (x - 400) * 1.333 - 10 && x > 380 && y < 560 && x < 483 && (y - 458) > -0.75 * (x - 415) && false) || inMouth(x, y) || (x > 214 && x < 271 && y > 757 && y < 801) || x > 476);
   const a = rnd() * Math.PI * 2, sp = rnd() * 3500;
   const b = addBall(w, x, y, Math.cos(a) * sp, Math.sin(a) * sp);
   const path = [];

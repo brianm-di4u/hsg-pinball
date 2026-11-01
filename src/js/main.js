@@ -105,7 +105,14 @@ app.applySettings = (s) => {
   else if (tierChanged && view === view2d && s.tier !== '2d') initView();
   document.body.dataset.view = view ? view.kind : '2d';
 };
-function pause() { if (demo || paused) return; paused = true; screens.pause(); document.body.dataset.scene = 'pause'; }
+function pause() {
+  if (demo || paused) return;
+  paused = true;
+  // keys released while paused never reach the game, so let go of everything now
+  G.w.pending.length = 0;   // a flip queued for a later substep must not fire after the release
+  flipper(G, 'L', false); flipper(G, 'R', false); plunger(G, false);
+  screens.pause(); document.body.dataset.scene = 'pause';
+}
 
 // ------------------------------------------------------------------------------------------------- input
 function simTimeFor(ts) {

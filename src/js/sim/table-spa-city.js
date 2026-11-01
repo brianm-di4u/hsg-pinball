@@ -111,7 +111,7 @@ triggers.push({ a: [222, 708], b: [mx(222), 708], sw: 'lockEnter', oneWay: true,
 // the lane is closed at the top (the Arlington stands behind it), so the lock is only reached from below
 wall([[218, 760], [mx(218), 760]], { r: 4, e: 0.3, name: 'lockBack' });
 // the Arlington toy's footprint is solid, so the ball never rolls through it
-wall([[219, 762], [219, 784], [mx(219), 784], [mx(219), 762]], { r: 3, e: 0.3, name: 'arlingtonBlock', vis: 'none' });
+wall([[219, 762], [219, 784], [CX, 797], [mx(219), 784], [mx(219), 762]], { r: 3, e: 0.3, name: 'arlingtonBlock', vis: 'none' });  // peaked: no ledge
 
 // Reserve Street: the channel between the south bank and the ramp block, up into the top of the table
 triggers.push({ a: [372, 760], b: [437, 760], sw: 'reserve', oneWay: true, name: 'reserve' });

@@ -34,7 +34,7 @@ export const tests = [
       for (let i = 0; i < 4000; i++) {
         const w = createWorld(T);
         let x, y;
-        do { x = 20 + rnd() * 450; y = 150 + rnd() * 900; } while (insideWall(x, y, 1) || (Math.hypot(x - 264, y - 830) > 240 && y > 830) || inBlock(x, y) || inMouth(x, y) || x > 476);
+        do { x = 20 + rnd() * 450; y = 150 + rnd() * 900; } while (insideWall(x, y, 1) || (Math.hypot(x - 264, y - 830) > 240 && y > 830) || inBlock(x, y) || inMouth(x, y) || (x > 214 && x < 271 && y > 757 && y < 801) || x > 476);
         const a = rnd() * Math.PI * 2, sp = rnd() * 3500;
         const b = addBall(w, x, y, Math.cos(a) * sp, Math.sin(a) * sp);
         let out = 'timeout';
@@ -61,7 +61,7 @@ export const tests = [
       for (let i = 0; i < 1500; i++) {
         const w = createWorld(T);
         let x, y;
-        do { x = 25 + rnd() * 440; y = 140 + rnd() * 900; } while (insideWall(x, y, 1) || (Math.hypot(x - 264, y - 830) > 236 && y > 830) || inBlock(x, y) || inMouth(x, y) || x > 474);
+        do { x = 25 + rnd() * 440; y = 140 + rnd() * 900; } while (insideWall(x, y, 1) || (Math.hypot(x - 264, y - 830) > 236 && y > 830) || inBlock(x, y) || inMouth(x, y) || (x > 214 && x < 271 && y > 757 && y < 801) || x > 474);
         const a = rnd() * Math.PI * 2;
         const b = addBall(w, x, y, Math.cos(a) * MAX_SPEED, Math.sin(a) * MAX_SPEED);
         if (i % 3 === 0) { setFlipper(w, 'L', true); setFlipper(w, 'R', true); }

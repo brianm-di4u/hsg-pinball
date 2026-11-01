@@ -92,8 +92,15 @@ function ballsInPlay(G) { return G.w.balls.filter((b) => !(b.held && b.held.drai
 
 function startBallSave(G, secs) { G.ball.saveUntil = Math.max(G.ball.saveUntil, G.t + secs); }
 
+const inShooter = (b) => !b.held && b.x > 480 && b.y < 160;
 function autoLaunch(G, delay = 0.7, strength = 0.82) {
-  // a new ball into the shooter lane, plunged for the player (saves, locks, multiball)
+  // a new ball into the shooter lane, plunged for the player (saves, locks, multiball); waits while the lane is busy
+  if (G.w.balls.some(inShooter)) {
+    // the lane is busy: plunge whatever is resting there, then feed this ball
+    if (G.w.plunger.vel === 0 && !G.w.plunger.holding && G.w.balls.some((b) => inShooter(b) && b.still > 0.3)) autoPlunge(G.w, strength);
+    after(G, 0.8, () => autoLaunch(G, delay, strength));
+    return null;
+  }
   const b = addBall(G.w, SHOOTER.x, SHOOTER.y);
   after(G, delay, () => { autoPlunge(G.w, strength); sound(G, 'plunger'); });
   return b;
@@ -187,6 +194,8 @@ function perTick(G) {
   if (G.mode) tickMode(G);
   if (G.mb) tickMultiball(G);
   if (G.lampShow && G.t > G.lampShow.until) G.lampShow = null;
+  // a tilted table plunges any ball left resting in the shooter lane, so every ball can drain
+  if (p.tilted && G.w.plunger.vel === 0 && !G.w.plunger.holding && G.w.balls.some((b) => inShooter(b) && b.still > 0.5)) autoPlunge(G.w, 0.85);
   // ball search: everything still for 5 s outside a saucer or the shooter lane
   const free = G.w.balls.filter((b) => !b.held);
   // (a held flipper means the player is cradling: never search then)
@@ -216,7 +225,11 @@ function handle(G, e) {
 
 function sw(G, name, e) {
   const f = G.f, p = G.player;
-  if (p.tilted) return;
+  if (p.tilted) {
+    // a tilted table scores nothing, but saucers still throw the ball back so it can drain
+    if (e.t === 'hole') { const h = G.T.holes.find((q) => q.sw === e.sw); holdThen(G, e.ball, 0.5, h.kickAngle, h.kickSpeed); }
+    return;
+  }
   // shooter lane exit starts ball save and the skill-shot window
   if (name === 'shooterLane') {
     if (e.dir > 0 && G.ball.inLane) {
@@ -630,6 +643,8 @@ function tilt(G) {
   G.player.tilted = true;
   G.w.dead = true;
   for (const f of G.w.flippers) f.held = false;
+  // release anything sitting in a saucer
+  for (const b of G.w.balls) if (b.held && !b.held.drained) { const h = G.T.holes.find((q) => q.sw === b.held.sw); if (h) holdThen(G, b.id, 0.6, h.kickAngle, h.kickSpeed); }
   if (G.mode) endMode(G, false);
   dmd(G, 'TILT', '', 3000, 4); sound(G, 'tilt');
   cue(G, { k: 'tilt' });

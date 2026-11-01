@@ -118,3 +118,14 @@ Screenshots at desktop (D) and mobile (M) under `screenshots/<milestone>/<viewpo
 | D5 | M1 flow fuzz | Contact friction acted like glue on slowly rolling balls (stuck on gentle slopes) | no bounce under 40 mm/s, no friction under 150 mm/s | m1 › containment, cradle |
 | D6 | M1 shot map | Flip timing snapped to the 8 ms tick; shot angles jumped up to 60 mm | `queueInput` applies inputs at the substep | m1 › sub-tick timing |
 | D7 | M1 shot map | Vertical ramp mouth left ~3 mm of aperture for real shot angles | 52 mm mouth angled along the shot line | m1 › shot coverage |
+| D8 | M1 plunge test | Shooter-lane exit was 26 mm wide (narrower than the ball) where the arch curves in | lane wall ends at 845; gate moved and angled | m1 › AC7 |
+| D9 | M1 plunge test | A full plunge looped the arch and drained straight down the left outlane | rubber deflector under the orbit mouth turns the ball toward the inlane | m1 › AC7, campaign |
+| D10 | M1 plunge test | Skill-shot window too narrow; plunged balls arced over short lane guides | lanes moved under the plunge's fall line; guides reach up toward the arch (20 mm clear of the ball's path) | m1 › AC7 |
+| D11 | M1 plunge test | Auto-plunge pulled the tip away before the resting ball could follow | a resting ball rides the tip back | m1 › AC7 |
+| D12 | M1 balance | Ball search fired while the player cradled (flipper held) | no ball search while a flipper is held | campaign › soak |
+| D13 | M3 render | Point lights in mm units blew out the playfield; spot light glare in the clear coat | directional key light from the player's side; GI and flashers retuned | visual captures |
+| D14 | M3 render | White flippers, bumpers and chrome bloomed into blobs | bloom threshold 1.18, tinted bumper glow, cube-camera ball reflections, dimmer environment | visual captures |
+| D15 | M2 layout | Phone: Launch and Menu buttons covered the shooter lane | menu beside the DMD; Launch shows only with a ball in the lane | m2 › AC28 |
+| D16 | M2 tests | Lock-lane switch counted only downward crossings | trigger reoriented; lane closed at the top behind the Arlington toy | m1 › AC3 |
+| D17 | M1 boot | Mobile boot threw on a resize before the view existed | resize guard | m1 › boot |
+| C1–C5 | campaign | see `TEST-CAMPAIGN.md` | | campaign |
