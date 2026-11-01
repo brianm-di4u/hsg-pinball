@@ -1,0 +1,187 @@
+[
+  {
+    "id": "G-label-plates",
+    "category": "typography",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/c01-row",
+      "ab/desktop-c01-row",
+      "desktop/s03-multiball-5"
+    ],
+    "fix": "Size each plate to its text in a condensed face, stagger the rows, move Superior's plate clear of the Vapors lane, and rotate the 143°F cap decal upright. Test: all eight names complete and unoccluded in desktop/c01-row; 143°F upright in strips/s02-bumpers.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-menu-clip",
+    "category": "ui",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r01-title",
+      "mobile/r01-title",
+      "mobile/r09-help"
+    ],
+    "fix": "Give the title hint its own line box with at least 8 px clear above and below; pad the help body by the Back button's height plus a 24 px fade mask. Test: hint glyphs whole on both viewports; last help bullet fully readable.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-landscape-fill",
+    "category": "mobile",
+    "expectedGain": 0.75,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape",
+      "mobile/r02-serve"
+    ],
+    "fix": "Reduce the tilt and scale the table to the free area left of the panel; fill the panel with ball count and mode progress; make Launch opaque or shrink the right apron card. Test: table at least 60% of canvas width at mid-height, no panel gap taller than 40% of its height, no card text under Launch.",
+    "priority": 0.563,
+    "selected": true
+  },
+  {
+    "id": "G-chrome-ball",
+    "category": "readability",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "strips/s02-bumpers",
+      "desktop/r04-bumpers"
+    ],
+    "fix": "Opaque metal ball (metalness 1, roughness <= 0.15) with a dark horizon band in the reflection map and a soft contact shadow. Test: no playfield art visible through the ball centre in strips/s02-bumpers.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-mode-lamps",
+    "category": "lighting",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r08-wizard",
+      "desktop/r03-play"
+    ],
+    "fix": "Drive every shot arrow and the mode arc from mode state; give wizard and each multiball its own GI tint with a field dim between chases. Test: every arrow and arc lamp lit in desktop/r08-wizard, and R08 differs from R03 at thumbnail size.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-rubbers-slings",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c03-flippers"
+    ],
+    "fix": "Full black torus rubbers on every post; a rubber band with two posts across each sling face. Test: full rings visible in desktop/c04-vapors and bands across both slings in desktop/c03-flippers.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-mechanical-feedback",
+    "category": "animation",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s02-bumpers",
+      "strips/s03-multiball"
+    ],
+    "fix": "2-frame cap and skirt drop with a playfield ring flash per bumper hit; staggered multiball kick-out with an eject flash; small camera shake on tilt events. Test: skirt drop visible in strips/s02-bumpers; at least 2 balls in at least 4 frames of strips/s03-multiball.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-playfield-repaint",
+    "category": "art",
+    "expectedGain": 1,
+    "severity": 5,
+    "effort": "L",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/c03-flippers",
+      "desktop/c01-row",
+      "strips/s02-bumpers",
+      "desktop/r03-play"
+    ],
+    "fix": "Big lever: one continuous playfield painting composed around the layout that carries the fan's colours down through the inlanes to the apron, with feathered, exposure-matched joins, and the springs repainted as the Hot Springs tufa cascade and steaming green-grey pools. Test: no straight luminance step in C01, C03 or S02; no flat area larger than 5% of the playfield in desktop/r03-play.",
+    "priority": 0.375,
+    "bigLever": true,
+    "selected": true
+  },
+  {
+    "id": "G-dmd-layout",
+    "category": "ui",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r08-wizard",
+      "mobile/r07-mode"
+    ],
+    "fix": "Title alone on line 1 and the objective scrolling on line 2, with no line starting on punctuation; replace dithered paintings with high-contrast silhouettes (horse, tower, Arlington). Test: at most two text lines in R08 and R07, picture subject nameable.",
+    "priority": 0.225,
+    "selected": false
+  },
+  {
+    "id": "G-ramp-wireform",
+    "category": "toys",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c05-tower"
+    ],
+    "fix": "Smooth continuous clear side walls with a thickness edge, no entrance kink, and a non-emissive chrome wire return with brackets. Test: no wall teeth in desktop/c05-tower; wires show highlights and shadows, not glow.",
+    "priority": 0.225,
+    "selected": false
+  },
+  {
+    "id": "G-light-grounding",
+    "category": "lighting",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c01-row"
+    ],
+    "fix": "Raise ring roughness and cap specular, cut the blue fill at upper left, and darken and widen contact footprints under the bathhouses, Arlington and tower. Test: no clipped-white blobs on rings; a visible footprint under each bathhouse in desktop/c01-row.",
+    "priority": 0.225,
+    "selected": false
+  },
+  {
+    "id": "G-shot-entrances",
+    "category": "readability",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS4",
+    "evidence": [
+      "mobile/r02-serve",
+      "desktop/c04-vapors",
+      "desktop/r03-play"
+    ],
+    "fix": "Enlarge entrance arrow inserts about 1.5x; lit S-P-A lane lamp at least 2x unlit brightness and size; a horizontal lit Vapors marquee; phone label plates at least 8 css px. Test: lane A stands out in mobile/r02-serve and the Vapors marquee reads in desktop/r03-play.",
+    "priority": 0.225,
+    "selected": false
+  }
+]

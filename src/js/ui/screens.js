@@ -85,12 +85,16 @@ export function createScreens(root, app) {
         <div class="cols">
           <div>
             <h3>Controls</h3>
-            <table class="keys"><tbody>
-              <tr><th>Left flipper</th><td>Left Shift · Z · ← · tap left half</td></tr>
-              <tr><th>Right flipper</th><td>Right Shift · / · → · tap right half</td></tr>
-              <tr><th>Plunger</th><td>Hold Space · Enter · ↓, then release · hold the Launch button</td></tr>
-              <tr><th>Nudge</th><td>X (left) · . (right) · ↑ · two-finger tap. Too many and the table tilts.</td></tr>
-              <tr><th>Pause</th><td>Esc · P · the menu button</td></tr>
+            <table class="keys"><tbody>${app.touch ? `
+              <tr><th>Flippers</th><td>Tap and hold the left or right half of the table</td></tr>
+              <tr><th>Plunger</th><td>Hold Launch, then let go (longer = stronger)</td></tr>
+              <tr><th>Nudge</th><td>Two-finger tap. Too many and the table tilts.</td></tr>
+              <tr><th>Pause</th><td>The ☰ button</td></tr>` : `
+              <tr><th>Left flipper</th><td>Left Shift · Z · ←</td></tr>
+              <tr><th>Right flipper</th><td>Right Shift · / · →</td></tr>
+              <tr><th>Plunger</th><td>Hold Space · Enter · ↓, then release (longer = stronger)</td></tr>
+              <tr><th>Nudge</th><td>X (left) · . (right) · ↑. Too many and the table tilts.</td></tr>
+              <tr><th>Pause</th><td>Esc · P · the menu button</td></tr>`}
             </tbody></table>
             <h3>The table</h3>
             <ul>

@@ -43,7 +43,7 @@ export const FACTS = {
   raid: { text: 'AUG 1967: STATE POLICE RAID THE CLUBS', src: 'tc§11#18 EOA hs-0049' },
   slots: { text: '1967: SEIZED SLOTS CRUSHED AND BURNED', src: 'web-findings §1 (gravel pit, OSHM)' },
   // The Arlington — town-content §8
-  arlington: { text: 'ARLINGTON REBUILT IN 11 MONTHS', src: 'tc§11#19 hs-0076' },
+  arlington: { text: 'ARLINGTON: REBUILT IN ABOUT 11 MONTHS', src: 'tc§11#19 hs-0076 (business source, hedged)' },
   capone: { text: "REPORTEDLY CAPONE'S ROOM: 443", src: 'tc§11#H1 hs-0486 (disputed, hedged)' },
   // Tub Race — town-content §10
   tubs: { text: 'TUB RACES ON CENTRAL SINCE 2006', src: 'tc§11#21 hs-0379' },

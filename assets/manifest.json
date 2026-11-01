@@ -3,13 +3,13 @@
   "file": "backglass.webp",
   "w": 768,
   "h": 1152,
-  "bytes": 193574
+  "bytes": 192580
  },
  "pf-mountain": {
   "file": "pf-mountain.webp",
   "w": 1536,
   "h": 1024,
-  "bytes": 487278
+  "bytes": 534220
  },
  "pf-promenade": {
   "file": "pf-promenade.webp",
@@ -52,5 +52,11 @@
   "w": 256,
   "h": 256,
   "bytes": 21838
+ },
+ "pf-full": {
+  "file": "pf-full.webp",
+  "w": 640,
+  "h": 1349,
+  "bytes": 268912
  }
 }

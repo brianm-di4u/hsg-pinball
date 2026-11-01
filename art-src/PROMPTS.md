@@ -33,6 +33,12 @@ thermal teal #2A9D8F, turquoise #3FBFB5, coral #F26B5B.
 | `pf-tub.png` | 1024×1024 | House style: a decorated clawfoot bathtub on wheels splashing down a brick street, water flying, rubber duck on the rim, small generic pushers seen from behind, no words. |
 | `pf-coaster.png` | 1024×1024 | House style: an early-1900s wooden roller coaster on a wooded hillside at dusk, strings of bulbs, no words. |
 
+## Revisions
+| File | Why | Prompt summary |
+|---|---|---|
+| `pf-mountain-v2.png` (replaces the pilot in game) | loop-0 review: the turquoise terraces read as Pamukkale, not Hot Springs | wooded oak-hickory-pine slope, small grey tufa mounds with moss, one modest steaming cascade into a stone pool, stone spring boxes, the promenade wall and railing along the bottom; muted water |
+| `backglass-v2.png` (replaces the pilot in game) | loop-0 review: palms read as the Riviera | repaint of the pilot keeping its composition; palms replaced by southern magnolia, oak and crepe myrtle |
+
 ## Checks done on every image
 - Text: none at full size (inspected with the Read tool).
 - People: small and generic.

@@ -30,6 +30,7 @@ export class DMD {
     this.queue = [];      // pending callouts
     this.cur = null;      // the callout on screen
     this.t = 0;
+    this.art = {};        // id → Uint8Array(40×32) of 0–3 dot levels (dithered paintings for mode intros)
   }
   clear() { this.buf.fill(0); }
   px(x, y, v = 3) { x |= 0; y |= 0; if (x >= 0 && x < DW && y >= 0 && y < DH && v > this.buf[y * DW + x]) this.buf[y * DW + x] = v; }
@@ -87,6 +88,17 @@ export class DMD {
     if (blink && Math.floor(age / 120) % 2 === 0 && age < 700) this.rect(0, 0, DW, DH, 2);
     if (kind === 'boil') for (let i = 0; i < 18; i++) { const x = (i * 37 + 11) % DW, y = DH - 1 - ((age / 30 + i * 13) % DH); this.px(x, y, 1); this.px(x + 1, y, 1); }
     if (kind === 'tower') { const h = Math.min(30, age / 25); for (let y = 0; y < h; y++) { this.px(4, DH - 1 - y, 1); this.px(8, DH - 1 - y, 1); if (y % 4 === 0) for (let x = 4; x <= 8; x++) this.px(x, DH - 1 - y, 1); } }
+    const art = (kind === 'mode' || kind === 'multiball' || kind === 'wizard') && this.art[a.id || kind];
+    if (art) {
+      // painting on the left (slides in), title and goal wrapped on the right
+      const off = Math.max(0, 40 - Math.floor(age / 8));
+      for (let y = 0; y < 32; y++) for (let x = 0; x < 40; x++) { const v = art[y * 40 + x]; if (v) this.px(x - off, y, v); }
+      const lines = DMD.wrap(c.text || '', 14).slice(0, 2), sub = DMD.wrap(c.sub || '', 14).slice(0, 4 - lines.length);
+      let y = Math.round((DH - (lines.length + sub.length) * 8) / 2);
+      for (const l of lines) { this.text(l, 44, y, 1, 3); y += 8; }
+      for (const l of sub) { this.text(l, 44, y, 1, 2); y += 8; }
+      return;
+    }
     if (kind === 'mode') { this.rect(1, 1, DW - 2, DH - 2, 1); }
     const title = c.text || '';
     const big = textWidth(title, 2) <= DW - 4;
@@ -96,10 +108,11 @@ export class DMD {
       this.center(title, y, 2, 3);
       if (subLines.length) this.scrollLine(subLines.join(' '), 21, age);
     } else {
-      const tl = DMD.wrap(title, 21);
-      let y = subLines.length ? 3 : Math.round((DH - tl.length * 8) / 2);
-      for (const l of tl.slice(0, 2)) { this.center(l, y, 1, 3); y += 8; }
-      for (const l of subLines.slice(0, 4 - Math.min(2, tl.length))) { this.center(l, y + 1, 1, 2); y += 8; }
+      // two lines at most: the title on top (wrapped only if there is no sub line), the sub line scrolling under it
+      const tl = subLines.length ? [title] : DMD.wrap(title, 21).slice(0, 2);
+      let y = subLines.length ? 6 : Math.round((DH - tl.length * 9) / 2);
+      for (const l of tl) { if (textWidth(l) > DW - 2) this.scrollLine(l, y, age); else this.center(l, y, 1, 3); y += 10; }
+      if (subLines.length) this.scrollLine(subLines.join(' '), y + 2, age);
     }
   }
   scrollLine(s, y, age) {
@@ -155,4 +168,20 @@ export function paintDMD(ctx, dmd, w, h, colors = ['#1b0f06', '#5a2a08', '#b45a1
     }
     ctx.fill();
   }
+}
+
+/** Turn a painting into 40×32 DMD dots: cover-crop, luminance, 4×4 ordered dither to four levels. */
+export function ditherArt(img) {
+  const c = document.createElement('canvas'); c.width = 40; c.height = 32;
+  const g = c.getContext('2d');
+  const s = Math.max(40 / img.width, 32 / img.height);
+  g.drawImage(img, (40 - img.width * s) / 2, (32 - img.height * s) / 2, img.width * s, img.height * s);
+  const d = g.getImageData(0, 0, 40, 32).data, out = new Uint8Array(40 * 32);
+  const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  for (let i = 0; i < 40 * 32; i++) {
+    const L = (0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]) / 255;
+    const x = i % 40, y = (i / 40) | 0;
+    out[i] = Math.max(0, Math.min(3, Math.floor(Math.pow(L, 0.8) * 3.6 + B[(y % 4) * 4 + (x % 4)] / 16 - 0.35)));
+  }
+  return out;
 }

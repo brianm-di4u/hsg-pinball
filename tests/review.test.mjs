@@ -8,7 +8,7 @@ const CLOSE = {
   'C02-springs': { x: 270, y: 885, dist: 460, pitch: 0.8, yaw: 0.15 },
   'C03-flippers': { x: 242, y: 175, dist: 430, pitch: 0.75, yaw: 0 },
   'C04-vapors': { x: 150, y: 585, dist: 330, pitch: 0.85, yaw: -0.35 },
-  'C05-tower': { x: 455, y: 740, z: 30, dist: 470, pitch: 0.9, yaw: -0.45 },
+  'C05-tower': { x: 440, y: 560, z: 40, dist: 480, pitch: 0.85, yaw: -0.45 },
   'C06-arlington': { x: 242, y: 765, dist: 300, pitch: 0.9, yaw: 0.1 },
 };
 

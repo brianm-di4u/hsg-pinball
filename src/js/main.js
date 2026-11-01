@@ -7,7 +7,7 @@ import { createGame, newGame, tick, flipper, plunger, nudge, gameState, setGameS
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
 import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
-import { DMD, paintDMD } from './ui/dmd.js';
+import { DMD, paintDMD, ditherArt } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { audio, unlock, sfx, setVolumes, startMusic } from './ui/audio.js';
@@ -33,6 +33,9 @@ let G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffff) });
 let demo = true, bot = null, paused = false, acc = 0, lastNow = performance.now(), timeScale = 1, slowUntil = 0;
 let renderClock = null, clockBase = 0, view = null, view2d = null, loading = true, frameNo = 0, lastFact = 0, overTimer = 0;
 const prev = new Map();
+let lastDots = null, lastDmdW = 0;
+const uiCache = {};
+const setText = (sel, v) => { if (uiCache[sel] !== v) { uiCache[sel] = v; $(sel).textContent = v; } };
 const dmd = new DMD();
 const effects = [];   // flashes, steam, shake → the view
 
@@ -249,14 +252,20 @@ function render(alpha) {
   if (view) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), debug: qs.get('debug') === 'physics' });
   while (effects.length && t - effects[0].t > 2) effects.shift();
   dmd.frame(t * 1000, dmdBase);
-  paintDMD(dmdCtx, dmd, dmdCanvas.width, dmdCanvas.height);
-  // side panel text
+  // repaint the dot canvas only when a dot changed (4,096 dots is real work on a phone)
+  if (!lastDots || lastDots.length !== dmd.buf.length || dmd.buf.some((v, i) => v !== lastDots[i]) || dmdCanvas.width !== lastDmdW) {
+    paintDMD(dmdCtx, dmd, dmdCanvas.width, dmdCanvas.height);
+    lastDots = dmd.buf.slice(); lastDmdW = dmdCanvas.width;
+  }
+  // side panel: touch the DOM only when a value changes
   const p = G.player;
-  $('#score').textContent = demo ? '' : fmt(p.score);
-  $('#ballno').textContent = demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame;
+  setText('#score', demo ? '' : fmt(p.score));
+  setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
+  setText('#modeline', demo ? '' : G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : G.mode.id[0].toUpperCase() + G.mode.id.slice(1)} · ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak', valley: 'Valley of the Vapors' }[G.mb.kind] : `Modes ${G.f.modesPlayed.reduce((a, b) => a + b, 0)}/6 · Tower ${G.f.towerLevel}/3`);   // fact: raid
   const showLaunch = !demo && !paused && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150);
-  $('#b-launch').classList.toggle('ready', showLaunch);
-  $('#power').style.setProperty('--p', (G.w.plunger.pull / G.w.plunger.maxPull).toFixed(3));
+  if (showLaunch !== uiCache.launch) { $('#b-launch').classList.toggle('ready', showLaunch); uiCache.launch = showLaunch; }
+  const pw = (G.w.plunger.pull / G.w.plunger.maxPull).toFixed(2);
+  if (pw !== uiCache.power) { $('#power').style.setProperty('--p', pw); uiCache.power = pw; }
 }
 
 // ------------------------------------------------------------------------------------------------- hooks
@@ -311,6 +320,15 @@ window.__game = {
   },
 };
 
+// dithered mode paintings for the DMD (data URLs, so reading their pixels is allowed even from file://)
+async function dmdArt() {
+  const src = window.__PB_ART || {};
+  const map = { derby: 'pf-derby', raid: 'pf-raid', tub: 'pf-tub', coaster: 'pf-coaster', soak: 'pf-row', tower: 'backglass', multiball: 'pf-vapors', wizard: 'pf-mountain' };
+  await Promise.all(Object.entries(map).map(([id, k]) => src[k] && new Promise((res) => {
+    const img = new Image(); img.onload = () => { try { dmd.art[id] = ditherArt(img); } catch { /* optional */ } res(); }; img.onerror = res; img.src = src[k];
+  })));
+}
+
 // ------------------------------------------------------------------------------------------------- boot
 (async function boot() {
   try {
@@ -321,6 +339,7 @@ window.__game = {
     const packs = typeof PB_ASSETS !== 'undefined' ? PB_ASSETS : [];
     await Promise.all(packs.map((f) => loadScript('assets/' + f)));
     if (window.__PB_ART && window.__PB_ART.backglass) $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`;
+    await dmdArt();
     await initView();
     startDemo();
     screens.title();

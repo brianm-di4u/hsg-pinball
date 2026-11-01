@@ -1,0 +1,13 @@
+- Phone landscape: the table takes the width and the camera tilts back toward a player's view on wide canvases; a slim side panel holds the DMD, score and buttons.
+- Phone portrait: a small score plate stays visible in the dark corner above the arch while the DMD shows callouts; the Launch button moved over the apron, left of the shooter lane.
+- Help: touch controls listed first on phones; the Back button is pinned to the bottom of the dialog while the body scrolls.
+- Ball: brighter reflection map (a reflection-only light ceiling above the table), higher reflection strength; softer, fainter steam sprites.
+- Lamps: halos about 40% smaller and dimmer; Bathhouse Row inserts warm cream instead of white.
+- Outer rail caps changed from mirror chrome to brushed brass (removes the rail glare streak).
+- Contact shadows: soft dark footprints under bumpers, posts, targets, flippers, slingshots and the landmark toys.
+- Landmarks: the Arlington's twin towers stand twice as tall behind the lock; the Mountain Tower moved out of the ramp turnaround to the dead area right of the ramp mouth at about 2.7× its height; the Vapors sign enlarged about 1.7×.
+- Playfield lettering: bathhouse, mode and multiplier labels larger, on dark backing plates; Superior's label moved clear of the scoop.
+- Bumper cap decal redrawn in a bold face; spinner flag carries a symmetric diamond motif instead of words.
+- DMD: plain callouts limited to two lines with the second line scrolling; wizard and multiball intros show the objective (the Arlington fact follows separately, hedged "about 11 months"); dithered mode paintings slide in beside mode and multiball titles.
+- Apron: enamel with gold trim, two instruction cards and a dark drain notch.
+- Close-up C05 now frames the Mountain Tower beside the ramp.

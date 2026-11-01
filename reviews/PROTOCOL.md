@@ -14,7 +14,8 @@ advocate. `RUBRIC.md` defines the scores, `schema.json` the output shape, `brief
 | Judge | Claude subagent, `briefs/judge.md` | everything above, `HISTORY.md` (trend only), gates | `ab-key.json` |
 
 The developer (the main session) writes `CHANGES.md` (facts only), opens every capture before the review, and never
-edits a reviewer's output.
+edits a reviewer's output. Claude reviewers write their own output file (`loop-N/<role>.md`) and touch nothing else;
+Codex runs read-only and its reply is saved verbatim by the developer.
 
 ## The loop (N = loop number)
 1. `npm run build`; the full test suite green.

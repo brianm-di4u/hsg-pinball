@@ -1,0 +1,211 @@
+{
+  "loops": [
+    {
+      "loop": 0,
+      "scores": {
+        "art": 5.5,
+        "toys": 5,
+        "lighting": 5,
+        "animation": 6,
+        "ui": 5.5,
+        "typography": 5.5,
+        "readability": 5,
+        "mobile": 4.5,
+        "authenticity": 6
+      },
+      "judged": {
+        "art": 5.5,
+        "toys": 5,
+        "lighting": 5,
+        "animation": 6,
+        "ui": 5.5,
+        "typography": 5.5,
+        "readability": 5,
+        "mobile": 4.5,
+        "authenticity": 6
+      },
+      "total": 48,
+      "best": 48,
+      "stalls": 0,
+      "verdict": "continue",
+      "held": [],
+      "abVoid": [],
+      "ab": {},
+      "measured": {
+        "perf": true,
+        "ip": true
+      },
+      "critics": {
+        "critic-claude": {
+          "art": 5.5,
+          "toys": 5,
+          "lighting": 5.5,
+          "animation": 6,
+          "ui": 5.5,
+          "typography": 5.5,
+          "readability": 5,
+          "mobile": 5,
+          "authenticity": 6
+        },
+        "critic-codex": {
+          "art": 6,
+          "toys": 5,
+          "lighting": 5.5,
+          "animation": 6,
+          "ui": 6,
+          "typography": 6,
+          "readability": 5.5,
+          "mobile": 4.5,
+          "authenticity": 6.5
+        },
+        "prosecutor": {
+          "art": 5,
+          "toys": 4.5,
+          "lighting": 5,
+          "animation": 5.5,
+          "ui": 5,
+          "typography": 5,
+          "readability": 4.5,
+          "mobile": 4,
+          "authenticity": 5.5
+        },
+        "advocate": {
+          "art": 6,
+          "toys": 5,
+          "lighting": 5.5,
+          "animation": 6,
+          "ui": 6,
+          "typography": 5.5,
+          "readability": 5.5,
+          "mobile": 5,
+          "authenticity": 6.5
+        }
+      },
+      "calibration": null,
+      "date": "2026-11-01"
+    },
+    {
+      "loop": 1,
+      "scores": {
+        "art": 5.5,
+        "toys": 5.5,
+        "lighting": 6,
+        "animation": 6,
+        "ui": 5.5,
+        "typography": 5.5,
+        "readability": 6,
+        "mobile": 5.5,
+        "authenticity": 6.5
+      },
+      "judged": {
+        "art": 5.5,
+        "toys": 5.5,
+        "lighting": 6,
+        "animation": 6,
+        "ui": 5.5,
+        "typography": 5,
+        "readability": 6,
+        "mobile": 5.5,
+        "authenticity": 6.5
+      },
+      "total": 52,
+      "best": 52,
+      "stalls": 0,
+      "verdict": "continue",
+      "held": [
+        "typography 5→5.5 (A/B old/new)"
+      ],
+      "abVoid": [],
+      "ab": {
+        "art": [
+          "new",
+          "new"
+        ],
+        "toys": [
+          "new",
+          "new"
+        ],
+        "lighting": [
+          "new",
+          "new"
+        ],
+        "animation": [
+          "tie",
+          "tie"
+        ],
+        "ui": [
+          "new",
+          "new"
+        ],
+        "typography": [
+          "old",
+          "new"
+        ],
+        "readability": [
+          "new",
+          "new"
+        ],
+        "mobile": [
+          "new",
+          "new"
+        ],
+        "authenticity": [
+          "new",
+          "new"
+        ]
+      },
+      "measured": {
+        "perf": true,
+        "ip": true
+      },
+      "critics": {
+        "critic-claude": {
+          "art": 5.5,
+          "toys": 5.5,
+          "lighting": 6,
+          "animation": 6,
+          "ui": 5.5,
+          "typography": 5,
+          "readability": 5.5,
+          "mobile": 6,
+          "authenticity": 6.5
+        },
+        "critic-codex": {
+          "art": 6.5,
+          "toys": 5.5,
+          "lighting": 6,
+          "animation": 6,
+          "ui": 6.5,
+          "typography": 6,
+          "readability": 6.5,
+          "mobile": 5.5,
+          "authenticity": 6.5
+        },
+        "prosecutor": {
+          "art": 5.5,
+          "toys": 5,
+          "lighting": 5.5,
+          "animation": 5.5,
+          "ui": 5.5,
+          "typography": 5,
+          "readability": 5.5,
+          "mobile": 5,
+          "authenticity": 6
+        },
+        "advocate": {
+          "art": 6,
+          "toys": 6,
+          "lighting": 6.5,
+          "animation": 6.5,
+          "ui": 6,
+          "typography": 5.5,
+          "readability": 6.5,
+          "mobile": 6,
+          "authenticity": 6.5
+        }
+      },
+      "calibration": null,
+      "date": "2026-11-01"
+    }
+  ]
+}

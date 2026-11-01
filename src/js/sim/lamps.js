@@ -34,7 +34,7 @@ export function buildLamps() {
     let nx = -(b[1] - a[1]) / Lb, ny = (b[0] - a[0]) / Lb; if (ny > 0) { nx = -nx; ny = -ny; }
     for (let i = 0; i < 4; i++) {
       const t = (i + 0.5) / 4;
-      add('bh' + BATHHOUSES[off + i], a[0] + (b[0] - a[0]) * t + nx * 20, a[1] + (b[1] - a[1]) * t + ny * 20, 'rect', 'white', { size: 7, angle: Math.atan2(b[1] - a[1], b[0] - a[0]), group: 'row' });
+      add('bh' + BATHHOUSES[off + i], a[0] + (b[0] - a[0]) * t + nx * 20, a[1] + (b[1] - a[1]) * t + ny * 20, 'rect', '#ffcf8a', { size: 7, angle: Math.atan2(b[1] - a[1], b[0] - a[0]), group: 'row' });
     }
   }
   // S·P·A lane lamps
@@ -84,7 +84,7 @@ export function lampStates(G, lamps, t) {
   ['S', 'P', 'A'].forEach((k, i) => set('lane' + k, f.spa[i] ? 1 : (G.ball.inLane || G.ball.skillUntil > G.t) && G.ball.skillLane === i ? fast : 0));
   for (let k = 2; k <= 5; k++) set('bonus' + k + 'x', G.player.bonusX >= k ? 1 : 0);
   set('shootAgain', G.player.extraBalls > 0 ? 1 : (G.t < G.ball.saveUntil ? slow : 0));
-  MODES.forEach((_, i) => set('mode' + i, m && m.i === i ? fast : f.modesWon[i] ? 1 : f.modesPlayed[i] ? 0.45 : (!m && !mb && i === nextModeIndex(f)) ? slow * 0.5 : 0));
+  MODES.forEach((_, i) => set('mode' + i, mb && mb.kind === 'valley' ? (Math.floor(t * 2.5 + i * 0.5) % 2 ? 1 : 0.3) : m && m.i === i ? fast : f.modesWon[i] ? 1 : f.modesPlayed[i] ? 0.45 : (!m && !mb && i === nextModeIndex(f)) ? slow * 0.5 : 0));
   set('wizard', f.wizardLit ? fast : (mb && mb.kind === 'valley') ? 1 : 0);
   set('extraBall', f.ebLit ? fast : 0);
   set('grandSoak', f.grandSoakLit ? fast : (mb && mb.kind === 'soak') ? 1 : 0);

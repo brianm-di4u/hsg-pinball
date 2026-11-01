@@ -38,17 +38,27 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     g.save(); g.globalAlpha = alpha; g.drawImage(tmp, zx, zy); g.restore();
   };
   g.save(); outline(); g.clip();
-  zone(art['pf-mountain'], 10, 740, 518, 1100, 0.9, 0.05);
-  zone(art['pf-row'], 60, 560, 430, 770, 0.55, 0.1);
-  zone(art['pf-promenade'], 10, 250, 480, 620, 0.75, 0.12);
+  if (art['pf-full']) {
+    // one continuous painting composed around the layout (art-src/playfield-guide.png), stretched to the table
+    g.drawImage(art['pf-full'], 0, 0, W, H);
+    // night grade: pull the cream terrazzo down toward the deco-neon palette so the chrome ball stands out
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = '#b3a9cc'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
+  } else {
+    zone(art['pf-mountain'], 10, 740, 518, 1100, 0.9, 0.05);
+    zone(art['pf-row'], 60, 560, 430, 770, 0.55, 0.1);
+    zone(art['pf-promenade'], 10, 250, 480, 620, 0.75, 0.12);
+  }
   // readability: darken under the ball's busiest paths, keep the edges rich
   const dk = g.createLinearGradient(0, 0, 0, H);
-  dk.addColorStop(0, 'rgba(10,8,20,0.30)'); dk.addColorStop(0.5, 'rgba(10,8,20,0.42)'); dk.addColorStop(1, 'rgba(10,8,20,0.55)');
+  const f = art['pf-full'] ? 0.4 : 1;   // the full painting is already graded
+  dk.addColorStop(0, `rgba(10,8,20,${0.30 * f})`); dk.addColorStop(0.5, `rgba(10,8,20,${0.42 * f})`); dk.addColorStop(1, `rgba(10,8,20,${0.55 * f + 0.1})`);
   g.fillStyle = dk; g.fillRect(0, 0, W, H);
-  // deco sunburst behind the mode arc
+  // deco sunburst behind the mode arc (only over the old zoned art)
+  if (!art['pf-full']) {
   g.save(); g.translate(X(CX), Y(330));
   for (let i = 0; i < 36; i++) { g.rotate(Math.PI / 36); g.fillStyle = i % 2 ? 'rgba(212,175,55,0.07)' : 'rgba(79,195,255,0.04)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-12 * k, -200 * k); g.lineTo(12 * k, -200 * k); g.fill(); }
   g.restore();
+  }
   g.restore();
 
   // 3. shooter lane and apron area: dark wood
@@ -68,10 +78,13 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
   g.save(); outline(); g.strokeStyle = 'rgba(79,195,255,0.35)'; g.lineWidth = 3 * k; g.stroke(); g.restore();
 
   // 5. lettering
-  const label = (txt, x, y, size, color = '#f2e6c8', angle = 0, font = FONT, weight = 700, spacing = 0.12) => {
+  const label = (txt, x, y, size, color = '#f2e6c8', angle = 0, font = FONT, weight = 700, spacing = 0.12, plate = false, maxW = 0) => {
     g.save(); g.translate(X(x), Y(y)); g.rotate(-angle);
     g.font = `${weight} ${size * k}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    // shrink to fit a slot (bathhouse names share the bank's width)
+    if (maxW) { const w0 = g.measureText(txt).width + size * k * 0.9; if (w0 > maxW * k) { size *= (maxW * k) / w0; g.font = `${weight} ${size * k}px ${font}`; } }
     if ('letterSpacing' in g) g.letterSpacing = `${size * k * spacing}px`;
+    if (plate) { const tw = g.measureText(txt).width, ph = size * k * 1.5, pw = tw + size * k * 0.9; g.fillStyle = 'rgba(10,8,18,0.78)'; g.beginPath(); g.roundRect ? g.roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.3) : g.rect(-pw / 2, -ph / 2, pw, ph); g.fill(); g.strokeStyle = 'rgba(212,175,55,0.55)'; g.lineWidth = 0.5 * k; g.stroke(); }
     g.lineWidth = size * k * 0.22; g.strokeStyle = 'rgba(8,6,14,0.85)'; g.strokeText(txt, 0, 0);
     g.fillStyle = color; g.fillText(txt, 0, 0);
     g.restore();
@@ -98,11 +111,12 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
     for (let i = 0; i < 4; i++) {
       const t = (i + 0.5) / 4;
-      label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * t + nx * 32, a[1] + (b[1] - a[1]) * t + ny * 32, 4.2, '#f4ecd8', ang, FONT, 700, 0.05);
+      const shift = off + i === 0 ? 0.12 : 0;   // Superior sits clear of the Vapors scoop
+      label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * (t + shift) + nx * 30, a[1] + (b[1] - a[1]) * (t + shift) + ny * 30, 4.6, '#f4ecd8', ang, FONT, 800, 0, true, 22.5);
     }
   }
-  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 15, 5, '#e2c8ff'); });
-  for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 13, 5.5, '#ffd877');
+  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 16, 6.2, '#ecd8ff', 0, FONT, 800, 0.06, true); });
+  for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 14, 6.5, '#ffd877', 0, FONT, 800, 0.06, true);
   label('VALLEY OF THE VAPORS', CX, 448, 6.5, '#ffffff');
 
   // 6. inserts: unlit plastic look (dark tinted with a light rim). The lit glow is a separate emissive layer.

@@ -1,0 +1,91 @@
+{
+  "loop": 0,
+  "scores": {
+    "art": 5.5,
+    "toys": 5,
+    "lighting": 5,
+    "animation": 6,
+    "ui": 5.5,
+    "typography": 5.5,
+    "readability": 5,
+    "mobile": 4.5,
+    "authenticity": 6
+  },
+  "judged": {
+    "art": 5.5,
+    "toys": 5,
+    "lighting": 5,
+    "animation": 6,
+    "ui": 5.5,
+    "typography": 5.5,
+    "readability": 5,
+    "mobile": 4.5,
+    "authenticity": 6
+  },
+  "total": 48,
+  "best": 48,
+  "held": [],
+  "ab": {},
+  "measured": {
+    "perf": true,
+    "ip": true
+  },
+  "critics": {
+    "critic-claude": {
+      "art": 5.5,
+      "toys": 5,
+      "lighting": 5.5,
+      "animation": 6,
+      "ui": 5.5,
+      "typography": 5.5,
+      "readability": 5,
+      "mobile": 5,
+      "authenticity": 6
+    },
+    "critic-codex": {
+      "art": 6,
+      "toys": 5,
+      "lighting": 5.5,
+      "animation": 6,
+      "ui": 6,
+      "typography": 6,
+      "readability": 5.5,
+      "mobile": 4.5,
+      "authenticity": 6.5
+    },
+    "prosecutor": {
+      "art": 5,
+      "toys": 4.5,
+      "lighting": 5,
+      "animation": 5.5,
+      "ui": 5,
+      "typography": 5,
+      "readability": 4.5,
+      "mobile": 4,
+      "authenticity": 5.5
+    },
+    "advocate": {
+      "art": 6,
+      "toys": 5,
+      "lighting": 5.5,
+      "animation": 6,
+      "ui": 6,
+      "typography": 5.5,
+      "readability": 5.5,
+      "mobile": 5,
+      "authenticity": 6.5
+    }
+  },
+  "gates": {
+    "art": 7,
+    "toys": 7,
+    "lighting": 7,
+    "animation": 7,
+    "ui": 7,
+    "typography": 7,
+    "readability": 7,
+    "mobile": 7,
+    "authenticity": 6
+  },
+  "verdict": "continue"
+}

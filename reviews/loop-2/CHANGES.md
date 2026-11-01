@@ -1,0 +1,10 @@
+- Playfield art: one continuous Codex painting composed over a layout guide rendered from the physics geometry replaces the three masked zones: wooded Hot Springs Mountain with grey tufa, spring boxes and a modest steaming cascade under the bumpers; the promenade's stone wall and railing behind the target banks; a terrazzo deco plaza whose fan runs down to the inlanes and flippers. A light night-grade keeps the ball readable.
+- Backglass repainted: palms replaced by southern magnolia, oak and crepe myrtle (same composition).
+- Bumper cap decal now reads upright ("143°F"); bathhouse labels shrink to fit their slots.
+- Phone landscape: the camera fits the table's width and follows the lowest ball up and down the table, keeping the flippers in view while the ball is low; the side panel shows ball, score and mode/tower progress.
+- Ball reflections gain a dark horizon band (the classic chrome look).
+- Wizard mode chases the whole mode arc; each mode and multiball tints the fill light, and the wizard dims the key light.
+- Slingshot plastics flash and dip when they kick; bumper hits give the camera a small kick (not with reduced motion).
+- Post rubbers: thicker rings around shorter chrome posts.
+- Title screen hint no longer sits under the menu; only long dialogs pin their action row.
+- Desktop side panel shows mode/tower progress under the score.

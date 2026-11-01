@@ -550,7 +550,8 @@ function addMultiballs(G, n) {
 function startArlington(G, heldBallId) {
   const h = G.T.holes.find((q) => q.name === 'lock');
   G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t };
-  dmd(G, 'ARLINGTON MULTIBALL', fact('arlington'), 2600, 3, 'multiball'); sound(G, 'multiball'); show(G, 'multiball', 2600);
+  dmd(G, 'ARLINGTON MULTIBALL', 'RAMP FOR JACKPOTS', 2600, 3, 'multiball');
+  after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact('arlington'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
   startBallSave(G, 15);
   holdThen(G, heldBallId, 1.6, h.kickAngle, h.kickSpeed);
   addMultiballs(G, 2);
@@ -571,7 +572,7 @@ function startValley(G) {
   f.wizardLit = false;
   if (G.mode) endMode(G, false);
   G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 };
-  dmd(G, 'VALLEY OF THE VAPORS', fact('valley'), 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
+  dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT · 60 SECONDS', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
   startBallSave(G, 20);
   addMultiballs(G, 2);
   cue(G, { k: 'mb', kind: 'valley', on: true });

@@ -35,6 +35,7 @@ body[data-view="2d"] #gl { visibility: hidden; }
 .dmd-frame { background: #050403; padding: 10px; border-radius: 8px; box-shadow: inset 0 0 0 2px #1a1208, 0 0 0 3px #3b2a12, 0 0 0 5px var(--gold), 0 10px 30px rgba(0, 0, 0, 0.6); }
 #dmd { display: block; width: 100%; aspect-ratio: 4 / 1; image-rendering: auto; }
 .info { display: flex; flex-direction: column; gap: 10px; }
+.mode-line { color: var(--cream); font-size: 0.85em; min-height: 1.2em; }
 .score-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .ballno { color: var(--muted); font-size: 0.95em; }
 .score { font: 700 1.5em var(--display); color: var(--gold-2); font-variant-numeric: tabular-nums; }
@@ -67,6 +68,8 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .screen p, .screen li, .screen td, .screen th { line-height: 1.45; }
 .screen .small { font-size: 0.86em; color: var(--muted); }
 .menu { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; align-items: stretch; }
+/* long dialogs scroll their body; the action row stays pinned to the bottom of the card */
+.screen.dialog .menu { position: sticky; bottom: -24px; margin: 16px -28px -24px; padding: 12px 28px 18px; background: linear-gradient(rgba(22, 19, 36, 0), rgba(22, 19, 36, 0.97) 30%); }
 .screen.title { background: linear-gradient(180deg, rgba(20, 18, 31, 0.9), rgba(20, 18, 31, 0.96)); max-width: 420px; }
 .screen.title h1 { display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }
 .screen.title .tag { color: var(--cream); margin: 0 0 8px; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82em; }
@@ -97,12 +100,17 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
   .glass { display: none; }
   .side { order: -1; padding: 8px 10px 4px; gap: 8px; max-width: none; flex-direction: row; align-items: center; }
   .side .dmd-frame { flex: 1; min-width: 0; }
-  .side .info { display: none; }
+  .side .info { display: contents; }
+  .side .controls-hint { display: none; }
+  /* the score stays on screen while the DMD shows callouts: a small plate in the dark corner above the arch */
+  .side .score-line { display: flex; position: fixed; left: 12px; top: calc(var(--dmd-h, 92px) + 14px); z-index: 4; pointer-events: none; }
+  .side .score-line .ballno { display: none; }
+  .side .score { font-size: 0.95em; background: rgba(12, 10, 20, 0.72); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.5); }
   .dmd-frame { padding: 5px; border-radius: 6px; }
   .info .controls-hint { display: none; }
   .score-line { display: none; }
   .buttons { flex-direction: row; }
-  .btn.launch { position: fixed; right: 8px; bottom: 12px; z-index: 5; flex: none; width: 78px; height: 58px; visibility: hidden; background: rgba(30, 26, 48, 0.72); }
+  .btn.launch { position: fixed; right: 13vw; bottom: 6px; z-index: 5; flex: none; width: 92px; height: 46px; visibility: hidden; background: rgba(30, 26, 48, 0.78); }   /* over the apron, clear of the shooter lane */
   .btn.launch.ready { visibility: visible; }
   .btn.icon .lbl { display: none; }
   .table { width: 100%; height: 100%; }
@@ -110,12 +118,18 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
   .screen { padding: 18px 16px; }
 }
 /* phone landscape */
+/* phone landscape: the table takes the width (the camera tilts back on wide canvases); a slim panel holds the DMD */
 @media (max-height: 520px) and (min-aspect-ratio: 4 / 5) {
   .glass { display: none; }
-  .stage { grid-template-columns: auto minmax(0, 1fr); }
-  .table { width: calc(100dvh * 0.58); }
-  .side { padding: 8px; gap: 6px; }
+  .stage { grid-template-columns: minmax(0, 1fr) auto; }
+  .table { width: auto; height: 100dvh; }
+  .side { width: clamp(170px, 24vw, 230px); padding: 6px 8px; gap: 6px; justify-content: flex-start; }
+  .dmd-frame { padding: 4px; }
   .controls-hint { display: none; }
+  .score-line { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .score { font-size: 1.15em; }
+  .mode-line { display: block; }
+  .btn { padding: 8px 10px; }
 }
 body.reduced *, body.reduced *::before { animation: none !important; transition: none !important; }
 
