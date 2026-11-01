@@ -91,6 +91,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     apron: new THREE.MeshStandardMaterial({ color: '#2a2740', roughness: 0.4, metalness: 0.6 }),
     ball: new THREE.MeshStandardMaterial({ color: '#f4f6f9', roughness: 0.08, metalness: 1, envMapIntensity: 1.35 }),
     gate: new THREE.MeshStandardMaterial({ color: '#d8dde4', roughness: 0.2, metalness: 1 }),
+    wireChrome: new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.28, metalness: 1, envMapIntensity: 0.35 }),
     steelFlap: new THREE.MeshStandardMaterial({ color: '#9aa2ad', roughness: 0.35, metalness: 1, envMapIntensity: 0.6 }),
   };
 
@@ -110,7 +111,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   cab.position.set(0, -20.5, 0); scene.add(cab);
 
   // ------------------------------------------------------------------------------------------- walls
-  const geo = { railCap: [], wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [], brass: [] };
+  const geo = { wire: [], railCap: [], wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [], brass: [] };
   const box = (a, b, w, h, y0, bucket, extra = 0) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) + extra;
     const g = new THREE.BoxGeometry(L, h, w);
@@ -200,7 +201,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       const za = rampZ(wire, s.ax, s.ay), zb = rampZ(wire, s.bx, s.by);
       for (const dz of [3, 15]) {
         const curve = new THREE.LineCurve3(P(s.ax, s.ay, za + dz), P(s.bx, s.by, zb + dz));
-        geo.chrome.push(new THREE.TubeGeometry(curve, 2, 1.6, 8, false));
+        geo.wire.push(new THREE.TubeGeometry(curve, 2, 1.6, 8, false));
       }
     }
     // wire supports every ~80 mm
@@ -209,7 +210,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     const wp = densify(wire.pts, 45);
     for (let i = 1; i < wp.length - 1; i++) {
       const [x0, y0] = wp[i - 1], [x1, y1] = wp[i + 1], L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / L, ny = (x1 - x0) / L, [x, y, z] = wp[i];
-      geo.chrome.push(new THREE.TubeGeometry(new THREE.LineCurve3(P(x - nx * 20, y - ny * 20, z + 2), P(x + nx * 20, y + ny * 20, z + 2)), 1, 1.1, 6, false));
+      geo.wire.push(new THREE.TubeGeometry(new THREE.LineCurve3(P(x - nx * 20, y - ny * 20, z + 2), P(x + nx * 20, y + ny * 20, z + 2)), 1, 1.1, 6, false));
     }
   }
   // posts and bumpers
@@ -267,7 +268,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const merge = THREE.mergeGeometries;
   const addMerged = (list, mat, cast = true) => { if (!list.length) return null; const m = new THREE.Mesh(merge(list.map((g) => g.index ? g.toNonIndexed() : g)), mat); m.castShadow = cast; m.receiveShadow = true; scene.add(m); return m; };
   addMerged(geo.wood, M.wood); addMerged(geo.chrome, M.chrome); addMerged(geo.steel, M.steel); addMerged(geo.rubber, M.rubber);
-  addMerged(geo.gate, M.gate); addMerged(geo.rampEdge, M.rampEdge, false); addMerged(geo.brass, M.lacquerTop); addMerged(geo.railCap, M.railCap);
+  addMerged(geo.gate, M.gate); addMerged(geo.rampEdge, M.rampEdge, false); addMerged(geo.brass, M.lacquerTop); addMerged(geo.railCap, M.railCap); addMerged(geo.wire, M.wireChrome);
   const rampMesh = addMerged(geo.ramp, M.rampPlastic, false); if (rampMesh) rampMesh.renderOrder = 2;
 
   // ------------------------------------------------------------------------------------------- models
@@ -292,7 +293,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         if (m.name === 'bumper_body') { m.emissive = new THREE.Color('#3fe0c5'); m.emissiveIntensity = 0.35; m.color.set('#1f7f78'); m.opacity = 0.72; m.roughness = 0.15; }   // translucent spring-water teal, lit from inside
         if (m.name === 'bumper_cap') { m.map = decals.cap; m.color.set('#ffffff'); m.roughness = 0.35; }
         if (m.name === 'sign_panel') { m.map = decals.sign; m.emissiveMap = decals.sign; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 1.4; m.color.set('#ffffff'); glowMats.push(m); }
-        if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#d8d8d8'); m.metalness = 0.15; m.roughness = 0.45; m.envMapIntensity = 0.4; }
+        if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#8a8a8a'); m.metalness = 0.15; m.roughness = 0.45; m.envMapIntensity = 0.4; }
         if (m.name === 'flipper_body') { m.color.set('#ffffff'); m.map = decals.flipper; m.roughness = 0.36; }
         if (m.name === 'bumper_base' || m.name === 'chrome') m.envMapIntensity = 0.45;
         if (m.name === 'chrome') { m.metalness = 1; m.roughness = 0.12; }
@@ -428,7 +429,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const sGeo = new THREE.BufferGeometry();
   const sPos = new Float32Array(steamN * 3), sLife = new Float32Array(steamN), sSrc = new Uint8Array(steamN);
   sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
-  const steam = new THREE.Points(sGeo, new THREE.PointsMaterial({ map: soft, size: 40, transparent: true, opacity: 0.13, depthWrite: false, blending: THREE.AdditiveBlending, color: '#dff6ff', sizeAttenuation: true }));
+  const steam = new THREE.Points(sGeo, new THREE.PointsMaterial({ map: soft, size: 95, transparent: true, opacity: 0.06, depthWrite: false, blending: THREE.AdditiveBlending, color: '#dff6ff', sizeAttenuation: true }));
   steam.renderOrder = 3; scene.add(steam);
   const steamSources = bumpers.map((c) => [c.x, c.y]).concat([[150, 1000], [300, 1040], [90, 960]]);
   for (let i = 0; i < steamN; i++) { sLife[i] = Math.random(); sSrc[i] = i % steamSources.length; }
@@ -466,7 +467,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   let follow = null;   // {d, yMin, yMax, y} when following
   function fitCamera(aspect) {
     camera.aspect = aspect; camera.updateProjectionMatrix();
-    PITCH = aspect < 0.75 ? 0.32 : Math.min(1.12, 0.32 + (aspect - 0.75) * 0.85);
+    PITCH = aspect < 0.75 ? 0.32 : Math.min(1.22, 0.32 + (aspect - 0.75) * 0.85);
     follow = null;
     if (aspect > 1.2 && false) {   // (follow camera kept for reference; full fit reads better)
       PITCH = 0.62;
@@ -639,7 +640,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         sPos[i * 3] = x - ox; sPos[i * 3 + 1] = 30 + a * 90; sPos[i * 3 + 2] = oz - y;
       }
       sGeo.attributes.position.needsUpdate = true;
-      steam.material.opacity = G.f && G.f.boilUntil > G.t ? 0.22 : 0.13;
+      steam.material.opacity = G.f && G.f.boilUntil > G.t ? 0.11 : 0.06;
       // slingshot plastics flash when they kick
       for (const side of ['L', 'R']) {
         const pl = window.__pbSlings && window.__pbSlings[side];
@@ -653,7 +654,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       const mood = G.mb ? { valley: ['#b48cff', 0.35], soak: ['#5fe8d0', 0.55], arlington: ['#ffc860', 0.55] }[G.mb.kind]
         : G.mode ? { soak: ['#8fe6d6', 0.75], derby: ['#ffc070', 0.75], raid: ['#ff8a8a', 0.65], tower: ['#9cc8ff', 0.75], tub: ['#7fe0e8', 0.75], coaster: ['#ff9ad6', 0.75] }[G.mode.id] : null;
       const moodKey = mood ? mood.join() : 'none';
-      if (moodKey !== moodState.key) { moodState.key = moodKey; moodState.t0 = G.t; moodState.fromC = hemi.color.clone(); moodState.fromK = key.intensity; moodState.fromH = hemi.intensity; }
+      if (moodKey !== moodState.key) { moodState.key = moodKey; moodState.t0 = G.mb ? G.mb.t0 : G.mode ? G.mode.t0 - 2.2 : G.t; moodState.fromC = hemi.color.clone(); moodState.fromK = key.intensity; moodState.fromH = hemi.intensity; }
       const mk = Math.min(1, Math.max(0, (G.t - moodState.t0) / 0.6));
       hemi.color.copy(moodState.fromC).lerp(tmpC.set(mood ? mood[0] : '#9fb4ff'), mk);
       key.intensity = moodState.fromK + (1.35 * (mood ? mood[1] : 1) - moodState.fromK) * mk;
@@ -735,14 +736,15 @@ function makeDecals(THREE) {
     g.fillStyle = '#ffd877'; g.font = '900 34px "Arial Black", "Segoe UI", sans-serif'; g.textAlign = 'center'; g.fillText('143°F', r, r + 80);
     g.restore();
   });
-  const sign = tex(128, 256, (g, w, h) => {
+  // the Vapors marquee: a wide horizontal panel facing the player
+  const sign = tex(512, 150, (g, w, h) => {
     g.fillStyle = '#1a0f22'; g.fillRect(0, 0, w, h);
-    g.translate(w, h); g.scale(-1, -1);   // the blade's UVs run upside down
-    g.font = 'bold 34px "Brush Script MT", "Segoe Script", cursive'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.shadowColor = '#ff5f7a'; g.shadowBlur = 10; g.fillStyle = '#ffd0d8';
-    ['T', 'H', 'E'].forEach((ch, i) => g.fillText(ch, w / 2, 26 + i * 26));
-    g.shadowColor = '#3fffe8'; g.fillStyle = '#c8fff8'; g.font = 'bold 30px Futura, "Century Gothic", sans-serif';
-    ['V', 'A', 'P', 'O', 'R', 'S'].forEach((ch, i) => g.fillText(ch, w / 2, 100 + i * 25));
+    g.translate(0, h); g.scale(1, -1);   // the marquee's UVs run bottom-up
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.shadowColor = '#ff5f7a'; g.shadowBlur = 14; g.fillStyle = '#ffd0d8'; g.font = 'italic bold 46px "Brush Script MT", "Segoe Script", cursive';
+    g.fillText('The', w * 0.17, h * 0.5);
+    g.shadowColor = '#3fffe8'; g.fillStyle = '#d8fffa'; g.font = 'bold 96px Futura, "Century Gothic", "Trebuchet MS", sans-serif';
+    g.fillText('VAPORS', w * 0.6, h * 0.54);
   });
   const spinner = tex(256, 96, (g, w, h) => {
     const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, '#9aa3ad'); gr.addColorStop(0.5, '#f4f6f8'); gr.addColorStop(1, '#9aa3ad');

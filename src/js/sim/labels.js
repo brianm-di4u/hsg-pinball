@@ -6,7 +6,7 @@ export const FEATURE_LABELS = [
   // [text, x, y, size, colour, angle, weight, plate, font]
   ['SPA CITY', CX + 14, 528, 27, '#ffd877', 0, 900, false, 'serif'],
   ['BATHHOUSE ROW · HOT SPRINGS', CX + 14, 505, 7.5, '#e8d9b0', 0, 700, false],
-  ['CENTRAL AVENUE', 36, 772, 8, '#9fdcff', Math.PI / 2, 700, false],
+  ['CENTRAL AVENUE', 40, 772, 7.5, '#9fdcff', Math.PI / 2, 700, true],
   ['RESERVE ST', 424, 735, 7, '#8ff0dc', Math.PI / 2, 700, false],
   ['MOUNTAIN TOWER', 316, 352, 8.5, '#ffd877', Math.atan2(0.893, 0.45), 800, true],
   ['THE VAPORS', 190, 606, 7, '#ff9a7e', -1.33, 800, true],

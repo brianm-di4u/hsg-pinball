@@ -1,0 +1,10 @@
+- Big lever, landmark models: the eight bathhouses and the Arlington were rebuilt in Blender with cornices, belt courses, plinths, recessed windows with sills and glazing bars, door surrounds, rolled ridge caps, quoins and roof vents, plus each building's signature (Fordyce copper-and-glass marquee, Buckstaff's seven bays and medallions, Quapaw's chevron dome and lantern, Ozark's stepped towers, Hale's tile hip roof and bell gable, Maurice's sun-porch arches, Superior's green tile medallions, Lamar's plain parapet); materials differ by surface (rough brick and stucco, semi-gloss tile, copper with verdigris); vertex-colour shading darkens each base.
+- The Vapors is rebuilt as a 1960 supper-club entrance: stone wing, breeze-block screen, glazed lobby, cantilevered canopy with a neon edge, and a horizontal marquee facing the player that reads "The VAPORS" in neon.
+- Mood lighting fixed: the darkening now starts from the moment the mode or multiball started (it previously started only when the view first noticed it, so still captures never darkened). Modes ~75%, multiballs ~55%, wizard ~35% of normal light.
+- Wizard light show: every shot arrow, all six mode inserts and the wizard star stay lit.
+- Skill-shot lane never drops below about 55% brightness while offered (it blinked to near-off on some frames), with its large halo.
+- Steam: fewer, much larger and fainter soft puffs instead of small dots.
+- Wire return rails use a duller chrome (no bright white streaks); the spinner flag is darker.
+- Gold-pinstripe keylines now stop short of each part's ends and hug the parts more closely.
+- Labels: plates sized to include letter spacing (MOUNTAIN TOWER fits), SUPERIOR moved further from the scoop, CENTRAL AVENUE on a plate.
+- UI: gold deco focus ring instead of the default blue; the help body fades out at its bottom edge; the desktop Launch button is hidden until a ball is in the shooter lane; a stray source note was removed from the help text.

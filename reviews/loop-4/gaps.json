@@ -1,0 +1,191 @@
+[
+  {
+    "id": "G-mood-gi-scale",
+    "category": "lighting",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r06-multiball",
+      "desktop/r07-mode",
+      "desktop/r08-wizard",
+      "mobile/r08-wizard"
+    ],
+    "fix": "Apply the mood GI scale from game state every frame (not only on transition) so directly set capture states get it. Test: lamp-free patch left of the left sling has median <= 0.8x r03 in r07, <= 0.6x in r06, <= 0.4x in r08, lit-insert peaks unchanged.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-skill-shot-halo",
+    "category": "readability",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r02-serve",
+      "mobile/r02-serve"
+    ],
+    "fix": "Render the skill-lane halo and dim unlit S/P lanes at serve. Test: lit lane peak >= 3x each unlit lane (now 179 vs 125/116), halo >= 2 lane-widths, both viewports.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-label-clip",
+    "category": "typography",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "mobile/r03-play",
+      "desktop/r02-serve",
+      "desktop/c01-row"
+    ],
+    "fix": "Fit MOUNTAIN TOWER inside its plate and move SUPERIOR clear of the Vapors post; extend tools/check-layout.mjs to fail on glyph overflow past the plate and on mesh occlusion from the play and close-up cameras.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-ball-chrome",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c03-flippers",
+      "strips/s02-bumpers",
+      "desktop/r05-ramp"
+    ],
+    "fix": "Opaque ball, metalness 1, roughness <= 0.1, playfield cube-capture env map, soft contact shadow. Test: in c03 the ball is opaque, mirrors flippers and inserts, and casts a visible shadow.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-wizard-lamp-state",
+    "category": "readability",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r08-wizard",
+      "mobile/r08-wizard"
+    ],
+    "fix": "In the wizard, light or chase all six mode inserts and flash every shot arrow. Test: all six inserts lit in r08 on both viewports.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-glare-hotspots",
+    "category": "lighting",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "strips/s02-bumpers",
+      "mobile/r03-play",
+      "desktop/c04-vapors"
+    ],
+    "fix": "Cap specular and emissive output on unlit bumper bases, spinner, harlequin block and wireform bars; remove the emissive wireform bars. Test: no unlit-hardware pixel >= 245 luma in r03 or r04 and the ball is the brightest object in the upper field.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-keyline-misregister",
+    "category": "art",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/c03-flippers",
+      "desktop/c04-vapors"
+    ],
+    "fix": "Regenerate printed keylines from current sling and guide footprints. Test: geometry-over-texture overlay shows each keyline within 1 mm of its part and ending within 2 mm of the part's end.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-hardware-models",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c03-flippers",
+      "desktop/c04-vapors",
+      "desktop/c01-row"
+    ],
+    "fix": "Slings with 3 posts, rubber rings, white band and plastic cover; metal scoop housings with a lip; brass guides thinned below half the ball diameter; smooth the ramp floor seam and kink. Test: c03 and c04 close-ups show rubber bands and scoop lips.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-landscape-fill",
+    "category": "mobile",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape"
+    ],
+    "fix": "Retune camera target, distance and tilt so the playfield averages >= 60% of canvas width between arch and apron and the upper field gets >= 25% of table height; use the blank side-panel area for status.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-steam-plume",
+    "category": "animation",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS3",
+    "evidence": [
+      "desktop/r02-serve",
+      "mobile/r11-landscape",
+      "strips/s02-bumpers"
+    ],
+    "fix": "Depth-test and clip steam to the cabinet volume; replace dots with soft noise billboards that rise, widen and fade; add a bumper cap drop on hits. Test: zero particle pixels outside the cabinet silhouette in r02 and r11; cap drop measurable between strip frames.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-menu-polish",
+    "category": "ui",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r09-help",
+      "desktop/r01-title",
+      "desktop/r02-serve"
+    ],
+    "fix": "Gold deco :focus-visible style replacing the default cyan ring; bottom fade plus scroll cue in help; delete '(fact: reserved, older)'; hide Launch while the ball is in play. Test: no default outline in any capture; no help line cut without a fade.",
+    "priority": 0.3,
+    "selected": true
+  },
+  {
+    "id": "G-landmark-detail",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "L",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c01-row",
+      "desktop/c04-vapors",
+      "desktop/c06-arlington"
+    ],
+    "fix": "Big lever: add cornices, window reveals, roof trim and baked AO contact shadows to the bathhouses and the Arlington; rebuild the Vapors with a horizontal neon VAPORS marquee. Test: c01 facades show trim and contact shadows; marquee >= 20 px tall in c04 and legible at 1280 in play.",
+    "priority": 0.188,
+    "bigLever": true,
+    "selected": true
+  }
+]

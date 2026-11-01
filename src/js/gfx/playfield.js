@@ -70,10 +70,10 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
   g.strokeStyle = 'rgba(212,175,55,0.55)'; g.lineWidth = 1.2 * k; g.lineCap = 'round';
   for (const s of T.segs) {
     if (s.mask !== 1 || s.kind === 4 || s.kind === 3) continue;
-    const L = Math.hypot(s.bx - s.ax, s.by - s.ay); if (L < 6) continue;
-    const off = s.r + 5;
+    const L = Math.hypot(s.bx - s.ax, s.by - s.ay); if (L < 14) continue;
+    const off = s.r + 4, ux = (s.bx - s.ax) / L, uy = (s.by - s.ay) / L, ins = 4;   // keylines hug the part and stop short of its ends
     for (const sgn of [1, -1]) {
-      g.beginPath(); g.moveTo(X(s.ax + s.nx * off * sgn), Y(s.ay + s.ny * off * sgn)); g.lineTo(X(s.bx + s.nx * off * sgn), Y(s.by + s.ny * off * sgn)); g.stroke();
+      g.beginPath(); g.moveTo(X(s.ax + ux * ins + s.nx * off * sgn), Y(s.ay + uy * ins + s.ny * off * sgn)); g.lineTo(X(s.bx - ux * ins + s.nx * off * sgn), Y(s.by - uy * ins + s.ny * off * sgn)); g.stroke();
     }
   }
   g.save(); outline(); g.strokeStyle = 'rgba(79,195,255,0.35)'; g.lineWidth = 3 * k; g.stroke(); g.restore();
@@ -85,7 +85,7 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     // shrink to fit a slot (bathhouse names share the bank's width)
     if (maxW) { const w0 = g.measureText(txt).width + size * k * 0.9; if (w0 > maxW * k) { size *= (maxW * k) / w0; g.font = `${weight} ${size * k}px ${font}`; } }
     if ('letterSpacing' in g) g.letterSpacing = `${size * k * spacing}px`;
-    if (plate) { const tw = g.measureText(txt).width, ph = size * k * 1.5, pw = tw + size * k * 0.9; g.fillStyle = 'rgba(10,8,18,0.78)'; g.beginPath(); g.roundRect ? g.roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.3) : g.rect(-pw / 2, -ph / 2, pw, ph); g.fill(); g.strokeStyle = 'rgba(212,175,55,0.55)'; g.lineWidth = 0.5 * k; g.stroke(); }
+    if (plate) { const tw = g.measureText(txt).width + size * k * spacing * txt.length, ph = size * k * 1.5, pw = tw + size * k * 0.9; g.fillStyle = 'rgba(10,8,18,0.78)'; g.beginPath(); g.roundRect ? g.roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.3) : g.rect(-pw / 2, -ph / 2, pw, ph); g.fill(); g.strokeStyle = 'rgba(212,175,55,0.55)'; g.lineWidth = 0.5 * k; g.stroke(); }
     g.lineWidth = size * k * 0.22; g.strokeStyle = 'rgba(8,6,14,0.85)'; g.strokeText(txt, 0, 0);
     g.fillStyle = color; g.fillText(txt, 0, 0);
     g.restore();
@@ -101,7 +101,7 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
     for (let i = 0; i < 4; i++) {
       const t = (i + 0.5) / 4;
-      const shift = off + i === 0 ? 0.12 : 0;   // Superior sits clear of the Vapors scoop
+      const shift = off + i === 0 ? 0.22 : 0;   // Superior sits clear of the Vapors scoop
       label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * (t + shift) + nx * 30, a[1] + (b[1] - a[1]) * (t + shift) + ny * 30, 4.6, '#f4ecd8', ang, FONT, 800, 0, true, 22.5);
     }
   }

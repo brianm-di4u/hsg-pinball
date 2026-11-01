@@ -83,7 +83,7 @@ export function lampStates(G, lamps, t) {
   });
   // the skill lane flashes at full strength (3 Hz, the strobe ceiling); other lanes sit dim while it is offered
   const offering = G.ball.inLane || G.ball.skillUntil > G.t;
-  ['S', 'P', 'A'].forEach((k, i) => set('lane' + k, offering && G.ball.skillLane === i ? fast : f.spa[i] ? (offering ? 0.12 : 1) : 0));
+  ['S', 'P', 'A'].forEach((k, i) => set('lane' + k, offering && G.ball.skillLane === i ? 0.55 + 0.45 * fast : f.spa[i] ? (offering ? 0.12 : 1) : 0));
   for (let k = 2; k <= 5; k++) set('bonus' + k + 'x', G.player.bonusX >= k ? 1 : 0);
   set('shootAgain', G.player.extraBalls > 0 ? 1 : (G.t < G.ball.saveUntil ? slow : 0));
   MODES.forEach((_, i) => set('mode' + i, mb && mb.kind === 'valley' ? (Math.floor(t * 2.5 + i * 0.5) % 2 ? 1 : 0.3) : m && m.i === i ? fast : f.modesWon[i] ? 1 : f.modesPlayed[i] ? 0.45 : (!m && !mb && i === nextModeIndex(f)) ? slow * 0.5 : 0));
@@ -103,7 +103,7 @@ export function showStates(G, lamps, t) {
   for (const l of lamps) {
     let v = 0;
     if (name === 'attract') v = 0.5 + 0.5 * Math.sin(t * 2.2 - l.y / 120);
-    else if (name === 'multiball' || name === 'wizard') v = l.shape === 'arrow' && name === 'wizard' ? 1 : (Math.sin(t * 9 - l.y / 60) > 0.2) ? 1 : 0.1;   // the wizard keeps every shot arrow lit
+    else if (name === 'multiball' || name === 'wizard') v = name === 'wizard' && (l.shape === 'arrow' || l.group === 'modes' || l.name === 'wizard') ? 1 : (Math.sin(t * 9 - l.y / 60) > 0.2) ? 1 : 0.1;   // the wizard keeps every shot arrow lit
     else if (name === 'jackpot' || name === 'skill' || name === 'eb') v = (Math.floor(t * 5) % 2) ? 1 : 0.2;
     else if (name === 'mode' || name === 'row' || name === 'spa') v = Math.max(0, Math.sin(t * 7 - Math.abs(l.x - 242) / 40));
     else if (name === 'boil') v = Math.max(0.1, Math.sin(t * 6 - (1100 - l.y) / 90));

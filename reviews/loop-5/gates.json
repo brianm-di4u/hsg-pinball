@@ -1,0 +1,29 @@
+{
+  "loop": 5,
+  "perf": {
+    "pass": true,
+    "desktop": {
+      "k": "desktop-gpu",
+      "fps": 59.9,
+      "taskMs": 3.39,
+      "tier": "high"
+    },
+    "throttled": {
+      "k": "phone-throttled",
+      "fps": 31.6,
+      "taskMs": 5.42,
+      "tier": "high"
+    },
+    "swiftshader": {
+      "k": "phone-swiftshader",
+      "fps": 35,
+      "taskMs": 2.98,
+      "tier": "low"
+    }
+  },
+  "ip": {
+    "pass": true,
+    "hits": [],
+    "note": "paintings checked by eye for text (art-src/PROMPTS.md)"
+  }
+}
