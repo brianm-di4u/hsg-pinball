@@ -7,9 +7,9 @@ import { paintPlayfield } from './playfield.js';
 import { CX, BATHHOUSES, VAP } from '../sim/table-spa-city.js';
 
 const TIERS = {
-  high: { ratio: 2, msaa: 4, shadow: 2048, bloom: 1, pf: 3, steam: 220 },
-  medium: { ratio: 1.5, msaa: 2, shadow: 1024, bloom: 0.5, pf: 2.2, steam: 120 },
-  low: { ratio: 1, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 50 },
+  high: { ratio: 2, msaa: 4, shadow: 2048, bloom: 1, pf: 3, steam: 220, gi: 4, flashers: 2, cube: 20 },
+  medium: { ratio: 1.5, msaa: 0, shadow: 1024, bloom: 0.5, pf: 2.2, steam: 120, gi: 2, flashers: 0, cube: 0 },
+  low: { ratio: 0.75, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 24, gi: 0, flashers: 0, cube: 0 },
 };
 
 export function probeGL() {
@@ -56,7 +56,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  let tierName = tier === 'auto' ? (softwareGL(renderer) ? 'low' : 'high') : tier;
+  // auto: software GL → low; touch devices (phones, tablets) → medium; everything else → high. The governor steps down.
+  const autoTier = () => (softwareGL(renderer) ? 'low' : matchMedia('(pointer: coarse)').matches ? 'medium' : 'high');
+  let tierName = tier === 'auto' ? autoTier() : tier;
   let Q = TIERS[tierName] || TIERS.high;
 
   const packs = await loadPacks();
@@ -75,11 +77,12 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const M = {
     wood: new THREE.MeshStandardMaterial({ color: '#3a2214', roughness: 0.55, metalness: 0 }),
     woodTop: new THREE.MeshStandardMaterial({ color: '#c9a050', roughness: 0.3, metalness: 0.85 }),
-    chrome: new THREE.MeshStandardMaterial({ color: '#e8ecf2', roughness: 0.14, metalness: 1 }),
-    steel: new THREE.MeshStandardMaterial({ color: '#8d96a3', roughness: 0.28, metalness: 0.92 }),
+    chrome: new THREE.MeshStandardMaterial({ color: '#e8ecf2', roughness: 0.16, metalness: 1, envMapIntensity: 0.6 }),
+    steel: new THREE.MeshStandardMaterial({ color: '#232036', roughness: 0.32, metalness: 0.15 }),   // inner guides: dark lacquer
+    lacquerTop: new THREE.MeshStandardMaterial({ color: '#c9a050', roughness: 0.28, metalness: 0.9, envMapIntensity: 0.7 }),
     rubber: new THREE.MeshStandardMaterial({ color: '#cfc8ba', roughness: 0.7, metalness: 0 }),
     blackRubber: new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.7, metalness: 0 }),
-    target: new THREE.MeshStandardMaterial({ color: '#f4ecd8', roughness: 0.4, metalness: 0, emissive: '#ffd877', emissiveIntensity: 0 }),
+    target: new THREE.MeshStandardMaterial({ color: '#d9c9a3', roughness: 0.35, metalness: 0.1, emissive: '#ffd877', emissiveIntensity: 0 }),
     plasticRed: new THREE.MeshPhysicalMaterial({ color: '#ff4a3d', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55, clearcoat: 1, emissive: '#ff2a1a', emissiveIntensity: 0.15 }),
     rampPlastic: new THREE.MeshPhysicalMaterial({ color: '#cfe8ff', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.32, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
     rampEdge: new THREE.MeshPhysicalMaterial({ color: '#dff0ff', roughness: 0.1, metalness: 0, transparent: true, opacity: 0.6, clearcoat: 1 }),
@@ -94,7 +97,10 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const pfTex = new THREE.CanvasTexture(pf.canvas);
   pfTex.colorSpace = THREE.SRGBColorSpace; pfTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const pfMat = new THREE.MeshPhysicalMaterial({ map: pfTex, roughness: 0.5, metalness: 0, clearcoat: 0.55, clearcoatRoughness: 0.22 });
+  const pfLow = new THREE.MeshStandardMaterial({ map: pfTex, roughness: 0.55, metalness: 0 });
   const pfMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), pfMat);
+  function applyMaterials() { pfMesh.material = tierName === 'low' ? pfLow : pfMat; }
+  applyMaterials();
   pfMesh.rotation.x = -Math.PI / 2; pfMesh.receiveShadow = true;
   scene.add(pfMesh);
   // cabinet body around the playfield
@@ -102,7 +108,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   cab.position.set(0, -20.5, 0); scene.add(cab);
 
   // ------------------------------------------------------------------------------------------- walls
-  const geo = { wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [] };
+  const geo = { wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [], brass: [] };
   const box = (a, b, w, h, y0, bucket, extra = 0) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) + extra;
     const g = new THREE.BoxGeometry(L, h, w);
@@ -121,14 +127,14 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const outer = s.group === 'rail';
         box(a, b, s.r * 2, outer ? 34 : 22, 0, outer ? 'wood' : 'steel', s.r * 2);
         if (outer) box(a, b, s.r * 2 + 2, 2.5, 34, 'chrome', s.r * 2);
-        else box(a, b, s.r * 2 + 1, 1.5, 22, 'chrome', s.r * 2);
+        else box(a, b, s.r * 2 + 1, 1.5, 22, 'brass', s.r * 2);
       } else if (s.kind === K.RUBBER || s.kind === K.SLING) {
         box(a, b, s.r * 2, 11, 2, s.kind === K.SLING ? 'rubber' : 'rubber', s.r * 2);
         box(a, b, s.r * 2 - 2, 9, 13, 'steel', 0);
       } else if (s.kind === K.TARGET) {
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        const g = new THREE.BoxGeometry(L, 12, 4); const mesh = new THREE.Mesh(g, M.target.clone());
-        const m = P((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 6); mesh.position.copy(m); mesh.rotation.y = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        const g = new THREE.BoxGeometry(L * 0.86, 8, 3); const mesh = new THREE.Mesh(g, M.target.clone());
+        const m = P((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 4); mesh.position.copy(m); mesh.rotation.y = Math.atan2(b[1] - a[1], b[0] - a[0]);
         mesh.castShadow = true; scene.add(mesh); targets.push({ seg: i, mesh, name: s.name });
       } else if (s.kind === K.GATE) box(a, b, 1.6, 1.6, 12, 'gate', 0);
     } else if (s.mask === (LAYER.FIELD | LAYER.RAMP)) {
@@ -213,7 +219,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const merge = THREE.mergeGeometries;
   const addMerged = (list, mat, cast = true) => { if (!list.length) return null; const m = new THREE.Mesh(merge(list.map((g) => g.index ? g.toNonIndexed() : g)), mat); m.castShadow = cast; m.receiveShadow = true; scene.add(m); return m; };
   addMerged(geo.wood, M.wood); addMerged(geo.chrome, M.chrome); addMerged(geo.steel, M.steel); addMerged(geo.rubber, M.rubber);
-  addMerged(geo.gate, M.gate); addMerged(geo.rampEdge, M.rampEdge, false);
+  addMerged(geo.gate, M.gate); addMerged(geo.rampEdge, M.rampEdge, false); addMerged(geo.brass, M.lacquerTop);
   const rampMesh = addMerged(geo.ramp, M.rampPlastic, false); if (rampMesh) rampMesh.renderOrder = 2;
 
   // ------------------------------------------------------------------------------------------- models
@@ -293,21 +299,30 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const plungerTip = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 8, 20), M.blackRubber); plungerTip.rotation.x = Math.PI / 2; scene.add(plungerTip);
 
   // ------------------------------------------------------------------------------------------- lamps (glowing inserts)
-  const lampMeshes = lamps.map((l) => {
-    const shp = shapeOf(THREE, l.shape, l.size);
-    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(l.color), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-    const m = new THREE.Mesh(new THREE.ShapeGeometry(shp), mat);
-    m.rotation.x = -Math.PI / 2; m.rotation.z = l.angle; m.position.copy(P(l.x, l.y, 0.35));
-    m.renderOrder = 1; scene.add(m);
-    const base = new THREE.Color(l.color);
-    return { l, m, base };
-  });
-  // a soft halo sprite texture shared by lamp halos, steam and the ball shadow
+  // one instanced mesh per insert shape (unit size, scaled per lamp) and one for every halo: a handful of draw calls
+  // instead of two per lamp. Brightness rides in the instance colour (HDR above 1 blooms).
   const soft = softTexture(THREE);
-  const halos = lampMeshes.map(({ l, base }) => {
-    const sp = new THREE.Mesh(new THREE.PlaneGeometry(l.size * 3.4, l.size * 3.4), new THREE.MeshBasicMaterial({ map: soft, color: base.clone(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0 }));
-    sp.rotation.x = -Math.PI / 2; sp.position.copy(P(l.x, l.y, 0.5)); sp.renderOrder = 1; scene.add(sp); return sp;
-  });
+  const lampInst = [];   // {mesh, index} per lamp
+  const lampBase = lamps.map((l) => new THREE.Color(l.color));
+  const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpC = new THREE.Color();
+  const byShape = {};
+  lamps.forEach((l, i) => (byShape[l.shape] ||= []).push(i));
+  for (const [shp, idx] of Object.entries(byShape)) {
+    const g = new THREE.ShapeGeometry(shapeOf(THREE, shp, 1)); g.rotateX(-Math.PI / 2);
+    const mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), idx.length);
+    idx.forEach((li, k) => {
+      const l = lamps[li];
+      tmpQ.setFromEuler(tmpE.set(0, l.angle, 0)); tmpS.set(l.size, 1, l.size);
+      mesh.setMatrixAt(k, tmpM.compose(P(l.x, l.y, 0.35), tmpQ, tmpS));
+      mesh.setColorAt(k, tmpC.copy(lampBase[li]).multiplyScalar(0.1));
+      lampInst[li] = { mesh, k };
+    });
+    mesh.renderOrder = 1; mesh.frustumCulled = false; scene.add(mesh);
+  }
+  const haloGeo = new THREE.PlaneGeometry(1, 1); haloGeo.rotateX(-Math.PI / 2);
+  const halos = new THREE.InstancedMesh(haloGeo, new THREE.MeshBasicMaterial({ map: soft, color: '#ffffff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), lamps.length);
+  lamps.forEach((l, i) => { tmpS.set(l.size * 3.4, 1, l.size * 3.4); halos.setMatrixAt(i, tmpM.compose(P(l.x, l.y, 0.5), tmpQ.identity(), tmpS)); halos.setColorAt(i, tmpC.setRGB(0, 0, 0)); });
+  halos.renderOrder = 1; halos.frustumCulled = false; scene.add(halos);
 
   // ball reflections: the real table seen from mid-playfield (cube camera), not the studio environment
   const cubeRT = new THREE.WebGLCubeRenderTarget(Q.msaa ? 256 : 128, { type: THREE.HalfFloatType });
@@ -319,7 +334,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   for (const [x, y, w, h] of [[W / 2, 1250, 520, 160], [-120, 520, 60, 900], [W + 120, 520, 60, 900], [W / 2, -250, 400, 90]]) {
     const pnl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), panelMat); pnl.position.copy(P(x, y, 420)); pnl.lookAt(P(W / 2, 520, 0)); pnl.layers.set(1); scene.add(pnl);
   }
-  let cubeAge = 1e9;
+  let cubeAge = 1e9, cubeDone = false;
 
   // ------------------------------------------------------------------------------------------- balls
   const ballGeo = new THREE.SphereGeometry(BALL_R, 40, 28);
@@ -345,14 +360,27 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   for (let i = 0; i < steamN; i++) { sLife[i] = Math.random(); sSrc[i] = i % steamSources.length; }
 
   // ------------------------------------------------------------------------------------------- lights
-  scene.add(new THREE.HemisphereLight('#9fb4ff', '#3a2418', 0.42));
+  const hemi = new THREE.HemisphereLight('#9fb4ff', '#3a2418', 0.42); scene.add(hemi);
   // key light from the player's side, high: its mirror reflection points away from the near-overhead camera
   const key = new THREE.DirectionalLight('#ffe6c4', 1.35);
   key.position.copy(P(CX - 140, -700, 1500)); key.target.position.copy(P(CX, 520, 0));
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight('#8fb0ff', 0.6); rim.position.set(-400, 600, -800); scene.add(rim);
-  const flashers = [0, 1, 2].map(() => { const l = new THREE.PointLight('#ffb070', 0, 260, 2); scene.add(l); return l; });
-  const gi = [[60, 260], [420, 260], [60, 640], [420, 640], [150, 950], [330, 950]].map(([x, y]) => { const l = new THREE.PointLight('#ffcf88', 1800, 520, 2); l.position.copy(P(x, y, 110)); scene.add(l); return l; });
+  // point lights cost every lit pixel, so the tier decides how many exist (GI pairs top to bottom, flashers for events)
+  const flasherPool = [0, 1].map(() => new THREE.PointLight('#ffb070', 0, 260, 2));
+  const giPool = [[60, 300], [420, 300], [150, 900], [330, 900]].map(([x, y]) => { const l = new THREE.PointLight('#ffcf88', 2200, 560, 2); l.position.copy(P(x, y, 110)); return l; });
+  let flashers = [];
+  function applyLights() {
+    for (const l of [...flasherPool, ...giPool]) scene.remove(l);
+    flashers = flasherPool.slice(0, Q.flashers); flashers.forEach((l) => scene.add(l));
+    const g = giPool.slice(0, Q.gi); g.forEach((l) => { l.intensity = 2200 * (4 / Math.max(2, Q.gi)) * 0.6; scene.add(l); });
+    // Low drops the environment map (its per-pixel sampling dominates software GL) and lifts the fill instead
+    scene.environment = tierName === 'low' ? null : envRT.texture;
+    scene.environmentIntensity = 0.32;
+    hemi.intensity = tierName === 'low' ? 0.85 : 0.42;
+    pfTex.anisotropy = tierName === 'low' ? 2 : renderer.capabilities.getMaxAnisotropy(); pfTex.needsUpdate = true;
+  }
+  applyLights();
 
   // ------------------------------------------------------------------------------------------- camera
   const camera = new THREE.PerspectiveCamera(28, 1, 10, 6000);
@@ -409,26 +437,37 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
       rtW = Math.round(w * Math.min(ratio, Q.ratio)); rtH = Math.round(h * Math.min(ratio, Q.ratio));
       fitCamera(w / Math.max(1, h));
+      if (camMode !== 'full') this.setCamera(camMode);
       buildPost();
     },
     setTier(name) {
-      if (name === 'auto') name = softwareGL(renderer) ? 'low' : 'high';
+      if (name === 'auto') name = autoTier();
       if (!TIERS[name] || name === tierName) return;
       tierName = name; Q = TIERS[name];
+      applyLights(); applyMaterials();
       buildPost();
       window.dispatchEvent(new Event('resize'));
     },
     hide() { canvas.style.visibility = 'hidden'; },
-    setCamera(m) { camMode = m; },
+    /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */
+    setCamera(m) {
+      camMode = m || 'full';
+      if (camMode === 'full') { fitCamera(camera.aspect); return; }
+      const look = P(m.x, m.y, m.z || 0), d = m.dist || 260, pitch = m.pitch ?? 0.85, yaw = m.yaw || 0;
+      camera.position.set(look.x + Math.sin(yaw) * Math.sin(pitch) * d, look.y + Math.cos(pitch) * d, look.z + Math.cos(yaw) * Math.sin(pitch) * d);
+      camera.lookAt(look); camera.userData.base = camera.position.clone();
+    },
     draw(G, alpha, lampOn, interp, o) {
       canvas.style.visibility = 'visible';
       const t = o.t, dt = Math.min(0.1, Math.max(0, t - lastT)); lastT = t;
       // governor (ignore long frames from test stepping)
       if (!window.__TEST__ && dt > 0 && dt < 0.2) {
-        frames.push(dt); if (frames.length > 90) frames.shift();
-        if (frames.length === 90) {
-          const med = [...frames].sort((a, b) => a - b)[45];
-          if (med > 0.024 && tierName !== 'low') { slowFrames++; if (slowFrames > 2) { view.setTier(tierName === 'high' ? 'medium' : 'low'); slowFrames = 0; frames = []; } } else slowFrames = 0;
+        frames.push(dt); if (frames.length > 60) frames.shift();
+        if (frames.length === 60) {
+          const med = [...frames].sort((a, b) => a - b)[30];
+          if (med > 0.024 && tierName !== 'low') { slowFrames++; if (slowFrames > 1) { view.setTier(tierName === 'high' ? 'medium' : 'low'); slowFrames = 0; frames = []; } }
+          else if (med > 0.05 && tierName === 'low') { slowFrames++; if (slowFrames > 2 && view.onTooSlow) { view.onTooSlow(); slowFrames = 0; frames = []; } }
+          else slowFrames = 0;
         }
       }
       // flippers
@@ -448,11 +487,14 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       });
       for (let i = interp.balls.length; i < ballPool.length; i++) { ballPool[i].m.visible = ballPool[i].sh.visible = false; ballPool[i].last = null; }
       // lamps
-      lampMeshes.forEach(({ l, m, base }, i) => {
-        const v = lampOn[l.name] || 0;
-        m.material.color.copy(base).multiplyScalar(0.1 + v * 3.4);
-        halos[i].material.opacity = v * 0.32;
+      const touched = new Set();
+      lamps.forEach((l, i) => {
+        const v = lampOn[l.name] || 0, li = lampInst[i];
+        li.mesh.setColorAt(li.k, tmpC.copy(lampBase[i]).multiplyScalar(0.1 + v * 3.4)); touched.add(li.mesh);
+        halos.setColorAt(i, tmpC.copy(lampBase[i]).multiplyScalar(v * 0.32));
       });
+      for (const m of touched) m.instanceColor.needsUpdate = true;
+      halos.instanceColor.needsUpdate = true;
       // targets flash, drops
       const fx = o.effects;
       for (const tg of targets) {
@@ -506,7 +548,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       }
       // refresh the ball's reflection map (hide balls first so they don't reflect themselves)
       cubeAge++;
-      if (cubeAge > (tierName === 'high' ? 6 : tierName === 'medium' ? 30 : 1e9)) {
+      if (cubeAge > (Q.cube || (cubeDone ? 1e9 : 0))) {
+        cubeDone = true;
         cubeAge = 0;
         for (const B of ballPool) B.m.visible = false;
         steam.visible = false;

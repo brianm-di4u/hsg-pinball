@@ -118,3 +118,8 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
   .controls-hint { display: none; }
 }
 body.reduced *, body.reduced *::before { animation: none !important; transition: none !important; }
+
+/* review close-ups: the table canvas takes the whole window */
+body.closeup .glass, body.closeup .side { display: none; }
+body.closeup .stage { grid-template-columns: 1fr; }
+body.closeup .table { width: 100vw; }

@@ -50,6 +50,8 @@ async function initView() {
     try { view = await createView3D(canvasGL, T, LAMPS, { tier: want, reducedMotion }); } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
   }
   if (!view) view = view2d;
+  // the governor's last step: software GL still too slow at Low → the flat 2D table
+  if (view.kind === '3d') view.onTooSlow = () => { if (app.settings.tier === 'auto') { view.hide(); view = view2d; document.body.dataset.view = '2d'; } };
   document.body.dataset.view = view.kind;
   resize();
 }
@@ -86,6 +88,7 @@ app.start = () => {
   demo = false; bot = null; paused = false;
   G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffffff) });
   newGame(G, { balls: app.settings.balls, practice: app.settings.practice });
+  dmd.queue.length = 0; dmd.cur = null;   // a new game starts with a clean display
   screens.close();
   document.body.dataset.scene = 'game';
   startMusic('main');
@@ -283,7 +286,7 @@ window.__game = {
     else if (name === 'over') { if (demo) app.start(); api.endMode(G, false); G.scene = 'over'; screens.over(G.player.score, 0, false); }
     return screens.current || G.scene;
   },
-  newGame(o = {}) { if (o.balls) app.settings.balls = o.balls; app.start(); if (o.seed != null) { G = createGame(T, { seed: o.seed }); newGame(G, { balls: o.balls || 3, practice: !!o.practice, seed: o.seed }); } return true; },
+  newGame(o = {}) { if (o.balls) app.settings.balls = o.balls; app.start(); if (o.seed != null) { G = createGame(T, { seed: o.seed }); newGame(G, { balls: o.balls || 3, practice: !!o.practice, seed: o.seed }); dmd.queue.length = 0; dmd.cur = null; } return true; },
   act(name, ...a) {
     const w = G.w;
     switch (name) {
