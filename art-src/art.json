@@ -1,0 +1,14 @@
+{
+  "quality": 0.8,
+  "items": [
+    { "name": "backglass", "src": "pilot-backglass.png", "w": 768, "h": 1152, "quality": 0.8 },
+    { "name": "pf-mountain", "src": "pilot-pf-mountain.png", "w": 1536, "h": 1024, "quality": 0.76 },
+    { "name": "pf-promenade", "src": "pf-promenade.png", "w": 1280, "h": 853, "quality": 0.74 },
+    { "name": "pf-row", "src": "pf-row.png", "w": 1024, "h": 683, "quality": 0.72 },
+    { "name": "pf-derby", "src": "pf-derby.png", "w": 256, "h": 256, "quality": 0.75 },
+    { "name": "pf-vapors", "src": "pf-vapors.png", "w": 256, "h": 256, "quality": 0.75 },
+    { "name": "pf-raid", "src": "pf-raid.png", "w": 256, "h": 256, "quality": 0.75 },
+    { "name": "pf-tub", "src": "pf-tub.png", "w": 256, "h": 256, "quality": 0.75 },
+    { "name": "pf-coaster", "src": "pf-coaster.png", "w": 256, "h": 256, "quality": 0.75 }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "hsg-pinball",
+  "private": true,
+  "type": "module",
+  "description": "Spa City Pinball: an original top-down pinball table set on Bathhouse Row in Hot Springs, Arkansas",
+  "license": "MIT",
+  "scripts": {
+    "setup": "cd shared/test-harness && npm install && npx playwright install chromium",
+    "vendor": "node tools/build-vendor.mjs",
+    "table": "node tools/table/compile.mjs && node tools/table/check.mjs",
+    "sim": "node --test tests-node/",
+    "build": "node tools/assets-list.mjs && node shared/tools/inline.mjs .",
+    "test": "node shared/test-harness/run.mjs ."
+  }
+}

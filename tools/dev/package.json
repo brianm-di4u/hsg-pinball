@@ -1,0 +1,9 @@
+{
+  "name": "hsg-pinball-dev",
+  "private": true,
+  "description": "Build-time only dependencies (never shipped): three.js source for the vendored bundle, esbuild to bundle it.",
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.186.1"
+  }
+}

@@ -1,0 +1,56 @@
+{
+ "backglass": {
+  "file": "backglass.webp",
+  "w": 768,
+  "h": 1152,
+  "bytes": 193574
+ },
+ "pf-mountain": {
+  "file": "pf-mountain.webp",
+  "w": 1536,
+  "h": 1024,
+  "bytes": 487278
+ },
+ "pf-promenade": {
+  "file": "pf-promenade.webp",
+  "w": 1280,
+  "h": 853,
+  "bytes": 201956
+ },
+ "pf-row": {
+  "file": "pf-row.webp",
+  "w": 1024,
+  "h": 683,
+  "bytes": 88292
+ },
+ "pf-derby": {
+  "file": "pf-derby.webp",
+  "w": 256,
+  "h": 256,
+  "bytes": 21600
+ },
+ "pf-vapors": {
+  "file": "pf-vapors.webp",
+  "w": 256,
+  "h": 256,
+  "bytes": 20026
+ },
+ "pf-raid": {
+  "file": "pf-raid.webp",
+  "w": 256,
+  "h": 256,
+  "bytes": 21850
+ },
+ "pf-tub": {
+  "file": "pf-tub.webp",
+  "w": 256,
+  "h": 256,
+  "bytes": 24948
+ },
+ "pf-coaster": {
+  "file": "pf-coaster.webp",
+  "w": 256,
+  "h": 256,
+  "bytes": 21838
+ }
+}
