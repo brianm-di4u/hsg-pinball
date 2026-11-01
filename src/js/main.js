@@ -21,6 +21,7 @@ const TEST = !!window.__TEST__;
 const T = compileTable(spec);
 const LAMPS = buildLamps();
 const fmt = (n) => Number(n).toLocaleString('en-US');
+const MAX_DT = 0.1;   // longest real time one frame may simulate (a stall beyond it slows the game instead)
 
 const app = {
   settings: loadSettings(),
@@ -122,9 +123,11 @@ function pause() {
 }
 
 // ------------------------------------------------------------------------------------------------- input
+// The sim time an input event belongs to. The offset is capped like a frame's step (MAX_DT), so an event never lands
+// past the end of the frame that will run it.
 function simTimeFor(ts) {
   const now = G.w.tick * TICK;
-  const t = now + acc + Math.max(0, (ts - lastNow) / 1000) * timeScale;
+  const t = now + acc + Math.min(MAX_DT, Math.max(0, (ts - lastNow) / 1000)) * timeScale;
   return Math.max(now, t);
 }
 const input = createInput(tableEl, {
@@ -234,7 +237,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
   frameNo++;
   input.pollPad(ts);
-  let dt = Math.min(0.1, (ts - lastNow) / 1000);
+  let dt = Math.min(MAX_DT, (ts - lastNow) / 1000);
   lastNow = ts;
   if (slowUntil && ts > slowUntil) { timeScale = 1; slowUntil = 0; }
   if (!paused && !(TEST && window.__game.paused)) {

@@ -70,11 +70,17 @@ export function setFlipper(w, side, held) {
   for (const f of w.flippers) if (f.side === side) f.held = held;
 }
 
+export const TAP_PULL = 6;          // mm: a release before the plunger has drawn this far (~150 ms) is a tap
+export const TAP_STRENGTH = 0.85;   // a tap fires like a launch button, round the arch
+
 /** Hold (true) to draw the plunger back, release (false) to fire. */
 export function setPlunger(w, holding) {
   const p = w.plunger;
   if (holding && !p.holding) p.holding = true;
-  else if (!holding && p.holding) { p.holding = false; p.vel = p.maxVel * (p.pull / p.maxPull); }
+  else if (!holding && p.holding) {
+    if (p.pull < TAP_PULL) { autoPlunge(w, TAP_STRENGTH); return; }
+    p.holding = false; p.vel = p.maxVel * (p.pull / p.maxPull);
+  }
 }
 
 /** Fire the plunger at a set strength (0..1) without a pull: ball saves, multiball launches, tests. */
@@ -111,11 +117,13 @@ export function setDrop(w, segIndex, down) { w.drops[segIndex] = down ? 1 : 0; }
 
 /**
  * Queue an input to apply at sim time t (seconds), so a flip lands on the right ~1 ms substep instead of the next
- * 8 ms tick. fn(w) runs at the first substep at or after t.
+ * 8 ms tick. fn(w) runs at the first substep at or after t. Inputs sharing a key (a flipper side) apply in the order
+ * they were queued, whatever their times, so a release can never overtake its press.
  */
-export function queueInput(w, t, fn) {
-  w.pending.push({ t, fn });
-  w.pending.sort((a, b) => a.t - b.t);
+export function queueInput(w, t, fn, key) {
+  if (key != null) for (const q of w.pending) if (q.key === key && q.t > t) t = q.t;
+  w.pending.push({ t, fn, key });
+  w.pending.sort((a, b) => a.t - b.t);   // stable: equal times keep queue order
 }
 
 /** Advance one fixed tick (TICK seconds). Events land in w.events; the caller drains them. */
