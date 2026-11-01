@@ -265,6 +265,8 @@ function render(alpha) {
   setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
   setText('#modeline', demo ? '' : G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : G.mode.id[0].toUpperCase() + G.mode.id.slice(1)} · ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak', valley: 'Valley of the Vapors' }[G.mb.kind] : `Modes ${G.f.modesPlayed.reduce((a, b) => a + b, 0)}/6 · Tower ${G.f.towerLevel}/3`);   // fact: raid
   const showLaunch = !demo && !paused && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150);
+  const mg = demo ? '' : G.f.modesPlayed.map((p, i) => (G.mode && G.mode.i === i ? 'on' : G.f.modesWon[i] ? 'won' : p ? 'played' : '')).join(',');
+  if (mg !== uiCache.mg) { uiCache.mg = mg; const cls = mg.split(','); document.querySelectorAll('#modegrid li').forEach((li, i) => { li.className = cls[i] || ''; }); }
   if (showLaunch !== uiCache.launch) { $('#b-launch').classList.toggle('ready', showLaunch); uiCache.launch = showLaunch; }
   const pw = (G.w.plunger.pull / G.w.plunger.maxPull).toFixed(2);
   if (pw !== uiCache.power) { $('#power').style.setProperty('--p', pw); uiCache.power = pw; }

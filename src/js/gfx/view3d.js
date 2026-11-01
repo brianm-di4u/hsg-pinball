@@ -159,7 +159,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         mesh.castShadow = true; scene.add(mesh); targets.push({ seg: i, mesh, name: s.name });
       } else if (s.kind === K.GATE) box(a, b, 1.6, 1.6, 12, 'gate', 0);
     } else if (s.mask === (LAYER.FIELD | LAYER.RAMP)) {
-      box(a, b, s.r * 2, 22, 0, 'steel', s.r * 2);
+      box(a, b, 2.2, 20, 0, 'blade', 0); roundCap(a, b, 1.5, 20, 'bladeTop');
     }
   });
   // ramp: floor strip and side walls from the ramp centre line; wire rails as tubes
@@ -273,10 +273,10 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     const card = (x, w, lines) => {
       g.fillStyle = '#efe4c8'; g.fillRect(x, 30, w, 84); g.strokeStyle = '#7a5a20'; g.lineWidth = 2; g.strokeRect(x + 4, 34, w - 8, 76);
       g.fillStyle = '#2a1a10'; g.textAlign = 'center';
-      lines.forEach(([t, f], i) => { g.font = f; g.fillText(t, x + w / 2, 56 + i * 20); });
+      lines.forEach(([t, f], i) => { g.font = f; g.fillText(t, x + w / 2, 66 + i * 30); });
     };
-    if (!matchMedia('(pointer: coarse)').matches) card(40, 300, [['SPA CITY PINBALL', 'bold 20px Georgia, serif'], ['Bathhouse Row · Hot Springs', '15px Georgia, serif'], ['3 balls per game · match for a replay', '13px Georgia, serif']]);
-    if (!matchMedia('(pointer: coarse)').matches) card(684, 300, [['THE VAPORS STARTS MODES', 'bold 15px Georgia, serif'], ['3 locks: Arlington Multiball', '14px Georgia, serif'], ['all 8 bathhouses: Grand Soak', '14px Georgia, serif']]);
+    if (!matchMedia('(pointer: coarse)').matches) card(40, 300, [['SPA CITY', 'bold 30px Georgia, serif'], ['PINBALL', 'bold 22px Georgia, serif']]);
+    if (!matchMedia('(pointer: coarse)').matches) card(684, 300, [['THE VAPORS', 'bold 26px Georgia, serif'], ['STARTS MODES', 'bold 20px Georgia, serif']]);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   })();
   M.apron.map = apronTex; M.apron.color.set('#ffffff'); M.apron.metalness = 0.35; M.apron.roughness = 0.42;
@@ -309,9 +309,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         if (/glass_lit/.test(m.name)) { m.emissive = new THREE.Color('#ffc46a'); m.emissiveIntensity = 0.9; glowMats.push(m); }
         if (/neon/.test(m.name)) { m.emissive = m.color.clone(); m.emissiveIntensity = 2.2; glowMats.push(m); }
         if (m.name === 'bumper_body') { m.emissive = new THREE.Color('#3fe0c5'); m.emissiveIntensity = 0.35; m.color.set('#1f7f78'); m.opacity = 0.72; m.roughness = 0.15; }   // translucent spring-water teal, lit from inside
-        if (m.name === 'bumper_cap') { m.map = decals.cap; m.color.set('#ffffff'); m.roughness = 0.35; }
+        if (m.name === 'bumper_cap') { m.map = decals.cap; m.color.set('#ffffff'); m.roughness = 0.6; m.envMapIntensity = 0.3; }
         if (m.name === 'sign_panel') { m.map = decals.sign; m.emissiveMap = decals.sign; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0.85; m.color.set('#ffffff'); glowMats.push(m); }
-        if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#8a8a8a'); m.metalness = 0.15; m.roughness = 0.45; m.envMapIntensity = 0.4; }
+        if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#8a8a8a'); m.metalness = 0; m.roughness = 0.75; m.envMapIntensity = 0.2; }
         if (m.name === 'flipper_body') { m.color.set('#ffffff'); m.map = decals.flipper; m.roughness = 0.36; }
         if (m.name === 'bumper_base' || m.name === 'chrome') m.envMapIntensity = 0.45;
         if (m.name === 'chrome') { m.metalness = 1; m.roughness = 0.12; }
@@ -345,6 +345,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     body.position.y = 13; const cap = new THREE.Mesh(new THREE.CylinderGeometry(c.r, c.r, 6, 28), new THREE.MeshStandardMaterial({ color: '#fff4dc', roughness: 0.3 })); cap.position.y = 27;
     g.add(body, cap); g.position.copy(P(c.x, c.y, 0)); scene.add(g); glowMats.push(body.material); return { c, o: g };
   });
+  for (const b of bumperObjs) b.o.traverse((n) => { if (n.isMesh) for (const m of (Array.isArray(n.material) ? n.material : [n.material])) if (m.name === 'chrome' || m.name === 'bumper_base') { m.roughness = 0.45; m.envMapIntensity = 0.2; } });
   for (const b of bumperObjs) {
     b.mats = [];
     const ring = new THREE.Mesh(new THREE.PlaneGeometry(b.c.r * 3.4, b.c.r * 3.4), new THREE.MeshBasicMaterial({ map: softTexture(THREE), color: new THREE.Color('#ffd090').multiplyScalar(1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -377,12 +378,12 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   {
     const spots = [];   // [x, y, w, h, rot, darkness]
     for (const c of T.circles) if (c.mask & LAYER.FIELD) spots.push([c.x + 3, c.y - 3, c.r * (c.kind === K.BUMPER ? 3.0 : 3.2), c.r * (c.kind === K.BUMPER ? 3.0 : 3.2), 0, c.kind === K.BUMPER ? 0.75 : 0.5]);
-    for (const t of targets) { const s = T.segs[t.seg]; spots.push([(s.ax + s.bx) / 2, (s.ay + s.by) / 2 + 6, 34, 26, Math.atan2(s.by - s.ay, s.bx - s.ax), 0.55]); }
+    for (const t of targets) { const s = T.segs[t.seg]; let nx = s.nx, ny = s.ny; if (ny < 0) { nx = -nx; ny = -ny; } spots.push([(s.ax + s.bx) / 2 + nx * 9, (s.ay + s.by) / 2 + ny * 9, 36, 30, Math.atan2(s.by - s.ay, s.bx - s.ax), 0.7]); }
     for (const f of T.flippers) spots.push([f.x + Math.cos(f.rest) * f.len * 0.45 + 3, f.y + Math.sin(f.rest) * f.len * 0.45 - 4, f.len * 1.4, 34, f.rest, 0.5]);
     for (const n of ['slingBodyL', 'slingBodyR']) { const pts = T.spec.walls.find((w) => w.name === n).pts; const cx = pts.reduce((a, q) => a + q[0], 0) / pts.length, cy = pts.reduce((a, q) => a + q[1], 0) / pts.length; spots.push([cx + 3, cy - 4, 70, 140, 0.3 * (n.endsWith('L') ? -1 : 1), 0.45]); }
     spots.push([CX, 772, 64, 34, 0, 0.6], [458, 487, 44, 44, 0, 0.6], [VAP.x, VAP.y + 6, 60, 46, 0.25, 0.5]);
     const sg = new THREE.PlaneGeometry(1, 1); sg.rotateX(-Math.PI / 2);
-    const sm = new THREE.InstancedMesh(sg, new THREE.MeshBasicMaterial({ map: softTexture(THREE), color: '#000000', transparent: true, opacity: 0.78, depthWrite: false }), spots.length);
+    const sm = new THREE.InstancedMesh(sg, new THREE.MeshBasicMaterial({ map: softTexture(THREE), color: '#000000', transparent: true, opacity: 0.85, depthWrite: false }), spots.length);
     spots.forEach(([x, y, w, h, r, d], i) => { sm.setMatrixAt(i, new THREE.Matrix4().compose(P(x, y, 0.25), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r, 0)), new THREE.Vector3(w, 1, h))); });
     sm.renderOrder = 0; sm.frustumCulled = false; scene.add(sm);
   }
@@ -611,7 +612,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       const touched = new Set();
       lamps.forEach((l, i) => {
         const v = lampOn[l.name] || 0, li = lampInst[i];
-        li.mesh.setColorAt(li.k, tmpC.copy(lampBase[i]).multiplyScalar(0.1 + v * (l.group === 'row' ? 1.5 : 2.9))); touched.add(li.mesh);   // target inserts sit under their name plates: kept below bloom clip
+        li.mesh.setColorAt(li.k, tmpC.copy(lampBase[i]).multiplyScalar(0.1 + v * (l.group === 'row' || l.name === 'wizard' ? 1.5 : 2.9))); touched.add(li.mesh);   // target inserts sit under their name plates: kept below bloom clip
         halos.setColorAt(i, tmpC.copy(lampBase[i]).multiplyScalar(v * (l.group === 'spa' ? 0.75 : 0.2)));
       });
       for (const m of touched) m.instanceColor.needsUpdate = true;
@@ -680,7 +681,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       key.intensity = moodState.fromK + (1.35 * (mood ? mood[1] : 1) - moodState.fromK) * mk;
       hemi.intensity = moodState.fromH + ((tierName === 'low' ? 0.85 : 0.42) * (mood ? mood[1] : 1) - moodState.fromH) * mk;
       const moodScale = moodState.fromK / 1.35 + ((mood ? mood[1] : 1) - moodState.fromK / 1.35) * mk;
-      for (const l of giLights) l.intensity = l.userData.base * moodScale;
+      const pulse = !o.reduced && o.effects.some((e) => e.k === 'flash' && /^bumper/.test(e.name || '') && t - e.t < 0.06) ? 1.25 : 1;
+      for (const l of giLights) l.intensity = l.userData.base * moodScale * pulse;
       scene.environmentIntensity = 0.32 * moodScale;   // the room reflections dim with the lights
       // camera shake (nudge, tilt, a small kick on bumper hits); none with reduced motion
       // follow camera: track the lowest ball (the one the player must deal with), eased

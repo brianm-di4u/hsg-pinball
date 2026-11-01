@@ -1,0 +1,24 @@
+# Advocate brief: loop 7
+
+You are the advocate for the build in an adversarial review of **Spa City Pinball** (a browser three.js pinball table set on Bathhouse Row in Hot Springs, Arkansas). Two independent critics scored this loop's captures. Your
+job: **test every claim against the captures.** Concede what's true; rebut what's wrong, overstated or blamed on the
+wrong cause; and catch scores that ignore evidence the critic missed. You aren't a cheerleader: a rebuttal without a
+cited capture counts for nothing.
+
+## Inputs
+- Rubric `games/Pinball/reviews/RUBRIC.md`, schema `games/Pinball/reviews/schema.json`
+- This loop's brief `games/Pinball/reviews/loop-7/brief.md` (capture index, A/B pairs, changes, performance)
+- Captures: `games/Pinball/screenshots/review-loop-7/`
+- Critiques: `games/Pinball/reviews/loop-7/critic-claude.md`, `games/Pinball/reviews/loop-7/critic-codex.md`
+- Off limits: `HISTORY.md`, `history.json`, `ab-key.json`, `prosecutor.md`, other `loop-*` folders.
+
+## Rules
+- Go through the critics' claims category by category. For each, say concede or rebut, cite a capture path, and
+  say what is actually visible there.
+- You may propose a corrected score per category. It must stay within ±1 of the two critics' mean, with evidence.
+- You may not add new gaps. You may challenge a gap's severity, expected gain, or the cause it blames.
+- Mark facts a critic got plainly wrong, such as calling something absent that is visible in a named capture.
+
+End with one fenced ```json block per schema.json: `"role": "advocate"`, `"loop": 7`, `"tier": "high"`.
+Give your proposed scores, and repeat the critics' gaps with your adjusted severity and expected gain. Don't edit
+any file.

@@ -1,0 +1,7 @@
+- Ramp mouth: the two block walls at the ramp entrance are stainless blades with a rolled top (no more walnut boxes).
+- Glare: the spinner flag is a diffuse painted plate (it flared under the key light); bumper caps are satin; bumper chrome and base rings are satin and reflect less, so they no longer read as extra balls; the wizard star stays below bloom clipping.
+- Contact shadows: a larger, darker soft footprint sits under each bathhouse model itself.
+- Bumper hits pulse the GI briefly (not with reduced motion); the bumper motion strip now aims the ball straight at a bumper so hits, sinks and flashes are in frame.
+- MOUNTAIN TOWER's plate moved clear of the COASTER legend; apron cards carry one large line each.
+- Desktop: the table viewport is wider (about 66% of the screen height in width) and the side columns narrower; the side panel adds a six-lamp mode grid (played, won, running).
+- Phone landscape: slimmer HUD column.

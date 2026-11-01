@@ -81,7 +81,7 @@ export const tests = !live ? [] : [
       // S01: a flipper shot up the field; S02: a bumper frenzy; S03: multiball launch
       const strips = [
         ['S01-flip', async () => { await rich(t, 11); await t.game('act', 'placeBall', 200, 150, 120, -200); await t.game('act', 'flipAt', 'L', 60, 220); }, 3, { x: 242, y: 255, dist: 820, pitch: 0.5 }],
-        ['S02-bumpers', async () => { await rich(t, 12); await t.game('act', 'placeBall', 210, 860, 300, -1200); }, 3, { x: 250, y: 860, dist: 560, pitch: 0.6 }],
+        ['S02-bumpers', async () => { await rich(t, 12); await t.game('act', 'placeBall', 252, 962, 0, -900); }, 3, { x: 250, y: 860, dist: 560, pitch: 0.6 }],
         ['S03-multiball', async () => { await rich(t, 13); await t.game('act', 'multiball', 'soak'); await t.game('step', 60); }, 12, { x: 260, y: 560, dist: 1250, pitch: 0.4 }],
       ];
       // a wide canvas and a framed camera, so each strip frame shows the action rather than the whole page

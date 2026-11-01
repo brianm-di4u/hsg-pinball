@@ -1,0 +1,188 @@
+[
+  {
+    "id": "G-landscape-refit",
+    "category": "mobile",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "S",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape",
+      "ab/mobile-r11-landscape"
+    ],
+    "fix": "Refit the landscape camera to the canvas left of the HUD, narrow the HUD column and add a visible Launch control; test: r11 table bbox covers at least 85% of the 390 px height and its area is at least last loop's build.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-glare-bloom-clip",
+    "category": "lighting",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/r08-wizard",
+      "strips/s03-multiball",
+      "desktop/s02-bumpers-5"
+    ],
+    "fix": "Find and dim the light behind the c04 top-left flare, cap the Valley star emissive below the bloom threshold, cut bumper cap specular; test: no saturated white area over 40 px in c04, r08 or s03 frames 4-7, and 143F legible on every cap in every s02 frame.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-bumper-hotspot-decoys",
+    "category": "readability",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r06-multiball",
+      "desktop/r03-play"
+    ],
+    "fix": "Replace the white bumper-base point sprites with a dim teal ring glow on the skirt; test: in r02 and r06 no non-ball blob with luminance above 0.9 is larger than half the ball diameter.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-bumper-hit-sync",
+    "category": "animation",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s02-bumpers",
+      "strips/s01-flip"
+    ],
+    "fix": "Peak bumper flash and the 6 mm sink on the contact frame with a 2-3 frame decay, add a sling-rubber flash and a GI pulse on bumper hits, and re-frame the s02 capture on the bumpers; test: one s02 frame shows the ball touching a visibly sunk, flashing bumper.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-playfield-legend-overlap",
+    "category": "typography",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "mobile/r03-play",
+      "desktop/r02-serve"
+    ],
+    "fix": "Move the COASTER legend off the end of the ramp plate, set minimum plate cap height about 7 px at 1280x800 and 8 device px at 390 px, cut apron cards to one large line; test: MOUNTAIN TOWER fully legible in desktop r02 and mobile r03.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-ramp-entrance",
+    "category": "toys",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c05-tower"
+    ],
+    "fix": "Replace the two walnut boxes at the ramp mouth with stainless blade posts, end each clear lip in a rounded return, add a metal entrance flap meeting the playfield and remove the bed seam; test: c05 shows no brown box, pointed lip end or seam.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-dmd-and-side-panel",
+    "category": "ui",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r04-bumpers",
+      "desktop/r03-play",
+      "desktop/r09-help"
+    ],
+    "fix": "Keep score plus one live objective on the DMD in every play state, give mode icons a 2-4 frame cycle, fill the space under Menu with a mode-progress lamp grid, and balance the help columns; test: every desktop play frame's DMD shows score and an objective, and no help text is cut by Back at first view.",
+    "priority": 0.3,
+    "selected": true
+  },
+  {
+    "id": "G-ball-env-reflection",
+    "category": "lighting",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r03-play",
+      "strips/s01-flip"
+    ],
+    "fix": "Give the ball an environment map rendered from the playfield (low-res CubeCamera every few frames or a baked playfield cubemap) with a slightly darker fresnel rim; test: at 4x the ball in r03 shows warm playfield colour and no plus-shaped cross.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-grey-slab-walls",
+    "category": "toys",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c06-arlington"
+    ],
+    "fix": "Rebuild the Vapors scoop walls and the Arlington lock back wall in the brushed-stainless blade profile with a rolled top and screw heads; test: c04 and c06 show no flat untextured grey faces.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-lensed-inserts",
+    "category": "art",
+    "expectedGain": 0.4,
+    "severity": 2,
+    "effort": "M",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c02-springs",
+      "desktop/r03-play"
+    ],
+    "fix": "Model the shot arrows and star as bevelled lensed inserts lit from below, and darken and simplify the printed art right around each upper-field entrance; test: in c04 the arrows show a bevel and an inner lens gradient.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-grounding-shadows",
+    "category": "lighting",
+    "expectedGain": 0.75,
+    "severity": 4,
+    "effort": "L",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c01-row",
+      "desktop/c03-flippers",
+      "desktop/c05-tower",
+      "desktop/r03-play"
+    ],
+    "fix": "Big lever: soft shadow-mapped key light (PCF/VSM) from the GI direction for bathhouses, tower, Arlington, slings, flippers, posts and ramp, plus baked AO and contact decals under every plinth and post and a soft blob shadow under each ball (Low tier: decals only); test: visible darkening under every bathhouse in c01, under the flippers in c03 and under the ball in r03, perf gates still pass.",
+    "priority": 0.281,
+    "bigLever": true,
+    "selected": true
+  },
+  {
+    "id": "G-flipper-plinth-detail",
+    "category": "toys",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c03-flippers",
+      "desktop/c01-row"
+    ],
+    "fix": "Add a deco decal, bevelled edge and rubber texture to the flippers, and give each bathhouse plinth bevels and a per-building stone or brick texture; test: c03 flippers show a decal and bevel, and no two c01 plinths are identical plain beige cubes.",
+    "priority": 0.225,
+    "selected": false
+  }
+]
