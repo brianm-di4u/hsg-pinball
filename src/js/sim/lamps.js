@@ -83,7 +83,7 @@ export function lampStates(G, lamps, t) {
   });
   // the skill lane flashes at full strength (3 Hz, the strobe ceiling); other lanes sit dim while it is offered
   const offering = G.ball.inLane || G.ball.skillUntil > G.t;
-  ['S', 'P', 'A'].forEach((k, i) => set('lane' + k, offering && G.ball.skillLane === i ? fast : f.spa[i] ? (offering ? 0.4 : 1) : 0));
+  ['S', 'P', 'A'].forEach((k, i) => set('lane' + k, offering && G.ball.skillLane === i ? fast : f.spa[i] ? (offering ? 0.12 : 1) : 0));
   for (let k = 2; k <= 5; k++) set('bonus' + k + 'x', G.player.bonusX >= k ? 1 : 0);
   set('shootAgain', G.player.extraBalls > 0 ? 1 : (G.t < G.ball.saveUntil ? slow : 0));
   MODES.forEach((_, i) => set('mode' + i, mb && mb.kind === 'valley' ? (Math.floor(t * 2.5 + i * 0.5) % 2 ? 1 : 0.3) : m && m.i === i ? fast : f.modesWon[i] ? 1 : f.modesPlayed[i] ? 0.45 : (!m && !mb && i === nextModeIndex(f)) ? slow * 0.5 : 0));

@@ -19,6 +19,14 @@ export const tests = [
     },
   },
   {
+    name: 'AC27 playfield labels clear of inserts, walls and toys', node: true,
+    async run(t) {
+      let out = '', ok = true;
+      try { out = execFileSync(process.execPath, [path.join(GAME, 'tools', 'check-layout.mjs')], { encoding: 'utf8' }); } catch (e) { ok = false; out = e.stdout; }
+      t.log(out.trim()); t.expect(ok, 'check-layout passes');
+    },
+  },
+  {
     name: 'AC29 no lamp strobes faster than 3 Hz', node: true,
     async run(t) {
       const T = compileTable(spec), L = buildLamps(), G = createGame(T); newGame(G);

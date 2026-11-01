@@ -1,0 +1,10 @@
+- Phone landscape: back to a whole-table view; on wide canvases the camera tilts toward a standing player's eye (up to about 64°) so the full field from the arch to the apron fits with more of the width used; the side panel holds the DMD, ball count and mode/tower progress.
+- Mood lighting now darkens the table instead of brightening it: modes drop key, fill and GI to about 75%, multiballs to about 55%, the wizard to about 35%, so lit inserts and arrows carry the light; tints unchanged.
+- Hardware: inner guides are half as tall, in lacquered walnut with brushed-brass half-round caps; the ramp's side walls are built from 7 mm segments (no stair steps); the wire return gets cross-ties every 45 mm and chrome supports; a metal entrance flap sits at the ramp mouth; bumper bodies are translucent spring-water teal lit from inside; the bumper hit flash on the playfield is a soft glow instead of a hard ring.
+- Lamps: the skill-shot lane gets a large halo; unlit S·P·A lanes drop to about 12% while the skill shot is offered.
+- Labels: a layout check (tools/check-layout.mjs, part of the test suite) now fails on any label touching an insert, wall, post or hole; MOUNTAIN TOWER, THE VAPORS, RESERVE ST, THERMAL SPRINGS and the logo moved to pass it.
+- The Vapors sign is smaller and its lettering upright.
+- DMD: mode and multiball intros show a short complete objective (at most 14 characters, static) beside the silhouette.
+- The score appears once: in the DMD normally; the side panel / phone chip shows it only while the DMD shows a callout.
+- Phones: apron instruction cards are left off where the on-screen buttons sit over the apron.
+- Help: the body scrolls in its own area that ends above the Back button.

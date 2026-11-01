@@ -4,6 +4,7 @@
 import { shape } from './view2d.js';
 import { CX, BATHHOUSES, VAP } from '../sim/table-spa-city.js';
 import { MODES } from '../sim/rules.js';
+import { FEATURE_LABELS } from '../sim/labels.js';
 
 const FONT = '"Futura", "Century Gothic", "Avenir Next", "Trebuchet MS", system-ui, sans-serif';
 const SERIF = '"Rockwell", "Bookman Old Style", Georgia, "Times New Roman", serif';
@@ -90,18 +91,7 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     g.restore();
   };
   // centre logo
-  label('SPA CITY', CX + 14, 522, 27, '#ffd877', 0, SERIF, 900, 0.08);
-  label('BATHHOUSE ROW · HOT SPRINGS', CX + 14, 499, 7.5, '#e8d9b0', 0, FONT, 700, 0.18);
-  // feature names
-  label('CENTRAL AVENUE', 36, 772, 8, '#9fdcff', Math.PI / 2);   // above the spinner
-  label('RESERVE ST', 404, 735, 7, '#8ff0dc', Math.PI / 2);
-  label('MOUNTAIN TOWER', 328, 380, 9, '#ffd877', Math.atan2(0.893, 0.45), FONT, 800, 0.1, true);   // left of its arrow and lamps
-  label('THE VAPORS', 186, 590, 7, '#ff9a7e', -1.33, FONT, 800, 0.08, true);   // ends above the SPA CITY logo
-  label('LOCK', CX, 610, 8, '#ff7e70');
-  label('THE ARLINGTON', CX, 678, 6.5, '#ffb0a8');
-  label('SHOOT AGAIN', CX, 157, 8, '#ffb0a6', 0, FONT, 800, 0.08, true);
-  label('EXTRA BALL', VAP.x + 30, VAP.y - 140, 5.5, '#a8f0a0', 0);
-  label('THERMAL SPRINGS', 84, 760, 6.5, '#ffb08a', Math.PI / 2);
+  for (const [t, x, y, size, col, ang, wt, plate, font] of FEATURE_LABELS) label(t, x, y, size, col, ang, font === 'serif' ? SERIF : FONT, wt, t === 'SPA CITY' ? 0.08 : 0.12, plate);
   ['S', 'P', 'A'].forEach((l, i) => label(l, 356 + i * 40, 908, 11, '#ffd877'));
   // bathhouse names on the bank, small, north to south
   const banks = [[[117, 650], [203, 694], 0], [[2 * CX - 203, 694], [2 * CX - 117, 650], 4]];
@@ -117,7 +107,6 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
   }
   MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 17, 7.2, '#ecd8ff', 0, FONT, 800, 0.04, true, 30); });
   for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 15, 8, '#ffd877', 0, FONT, 800, 0.04, true);
-  label('VALLEY OF THE VAPORS', CX, 448, 6.5, '#ffffff');
 
   // 6. inserts: unlit plastic look (dark tinted with a light rim). The lit glow is a separate emissive layer.
   const mask = document.createElement('canvas'); mask.width = W; mask.height = H;

@@ -78,9 +78,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     wood: new THREE.MeshStandardMaterial({ color: '#3a2214', roughness: 0.55, metalness: 0 }),
     woodTop: new THREE.MeshStandardMaterial({ color: '#c9a050', roughness: 0.3, metalness: 0.85 }),
     chrome: new THREE.MeshStandardMaterial({ color: '#e8ecf2', roughness: 0.16, metalness: 1, envMapIntensity: 0.6 }),
-    steel: new THREE.MeshStandardMaterial({ color: '#232036', roughness: 0.32, metalness: 0.15 }),   // inner guides: dark lacquer
+    steel: new THREE.MeshPhysicalMaterial({ color: '#3a1d10', roughness: 0.45, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.2 }),   // inner guides: lacquered walnut
     railCap: new THREE.MeshStandardMaterial({ color: '#a8843a', roughness: 0.55, metalness: 0.75, envMapIntensity: 0.5 }),   // brushed brass: no mirror glare
-    lacquerTop: new THREE.MeshStandardMaterial({ color: '#8f7030', roughness: 0.5, metalness: 0.85, envMapIntensity: 0.5 }),   // brushed: rounded caps must not bloom
+    lacquerTop: new THREE.MeshStandardMaterial({ color: '#b8923e', roughness: 0.4, metalness: 1, envMapIntensity: 0.5 }),   // brushed: rounded caps must not bloom
     rubber: new THREE.MeshStandardMaterial({ color: '#cfc8ba', roughness: 0.7, metalness: 0 }),
     blackRubber: new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.7, metalness: 0 }),
     target: new THREE.MeshStandardMaterial({ color: '#d9c9a3', roughness: 0.35, metalness: 0.1, emissive: '#ffd877', emissiveIntensity: 0 }),
@@ -91,6 +91,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     apron: new THREE.MeshStandardMaterial({ color: '#2a2740', roughness: 0.4, metalness: 0.6 }),
     ball: new THREE.MeshStandardMaterial({ color: '#f4f6f9', roughness: 0.08, metalness: 1, envMapIntensity: 1.35 }),
     gate: new THREE.MeshStandardMaterial({ color: '#d8dde4', roughness: 0.2, metalness: 1 }),
+    steelFlap: new THREE.MeshStandardMaterial({ color: '#9aa2ad', roughness: 0.35, metalness: 1, envMapIntensity: 0.6 }),
   };
 
   // ------------------------------------------------------------------------------------------- playfield
@@ -131,9 +132,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     if (s.mask === LAYER.FIELD) {
       if (s.kind === K.WALL) {
         const outer = s.group === 'rail';
-        box(a, b, s.r * 2, outer ? 34 : 22, 0, outer ? 'wood' : 'steel', s.r * 2);
+        box(a, b, s.r * 2, outer ? 34 : 13, 0, outer ? 'wood' : 'steel', s.r * 2);
         if (outer) roundCap(a, b, s.r + 1.2, 34, 'railCap');
-        else roundCap(a, b, s.r + 0.6, 22, 'brass');
+        else roundCap(a, b, s.r + 0.6, 13, 'brass');
       } else if (s.kind === K.RUBBER || s.kind === K.SLING) {
         if (s.kind === K.SLING) {
           const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -168,6 +169,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   };
   const ramp = T.ramps.find((r) => r.layer === LAYER.RAMP), wire = T.ramps.find((r) => r.layer === LAYER.WIRE);
   if (ramp) {
+    { const [x0, y0] = ramp.pts[0], [x1, y1] = ramp.pts[1], ang = Math.atan2(y1 - y0, x1 - x0);
+      const flap = new THREE.Mesh(new THREE.BoxGeometry(50, 1.2, 22), M.steelFlap); flap.position.copy(P(x0 - Math.cos(ang) * 6, y0 - Math.sin(ang) * 6, 0.8)); flap.rotation.y = ang + Math.PI / 2; flap.receiveShadow = true; scene.add(flap); }
     // floor: offset the centre line by ±half width, densified
     const pts = densify(ramp.pts, 10);
     const pos = [];
@@ -184,7 +187,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   T.segs.forEach((s) => {
     if (!(s.mask & LAYER.RAMP) || !ramp) return;
     const za = rampZ(ramp, s.ax, s.ay), zb = rampZ(ramp, s.bx, s.by);
-    const n = Math.max(1, Math.ceil(Math.hypot(s.bx - s.ax, s.by - s.ay) / 20));
+    const n = Math.max(1, Math.ceil(Math.hypot(s.bx - s.ax, s.by - s.ay) / 7));
     for (let k = 0; k < n; k++) {
       const t0 = k / n, t1 = (k + 1) / n;
       const a = [s.ax + (s.bx - s.ax) * t0, s.ay + (s.by - s.ay) * t0], b = [s.ax + (s.bx - s.ax) * t1, s.ay + (s.by - s.ay) * t1];
@@ -201,7 +204,13 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       }
     }
     // wire supports every ~80 mm
-    for (const p of densify(wire.pts, 80)) { cyl(p[0], p[1], 1.4, p[2] + 3, 0, 'steel', 8); }
+    for (const p of densify(wire.pts, 80)) { cyl(p[0], p[1], 1.4, p[2] + 3, 0, 'chrome', 8); }
+    // cross-ties between the two rails every ~45 mm
+    const wp = densify(wire.pts, 45);
+    for (let i = 1; i < wp.length - 1; i++) {
+      const [x0, y0] = wp[i - 1], [x1, y1] = wp[i + 1], L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / L, ny = (x1 - x0) / L, [x, y, z] = wp[i];
+      geo.chrome.push(new THREE.TubeGeometry(new THREE.LineCurve3(P(x - nx * 20, y - ny * 20, z + 2), P(x + nx * 20, y + ny * 20, z + 2)), 1, 1.1, 6, false));
+    }
   }
   // posts and bumpers
   const bumpers = [];
@@ -247,8 +256,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       g.fillStyle = '#2a1a10'; g.textAlign = 'center';
       lines.forEach(([t, f], i) => { g.font = f; g.fillText(t, x + w / 2, 56 + i * 20); });
     };
-    card(40, 300, [['SPA CITY PINBALL', 'bold 20px Georgia, serif'], ['Bathhouse Row · Hot Springs', '15px Georgia, serif'], ['3 balls per game · match for a replay', '13px Georgia, serif']]);
-    card(684, 300, [['THE VAPORS STARTS MODES', 'bold 15px Georgia, serif'], ['3 locks: Arlington Multiball', '14px Georgia, serif'], ['all 8 bathhouses: Grand Soak', '14px Georgia, serif']]);
+    if (!matchMedia('(pointer: coarse)').matches) card(40, 300, [['SPA CITY PINBALL', 'bold 20px Georgia, serif'], ['Bathhouse Row · Hot Springs', '15px Georgia, serif'], ['3 balls per game · match for a replay', '13px Georgia, serif']]);
+    if (!matchMedia('(pointer: coarse)').matches) card(684, 300, [['THE VAPORS STARTS MODES', 'bold 15px Georgia, serif'], ['3 locks: Arlington Multiball', '14px Georgia, serif'], ['all 8 bathhouses: Grand Soak', '14px Georgia, serif']]);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   })();
   M.apron.map = apronTex; M.apron.color.set('#ffffff'); M.apron.metalness = 0.35; M.apron.roughness = 0.42;
@@ -280,7 +289,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const m = mats[i] = mats[i].clone();
         if (/glass_lit/.test(m.name)) { m.emissive = new THREE.Color('#ffc46a'); m.emissiveIntensity = 0.9; glowMats.push(m); }
         if (/neon/.test(m.name)) { m.emissive = m.color.clone(); m.emissiveIntensity = 2.2; glowMats.push(m); }
-        if (m.name === 'bumper_body') { m.emissive = new THREE.Color('#ff9a3c'); m.emissiveIntensity = 0.3; m.color.set('#ffd9a8'); m.opacity = 0.85; }
+        if (m.name === 'bumper_body') { m.emissive = new THREE.Color('#3fe0c5'); m.emissiveIntensity = 0.35; m.color.set('#1f7f78'); m.opacity = 0.72; m.roughness = 0.15; }   // translucent spring-water teal, lit from inside
         if (m.name === 'bumper_cap') { m.map = decals.cap; m.color.set('#ffffff'); m.roughness = 0.35; }
         if (m.name === 'sign_panel') { m.map = decals.sign; m.emissiveMap = decals.sign; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 1.4; m.color.set('#ffffff'); glowMats.push(m); }
         if (m.name === 'spinner_plate') { m.map = decals.spinner; m.color.set('#d8d8d8'); m.metalness = 0.15; m.roughness = 0.45; m.envMapIntensity = 0.4; }
@@ -309,7 +318,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const tw = place('tower', 458, 487, 0, 0, 1000); if (tw) tw.scale.set(1350, 2700, 1350);
   const ar = place('arlington', CX, 766, 0, 0, 820); if (ar) ar.scale.set(820, 1640, 900);
   { const fx = 2 * CX - 177.5 - VAP.x, fy = 110 - VAP.y, L = Math.hypot(fx, fy);
-    place('vapors', VAP.x - (fx / L) * 8, VAP.y - (fy / L) * 8, 0, face(fx / L, fy / L), 1550); }
+    place('vapors', VAP.x - (fx / L) * 8, VAP.y - (fy / L) * 8, 0, face(fx / L, fy / L), 1250); }
   const bumperObjs = bumpers.map((c) => {
     const o = place('bumper', c.x, c.y, 0, 0, 1000 * (c.r / 25));
     if (o) return { c, o };
@@ -319,7 +328,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   });
   for (const b of bumperObjs) {
     b.mats = [];
-    const ring = new THREE.Mesh(new THREE.RingGeometry(b.c.r * 1.05, b.c.r * 1.55, 32), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb060').multiplyScalar(2.2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    const ring = new THREE.Mesh(new THREE.PlaneGeometry(b.c.r * 3.4, b.c.r * 3.4), new THREE.MeshBasicMaterial({ map: softTexture(THREE), color: new THREE.Color('#ffd090').multiplyScalar(1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.copy(P(b.c.x, b.c.y, 0.6)); scene.add(ring); b.ring = ring;
   } bumperObjs.forEach((b) => b.o.traverse((n) => { if (n.isMesh) (Array.isArray(n.material) ? n.material : [n.material]).forEach((m) => { if (m.emissive && m.emissiveIntensity > 0) b.mats.push(m); }); }));
   // flippers
@@ -434,11 +443,11 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   // point lights cost every lit pixel, so the tier decides how many exist (GI pairs top to bottom, flashers for events)
   const flasherPool = [0, 1].map(() => new THREE.PointLight('#ffb070', 0, 260, 2));
   const giPool = [[60, 300], [420, 300], [150, 900], [330, 900]].map(([x, y]) => { const l = new THREE.PointLight('#ffcf88', 2200, 560, 2); l.position.copy(P(x, y, 110)); return l; });
-  let flashers = [];
+  let flashers = [], giLights = [];
   function applyLights() {
     for (const l of [...flasherPool, ...giPool]) scene.remove(l);
     flashers = flasherPool.slice(0, Q.flashers); flashers.forEach((l) => scene.add(l));
-    const g = giPool.slice(0, Q.gi); g.forEach((l) => { l.intensity = 2200 * (4 / Math.max(2, Q.gi)) * 0.6; scene.add(l); });
+    const g = giPool.slice(0, Q.gi); g.forEach((l) => { l.intensity = l.userData.base = 2200 * (4 / Math.max(2, Q.gi)) * 0.6; scene.add(l); }); giLights = g;
     // Low drops the environment map (its per-pixel sampling dominates software GL) and lifts the fill instead
     scene.environment = tierName === 'low' ? null : envRT.texture;
     scene.environmentIntensity = 0.32;
@@ -457,9 +466,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   let follow = null;   // {d, yMin, yMax, y} when following
   function fitCamera(aspect) {
     camera.aspect = aspect; camera.updateProjectionMatrix();
-    PITCH = aspect < 0.75 ? 0.32 : Math.min(0.78, 0.32 + (aspect - 0.75) * 0.6);
+    PITCH = aspect < 0.75 ? 0.32 : Math.min(1.12, 0.32 + (aspect - 0.75) * 0.85);
     follow = null;
-    if (aspect > 1.2) {
+    if (aspect > 1.2 && false) {   // (follow camera kept for reference; full fit reads better)
       PITCH = 0.62;
       const tgt = P(W / 2, 300, 0);
       let lo = 300, hi = 8000;
@@ -582,7 +591,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       lamps.forEach((l, i) => {
         const v = lampOn[l.name] || 0, li = lampInst[i];
         li.mesh.setColorAt(li.k, tmpC.copy(lampBase[i]).multiplyScalar(0.1 + v * 2.9)); touched.add(li.mesh);
-        halos.setColorAt(i, tmpC.copy(lampBase[i]).multiplyScalar(v * 0.2));
+        halos.setColorAt(i, tmpC.copy(lampBase[i]).multiplyScalar(v * (l.group === 'spa' ? 0.75 : 0.2)));
       });
       for (const m of touched) m.instanceColor.needsUpdate = true;
       halos.instanceColor.needsUpdate = true;
@@ -599,7 +608,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const k = hit ? 1 - (t - hit.t) / 0.18 : 0;
         for (const m of b.mats) m.emissiveIntensity = 0.3 + k * 3.2;
         b.o.position.y = -k * 4;
-        if (b.ring) { b.ring.material.opacity = k * 0.9; b.ring.scale.setScalar(1 + (1 - k) * 0.6); }
+        if (b.ring) { b.ring.material.opacity = k * 0.4; b.ring.scale.setScalar(1 + (1 - k) * 0.6); }
       });
       // flashers follow recent big events
       const big = fx.filter((e) => e.k === 'flash' && t - e.t < 0.2).slice(-3);
@@ -641,14 +650,15 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         for (const sb of slingBands) if (sb.side === side) { const k = hit ? Math.sin(Math.min(1, (t - hit.t) / 0.12) * Math.PI) : 0; sb.mesh.position.set(sb.base.x + sb.n[0] * 4 * k, sb.base.y, sb.base.z - sb.n[1] * 4 * k); }
       }
       // mood lighting per mode and multiball (lerped, never strobing)
-      const mood = G.mb ? { valley: ['#b48cff', 0.35], soak: ['#5fe8d0', 1], arlington: ['#ffc860', 1] }[G.mb.kind]
-        : G.mode ? { soak: ['#8fe6d6', 1], derby: ['#ffc070', 1], raid: ['#ff8a8a', 0.85], tower: ['#9cc8ff', 1], tub: ['#7fe0e8', 1], coaster: ['#ff9ad6', 1] }[G.mode.id] : null;
+      const mood = G.mb ? { valley: ['#b48cff', 0.35], soak: ['#5fe8d0', 0.55], arlington: ['#ffc860', 0.55] }[G.mb.kind]
+        : G.mode ? { soak: ['#8fe6d6', 0.75], derby: ['#ffc070', 0.75], raid: ['#ff8a8a', 0.65], tower: ['#9cc8ff', 0.75], tub: ['#7fe0e8', 0.75], coaster: ['#ff9ad6', 0.75] }[G.mode.id] : null;
       const moodKey = mood ? mood.join() : 'none';
       if (moodKey !== moodState.key) { moodState.key = moodKey; moodState.t0 = G.t; moodState.fromC = hemi.color.clone(); moodState.fromK = key.intensity; moodState.fromH = hemi.intensity; }
       const mk = Math.min(1, Math.max(0, (G.t - moodState.t0) / 0.6));
       hemi.color.copy(moodState.fromC).lerp(tmpC.set(mood ? mood[0] : '#9fb4ff'), mk);
       key.intensity = moodState.fromK + (1.35 * (mood ? mood[1] : 1) - moodState.fromK) * mk;
-      hemi.intensity = moodState.fromH + ((tierName === 'low' ? 0.85 : 0.42) * (mood ? (mood[1] < 1 ? 0.55 : 1.5) : 1) - moodState.fromH) * mk;
+      hemi.intensity = moodState.fromH + ((tierName === 'low' ? 0.85 : 0.42) * (mood ? mood[1] : 1) - moodState.fromH) * mk;
+      for (const l of giLights) l.intensity = l.userData.base * (moodState.fromK / 1.35 + ((mood ? mood[1] : 1) - moodState.fromK / 1.35) * mk);
       // camera shake (nudge, tilt, a small kick on bumper hits); none with reduced motion
       // follow camera: track the lowest ball (the one the player must deal with), eased
       if (follow && camMode === 'full' && interp.balls.length) {
@@ -727,6 +737,7 @@ function makeDecals(THREE) {
   });
   const sign = tex(128, 256, (g, w, h) => {
     g.fillStyle = '#1a0f22'; g.fillRect(0, 0, w, h);
+    g.translate(w, h); g.scale(-1, -1);   // the blade's UVs run upside down
     g.font = 'bold 34px "Brush Script MT", "Segoe Script", cursive'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.shadowColor = '#ff5f7a'; g.shadowBlur = 10; g.fillStyle = '#ffd0d8';
     ['T', 'H', 'E'].forEach((ch, i) => g.fillText(ch, w / 2, 26 + i * 26));

@@ -7,12 +7,12 @@ import { makeRng } from './rng.js';
 import { FACTS, fact } from './facts.js';
 
 export const MODES = [
-  { id: 'soak', name: 'BATHHOUSE SOAK', short: 'SOAK', goal: 'HIT 6 LIT BATHHOUSES', dur: 40 },
-  { id: 'derby', name: 'DERBY DAY', short: 'DERBY', goal: 'RAMPS AND ORBITS: WIN THE RACE', dur: 45 },
-  { id: 'raid', name: 'RAID! 1967', short: 'RAID', goal: 'FIND 3 SLOTS, THEN THE VAPORS', dur: 45 }, // fact: raid, slots
-  { id: 'tower', name: 'TOWER CLIMB', short: 'TOWER', goal: 'SHOOT THE RAMP 3 TIMES', dur: 40 },
-  { id: 'tub', name: 'TUB RACE', short: 'TUBS', goal: 'ALTERNATE LEFT AND RIGHT', dur: 40 },
-  { id: 'coaster', name: 'COASTER HILL', short: 'COASTER', goal: 'RIDE THE ORBIT 4 LAPS', dur: 40 },
+  { id: 'soak', name: 'BATHHOUSE SOAK', short: 'SOAK', goal: 'HIT 6 LIT BATHHOUSES', cue: 'HIT 6 BATHS', dur: 40 },
+  { id: 'derby', name: 'DERBY DAY', short: 'DERBY', goal: 'RAMPS AND ORBITS: WIN THE RACE', cue: 'RAMPS, ORBITS', dur: 45 },
+  { id: 'raid', name: 'RAID! 1967', short: 'RAID', goal: 'FIND 3 SLOTS, THEN THE VAPORS', cue: 'FIND 3 SLOTS', dur: 45 }, // fact: raid, slots
+  { id: 'tower', name: 'TOWER CLIMB', short: 'TOWER', goal: 'SHOOT THE RAMP 3 TIMES', cue: 'RAMP 3 TIMES', dur: 40 },
+  { id: 'tub', name: 'TUB RACE', short: 'TUBS', goal: 'ALTERNATE LEFT AND RIGHT', cue: 'LEFT, RIGHT...', dur: 40 },
+  { id: 'coaster', name: 'COASTER HILL', short: 'COASTER', goal: 'RIDE THE ORBIT 4 LAPS', cue: 'ORBIT 4 LAPS', dur: 40 },
 ];
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
 const SHOOTER = { x: 498.5, y: 104 };
@@ -457,7 +457,7 @@ function startMode(G, forceIdx) {
   if (M.id === 'tub') { m.need = 5; m.data.want = ''; }
   if (M.id === 'coaster') { m.need = 4; m.data.spins = 0; }
   f.nextMode = (i + 1) % 6;
-  dmd(G, M.name, M.goal, 2200, 3, { kind: 'mode', id: M.id }); sound(G, 'modeStart'); show(G, 'mode', 1800);
+  dmd(G, M.name, M.cue, 2200, 3, { kind: 'mode', id: M.id }); sound(G, 'modeStart'); show(G, 'mode', 1800);
   cue(G, { k: 'mode', id: M.id, on: true });
 }
 
@@ -550,7 +550,7 @@ function addMultiballs(G, n) {
 function startArlington(G, heldBallId) {
   const h = G.T.holes.find((q) => q.name === 'lock');
   G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t };
-  dmd(G, 'ARLINGTON MULTIBALL', 'RAMP FOR JACKPOTS', 2600, 3, 'multiball');
+  dmd(G, 'ARLINGTON MULTIBALL', 'RAMP JACKPOTS', 2600, 3, 'multiball');
   after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact('arlington'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
   startBallSave(G, 15);
   holdThen(G, heldBallId, 1.6, h.kickAngle, h.kickSpeed);
@@ -561,7 +561,7 @@ function startArlington(G, heldBallId) {
 function startGrandSoak(G) {
   G.f.grandSoakLit = false;
   G.mb = { kind: 'soak', hit: new Array(8).fill(0), superLit: false, t0: G.t };
-  dmd(G, 'GRAND SOAK', 'EVERY BATHHOUSE IS A JACKPOT', 2400, 3, 'multiball'); sound(G, 'multiball'); show(G, 'multiball', 2400);
+  dmd(G, 'GRAND SOAK', 'HIT BATHHOUSES', 2400, 3, { kind: 'multiball', id: 'soak' }); sound(G, 'multiball'); show(G, 'multiball', 2400);
   startBallSave(G, 15);
   addMultiballs(G, 1);
   cue(G, { k: 'mb', kind: 'soak', on: true });
@@ -572,7 +572,7 @@ function startValley(G) {
   f.wizardLit = false;
   if (G.mode) endMode(G, false);
   G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 };
-  dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT · 60 SECONDS', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
+  dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
   startBallSave(G, 20);
   addMultiballs(G, 2);
   cue(G, { k: 'mb', kind: 'valley', on: true });

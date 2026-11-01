@@ -1,0 +1,187 @@
+[
+  {
+    "id": "G-landscape-full-table",
+    "category": "mobile",
+    "expectedGain": 1,
+    "severity": 5,
+    "effort": "M",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape"
+    ],
+    "fix": "Fit the whole playfield (top arch to apron) into 844x390 via full-height fit or tilted camera; HUD column takes leftover width; show the score once (also in the desktop idle DMD). Test: bumpers, S-P-A lanes, Row, both scoops, ramp entrance and flippers all visible in r11 and 1,234,560 appears once.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-mood-inverted",
+    "category": "lighting",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r03-play",
+      "desktop/r06-multiball",
+      "desktop/r07-mode",
+      "desktop/r08-wizard"
+    ],
+    "fix": "Make mode/multiball/wizard blends scale ambient, key and fill down instead of up; let lit inserts and arrows carry light. Test: mean greyscale over x460-820,y30-740 in r08 at least 25% below r03 (now 87.5 vs 77.5), r06/r07 at least 10% below r03.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-dmd-objective-static",
+    "category": "ui",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "mobile/r07-mode",
+      "desktop/r08-wizard",
+      "desktop/r06-multiball"
+    ],
+    "fix": "Show a complete short objective statically beside the silhouette (shorten or wrap to two lines), as the previous build did; scroll only extra detail. Test: no word cut at the DMD edge in r06, r07, r08 on both viewports.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-label-collisions",
+    "category": "typography",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "mobile/r02-serve",
+      "desktop/r08-wizard",
+      "desktop/c04-vapors"
+    ],
+    "fix": "Add a layout check failing when any label plate box intersects an insert, arrow, rail or toy; move MOUNTAIN TOWER clear of the COASTER insert (the real cause), keep the pink arrow off the BATHHOUSE ROW sub-line, pull THE VAPORS plate from under the scoop rail. Test: zero overlaps; plate unbroken in mobile/r02-serve.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-ui-overlaps",
+    "category": "ui",
+    "expectedGain": 0.35,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "mobile/r09-help",
+      "mobile/r02-serve"
+    ],
+    "fix": "Help body becomes a scroll container ending above Back with bottom padding >= button height + 16 px; inset apron card text or fold the menu/Launch buttons into blank apron panels. Test: no glyph under Back in r09 on both viewports; no button over card text in any phone frame.",
+    "priority": 0.525,
+    "selected": true
+  },
+  {
+    "id": "G-vapors-sign",
+    "category": "typography",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c01-row"
+    ],
+    "fix": "Fix the flipped UV/flipY on the blade texture, turn the sign to read toward the player camera, and move or shorten it so it no longer hides the SUPERIOR plate; keep lettering generic. Test: VAPORS reads correctly in a 3x crop of c04; SUPERIOR and HALE fully visible in c01.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-skill-shot-bloom",
+    "category": "readability",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/r02-serve",
+      "mobile/r02-serve"
+    ],
+    "fix": "Target lane already ~1.9x its neighbours: add a bloom halo and 2-3 Hz flash, drop unlit lanes to <=15% emissive. Test: exactly one S-P-A lamp shows a bloom halo in r02 on both viewports.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-rail-brass-material",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c06-arlington"
+    ],
+    "fix": "Brass albedo ~#C9A24A, metalness 1, roughness ~0.3 with brushed normal; sweep each guide as one tube along its spline with mitred corners and no exposed end caps. Test: no overlapping caps in c04/c06 and a specular streak along every rail.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-ball-chrome",
+    "category": "toys",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r04-bumpers",
+      "strips/s01-flip",
+      "desktop/c02-springs"
+    ],
+    "fix": "Opaque metal ball (metalness 1, roughness ~0.1) with playfield-derived env map, dark Fresnel rim and contact shadow, no cross artefact; halve size/intensity of bumper-base specular points so they stop reading as balls. Test: 3x crop of r04 shows an opaque mirrored ball with dark rim, no cross, and no bumper highlight matching it in size and value.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-hardware-construction",
+    "category": "toys",
+    "expectedGain": 0.75,
+    "severity": 4,
+    "effort": "L",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c05-tower",
+      "desktop/c04-vapors",
+      "desktop/c02-springs",
+      "desktop/c03-flippers"
+    ],
+    "fix": "Big lever. One hardware pass: guide/scoop walls ~half height in lacquered wood with capped ends; ramp walls >=32 segments per curve, no break seam, metal entrance flap; wireform cross-ties between existing posts; translucent internally lit bumper bodies with skirt (keep chrome ring); sling end caps without the two holes; SPA CITY decal visible on flipper tops. Test: c05 shows no stair-steps or seam, a flap and ties; c02 shows lit translucent bodies; c03 shows the decal and no face-like holes.",
+    "priority": 0.281,
+    "bigLever": true,
+    "selected": true
+  },
+  {
+    "id": "G-bumper-rings-light",
+    "category": "lighting",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s02-bumpers"
+    ],
+    "fix": "Replace opaque peach annuli with soft additive playfield light decaying within ~4 frames; keep cap flash and sink. Test: no frame of s02 shows solid rings merging over the painting; art visible through the glow.",
+    "priority": 0.225,
+    "selected": false
+  },
+  {
+    "id": "G-multiball-launch-visible",
+    "category": "animation",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "M",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s03-multiball"
+    ],
+    "fix": "Stagger lock ejects with a kick flash and short camera shake so every ball enters within the strip window. Test: at least two balls visible in two or more frames of s03, plus a visible eject flash.",
+    "priority": 0.225,
+    "selected": false
+  }
+]
