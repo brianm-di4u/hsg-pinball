@@ -91,7 +91,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     apron: new THREE.MeshStandardMaterial({ color: '#2a2740', roughness: 0.4, metalness: 0.6 }),
     ball: new THREE.MeshStandardMaterial({ color: '#f4f6f9', roughness: 0.08, metalness: 1, envMapIntensity: 1.35 }),
     gate: new THREE.MeshStandardMaterial({ color: '#d8dde4', roughness: 0.2, metalness: 1 }),
-    wireChrome: new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.28, metalness: 1, envMapIntensity: 0.35 }),
+    wireChrome: new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.34, metalness: 1, envMapIntensity: 0.35 }),
     blade: new THREE.MeshStandardMaterial({ color: '#9aa1ab', roughness: 0.38, metalness: 0.9, envMapIntensity: 0.4 }),
     bladeTop: new THREE.MeshStandardMaterial({ color: '#b9bec5', roughness: 0.45, metalness: 1, envMapIntensity: 0.3 }),
     rampWall: new THREE.MeshPhysicalMaterial({ color: '#cfe4f8', roughness: 0.06, metalness: 0, transparent: true, opacity: 0.2, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),

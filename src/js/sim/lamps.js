@@ -71,6 +71,7 @@ export function lampStates(G, lamps, t) {
   if (vaporsReady && (f.wizardLit || f.grandSoakLit || f.ebLit)) set('arrowVapors', fast);
   else if (vaporsReady) set('arrowVapors', slow);
   if (!m && !mb && !out.arrowRamp) set('arrowRamp', 0.25);
+  for (const n of ['arrowRamp', 'arrowOrbit', 'arrowReserve', 'arrowVapors', 'arrowLock']) if (out[n] < 0.35) out[n] = 0.35;   // every shot stays readable
   // progress
   for (let i = 0; i < 3; i++) set('tower' + i, i < f.towerLevel ? 1 : i === f.towerLevel ? ((f.ramps % 3) ? slow * 0.6 : 0) : 0);
   for (let i = 0; i < 3; i++) set('lockLamp' + i, i < f.locks ? 1 : (f.lockLit && i === f.locks) ? slow : 0);

@@ -1,0 +1,187 @@
+[
+  {
+    "id": "G-shot-cues",
+    "category": "readability",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/r03-play",
+      "desktop/r08-wizard",
+      "desktop/r02-serve"
+    ],
+    "fix": "Unlit shot arrows at a visible dim-lit baseline (>=35% brightness); move the MOUNTAIN TOWER plate to the ramp mouth beside the yellow arrow; flash the skill-shot lane lamp and guide caps during serve. Test: every arrow visible in desktop/r03-play and the plate touches the ramp entry.",
+    "priority": 0.75,
+    "selected": true
+  },
+  {
+    "id": "G-glare-hotspots",
+    "category": "lighting",
+    "expectedGain": 0.25,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c05-tower",
+      "mobile/r03-play",
+      "desktop/s02-bumpers-1"
+    ],
+    "fix": "Roughness >=0.3 on wireform tubes and tower legs; darken spinner edge/back faces; move the bumper-cap specular hot spot off the 143F lettering. Test: no white streak in desktop/c05-tower, no white bar in mobile/r03-play.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-playfield-label-size",
+    "category": "typography",
+    "expectedGain": 0.25,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/r03-play",
+      "desktop/r08-wizard"
+    ],
+    "fix": "Enlarge key shot labels 1.5x on higher-contrast plates and drop decorative labels unreadable at play scale. Test: labels >=8 px in desktop/r03-play; 2X-5X legible in desktop/r08-wizard.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-ui-face",
+    "category": "typography",
+    "expectedGain": 0.25,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r01-title",
+      "desktop/r10-scores",
+      "desktop/r03-play"
+    ],
+    "fix": "One self-hosted deco-era UI face for buttons, HUD, mode chips and score tables. Test: no generic sans in desktop/r01-title, r03-play or r10-scores.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-flipper-materials",
+    "category": "toys",
+    "expectedGain": 0.25,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c03-flippers"
+    ],
+    "fix": "Bevelled flipper bats with a printed gold steam decal and a separate red rubber. Test: bevel and decal visible in desktop/c03-flippers.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-contact-shadows",
+    "category": "lighting",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/c06-arlington",
+      "desktop/c01-row",
+      "desktop/r03-play"
+    ],
+    "fix": "Soft contact-shadow/AO decals under every facade, the Arlington, bumpers and tower; warm GI pools at inlanes and slings. Test: dark contact band under each model in desktop/c01-row and c06-arlington.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-guide-wall-slabs",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c04-vapors",
+      "desktop/c06-arlington",
+      "desktop/c05-tower"
+    ],
+    "fix": "Bevelled Vapors scoop and Arlington lock walls with satin metal caps and printed decal faces; replace the ramp's opaque grey left wall and entry block with clear plastic and a metal entry lip. Test: no flat grey face in desktop/c04, c05 or c06.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-event-followthrough",
+    "category": "animation",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s01-flip",
+      "strips/s02-bumpers",
+      "strips/s03-multiball"
+    ],
+    "fix": "Sling kick (rubber flex + plastic flash), additive ball streak above a speed threshold, small camera kick on nudge and multiball start, stronger bumper ring drop. Test: streak in strips/s01-flip frames 3-5; camera offset in strips/s03-multiball frame 0.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-landscape-table-scale",
+    "category": "mobile",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape"
+    ],
+    "fix": "Narrow backglass and right panels and close the black gutters to enlarge the table without extra tilt; raise DMD second-line contrast. Test: table >=680 of 1688 px wide and BALL 1 legible in mobile/r11-landscape.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-phone-mode-chip",
+    "category": "ui",
+    "expectedGain": 0.25,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "mobile/r07-mode"
+    ],
+    "fix": "While a mode runs the phone chip shows 'Derby · 18/100 · 45s' alongside or instead of the score. Test: visible in mobile/r07-mode.",
+    "priority": 0.25,
+    "selected": true
+  },
+  {
+    "id": "G-dmd-event-feedback",
+    "category": "ui",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r04-bumpers",
+      "desktop/r05-ramp"
+    ],
+    "fix": "1-1.5 s DMD animation per event (tower climb on ramp, thermometer on bumpers, bathhouse name on target). Test: desktop/r04-bumpers and r05-ramp show event art, not SPA CITY / BALL 1.",
+    "priority": 0.25,
+    "selected": false
+  },
+  {
+    "id": "G-toy-fabrication",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "L",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c01-row",
+      "desktop/c06-arlington",
+      "desktop/c05-tower"
+    ],
+    "fix": "BIG LEVER. Stepped stoops replace the blank cream plinths; facade relief (cornices, arcades/awnings, Buckstaff colonnade); clean Arlington window emission map; steel base plate under the tower; bracket feet from wireform posts to the rail. Test: every facade in desktop/c01-row and c06-arlington shows relief; every support in desktop/c05-tower meets a surface.",
+    "priority": 0.188,
+    "bigLever": true,
+    "selected": true
+  }
+]

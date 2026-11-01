@@ -49,7 +49,7 @@ triggers.push({ a: [56, 290], b: [92, 290], sw: 'inL', name: 'inL' });
 triggers.push({ a: [mx(48), 290], b: [mx(14), 290], sw: 'outR', name: 'outR' });
 triggers.push({ a: [mx(92), 290], b: [mx(56), 290], sw: 'inR', name: 'inR' });
 
-const FLIP = { len: 82, r0: 13, r1: 6.5, stroke: deg(54), acc: 2600, maxOmega: 32, retAcc: 1500, maxRet: 24, e: 0.58, f: 0.14 };
+const FLIP = { len: 87, r0: 13, r1: 6.5, stroke: deg(54), acc: 2600, maxOmega: 32, retAcc: 1500, maxRet: 24, e: 0.58, f: 0.14 };
 const flippers = [
   { side: 'L', x: 147.5, y: 130, rest: deg(-32), dir: 1, ...FLIP },
   { side: 'R', x: mx(147.5), y: 130, rest: deg(180 + 32), dir: -1, ...FLIP },

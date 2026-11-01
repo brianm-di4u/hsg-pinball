@@ -1,0 +1,131 @@
+{
+  "loop": 8,
+  "scores": {
+    "art": 7,
+    "toys": 6.5,
+    "lighting": 6.5,
+    "animation": 6.5,
+    "ui": 7,
+    "typography": 6.5,
+    "readability": 6.5,
+    "mobile": 6.5,
+    "authenticity": 7.5
+  },
+  "judged": {
+    "art": 7,
+    "toys": 6,
+    "lighting": 6.5,
+    "animation": 6.5,
+    "ui": 6.5,
+    "typography": 6.5,
+    "readability": 6.5,
+    "mobile": 6.5,
+    "authenticity": 7.5
+  },
+  "total": 60.5,
+  "best": 60.5,
+  "held": [
+    "toys 6→6.5 (A/B new/new)",
+    "ui 6.5→7 (A/B new/new)"
+  ],
+  "ab": {
+    "art": [
+      "new",
+      "new"
+    ],
+    "toys": [
+      "new",
+      "new"
+    ],
+    "lighting": [
+      "new",
+      "new"
+    ],
+    "animation": [
+      "tie",
+      "tie"
+    ],
+    "ui": [
+      "new",
+      "new"
+    ],
+    "typography": [
+      "tie",
+      "tie"
+    ],
+    "readability": [
+      "new",
+      "new"
+    ],
+    "mobile": [
+      "new",
+      "new"
+    ],
+    "authenticity": [
+      "tie",
+      "new"
+    ]
+  },
+  "measured": {
+    "perf": true,
+    "ip": true
+  },
+  "critics": {
+    "critic-claude": {
+      "art": 6.5,
+      "toys": 6,
+      "lighting": 6.5,
+      "animation": 6,
+      "ui": 6.5,
+      "typography": 6.5,
+      "readability": 6.5,
+      "mobile": 6.5,
+      "authenticity": 7
+    },
+    "critic-codex": {
+      "art": 7.5,
+      "toys": 6.5,
+      "lighting": 6.5,
+      "animation": 6.5,
+      "ui": 7,
+      "typography": 6.5,
+      "readability": 6.5,
+      "mobile": 6.5,
+      "authenticity": 7.5
+    },
+    "prosecutor": {
+      "art": 6.5,
+      "toys": 5.5,
+      "lighting": 6,
+      "animation": 6,
+      "ui": 6,
+      "typography": 6,
+      "readability": 6,
+      "mobile": 6,
+      "authenticity": 7
+    },
+    "advocate": {
+      "art": 7,
+      "toys": 6.5,
+      "lighting": 6.5,
+      "animation": 6.5,
+      "ui": 7,
+      "typography": 6.5,
+      "readability": 7,
+      "mobile": 6.5,
+      "authenticity": 7.5
+    }
+  },
+  "gates": {
+    "art": 7,
+    "toys": 7,
+    "lighting": 7,
+    "animation": 7,
+    "ui": 7,
+    "typography": 7,
+    "readability": 7,
+    "mobile": 7,
+    "authenticity": 6
+  },
+  "verdict": "stop-stagnant"
+}
