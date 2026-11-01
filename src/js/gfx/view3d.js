@@ -85,7 +85,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     blackRubber: new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.7, metalness: 0 }),
     target: new THREE.MeshStandardMaterial({ color: '#d9c9a3', roughness: 0.35, metalness: 0.1, emissive: '#ffd877', emissiveIntensity: 0 }),
     plasticRed: new THREE.MeshPhysicalMaterial({ color: '#ff4a3d', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55, clearcoat: 1, emissive: '#ff2a1a', emissiveIntensity: 0.15 }),
-    rampPlastic: new THREE.MeshPhysicalMaterial({ color: '#cfe8ff', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.32, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
+    rampPlastic: new THREE.MeshPhysicalMaterial({ color: '#bcd6f0', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.2, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
     rampEdge: new THREE.MeshPhysicalMaterial({ color: '#dff0ff', roughness: 0.1, metalness: 0, transparent: true, opacity: 0.6, clearcoat: 1 }),
     hole: new THREE.MeshBasicMaterial({ color: '#020205' }),
     apron: new THREE.MeshStandardMaterial({ color: '#2a2740', roughness: 0.4, metalness: 0.6 }),
@@ -93,8 +93,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     gate: new THREE.MeshStandardMaterial({ color: '#d8dde4', roughness: 0.2, metalness: 1 }),
     wireChrome: new THREE.MeshStandardMaterial({ color: '#c8ccd2', roughness: 0.28, metalness: 1, envMapIntensity: 0.35 }),
     blade: new THREE.MeshStandardMaterial({ color: '#9aa1ab', roughness: 0.38, metalness: 0.9, envMapIntensity: 0.4 }),
-    bladeTop: new THREE.MeshStandardMaterial({ color: '#c9cdd3', roughness: 0.25, metalness: 1, envMapIntensity: 0.45 }),
-    rampWall: new THREE.MeshPhysicalMaterial({ color: '#d8ecff', roughness: 0.06, metalness: 0, transparent: true, opacity: 0.28, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
+    bladeTop: new THREE.MeshStandardMaterial({ color: '#b9bec5', roughness: 0.45, metalness: 1, envMapIntensity: 0.3 }),
+    rampWall: new THREE.MeshPhysicalMaterial({ color: '#cfe4f8', roughness: 0.06, metalness: 0, transparent: true, opacity: 0.2, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
     rampLip: new THREE.MeshPhysicalMaterial({ color: '#eef8ff', roughness: 0.1, metalness: 0, transparent: true, opacity: 0.75, clearcoat: 1 }),
     steelFlap: new THREE.MeshStandardMaterial({ color: '#9aa2ad', roughness: 0.35, metalness: 1, envMapIntensity: 0.6 }),
   };
@@ -330,7 +330,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     const s = T.segs[t.seg];
     let nx = s.nx, ny = s.ny; if (ny < 0) { nx = -nx; ny = -ny; }  // back = up the table
     const bh = place('bh_' + nm, (s.ax + s.bx) / 2 + nx * 2.5, (s.ay + s.by) / 2 + ny * 2.5, 0, face(-nx, -ny), 900);
-    if (bh) bh.scale.set(900, 1550, 900);   // standups: taller so each façade reads from the player's camera
+    if (bh) { bh.scale.set(900, 1550, 900); bh.position.y = -2.2; }   // standups: taller so each façade reads from the player's camera
   }
   // landmarks sized to read from the player's camera: the tower stands in the dead area right of the ramp mouth,
   // the Arlington's twin towers rise twice as tall behind the lock, the Vapors sign is enlarged over its scoop
@@ -369,6 +369,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   // spinner
   const spinner = place('spinner', 36, 700, 0, 0, 1000);
   const spinPlate = spinner ? spinner.getObjectByName('spinner_plate') : null;
+  if (spinner) spinner.traverse((n) => { if (n.isMesh && n.material.name === 'chrome') { n.material.roughness = 0.5; n.material.envMapIntensity = 0.2; } });
   let spinAngle = 0, spinVel = 0;
   // plunger
   const plungerRod = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 40, 16), M.chrome); plungerRod.rotation.x = Math.PI / 2; scene.add(plungerRod);
@@ -486,7 +487,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   let follow = null;   // {d, yMin, yMax, y} when following
   function fitCamera(aspect) {
     camera.aspect = aspect; camera.updateProjectionMatrix();
-    PITCH = aspect < 0.75 ? 0.32 : Math.min(0.92, 0.32 + (aspect - 0.75) * 0.6);
+    PITCH = aspect < 0.75 ? 0.32 : Math.min(0.75, 0.32 + (aspect - 0.75) * 0.6);
     follow = null;
     if (aspect > 1.2 && false) {   // (follow camera kept for reference; full fit reads better)
       PITCH = 0.62;
@@ -630,7 +631,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         const k = hit ? Math.min(1, 2 * (1 - (t - hit.t) / 0.18)) : 0;   // hold, then recover
         for (const m of b.mats) m.emissiveIntensity = 0.3 + k * 3.2;
         b.o.position.y = -k * 6;
-        if (b.ring) { b.ring.material.opacity = k * 0.4; b.ring.scale.setScalar(1 + (1 - k) * 0.6); }
+        if (b.ring) { b.ring.material.opacity = k * 0.75; b.ring.scale.setScalar(1 + (1 - k) * 0.6); }
       });
       // flashers follow recent big events
       const big = fx.filter((e) => e.k === 'flash' && t - e.t < 0.2).slice(-3);
@@ -771,10 +772,10 @@ function makeDecals(THREE) {
     g.fillText('VAPORS', w * 0.6, h * 0.54);
   });
   const spinner = tex(256, 96, (g, w, h) => {
-    const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, '#9aa3ad'); gr.addColorStop(0.5, '#f4f6f8'); gr.addColorStop(1, '#9aa3ad');
+    const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, '#1d3550'); gr.addColorStop(0.5, '#2f5878'); gr.addColorStop(1, '#1d3550');
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
     // a spinning flag shows both faces, so it carries a symmetric motif rather than words: racing-silk diamonds
-    g.fillStyle = '#1e5b8a'; for (let i = 0; i < 7; i++) { const x = 18 + i * 37; g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + 16, 10); g.lineTo(x + 32, h / 2); g.lineTo(x + 16, h - 10); g.closePath(); g.fill(); }
+    g.fillStyle = '#c9a050'; for (let i = 0; i < 7; i++) { const x = 18 + i * 37; g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + 16, 10); g.lineTo(x + 32, h / 2); g.lineTo(x + 16, h - 10); g.closePath(); g.fill(); }
     g.fillStyle = '#d4af37'; g.fillRect(0, 0, w, 6); g.fillRect(0, h - 6, w, 6);
   });
   const flipper = tex(256, 64, (g, w, h) => {

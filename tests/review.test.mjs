@@ -41,7 +41,7 @@ export const tests = !live ? [] : [
       // R07 a mode with its DMD
       await rich(t, 8); await t.game('act', 'mode', 1); await t.game('step', 330); await t.game('act', 'switch', 'rampMade', 'roll'); await t.game('step', 2); await freeze(t, 10200); await t.shot('R07-mode', { wait: false });
       // R08 wizard light show
-      await rich(t, 9); await t.game('act', 'multiball', 'valley'); await t.game('step', 200); await t.game('act', 'lamps', 'wizard', 6); await freeze(t, 11050); await t.shot('R08-wizard', { wait: false });
+      await rich(t, 9); await t.game('setState', { features: { modesPlayed: [1, 1, 1, 1, 1, 1], modesWon: [1, 1, 1, 1, 1, 1] } }); await t.game('act', 'multiball', 'valley'); await t.game('step', 200); await t.game('act', 'lamps', 'wizard', 6); await freeze(t, 11050); await t.shot('R08-wizard', { wait: false });
       // R09 help, R10 game over / high score
       await t.game('scene', 'help'); await freeze(t, 12000); await t.shot('R09-help', { wait: false });
       await t.game('scene', 'title'); await t.game('scene', 'scores'); await freeze(t, 12500); await t.shot('R10-scores', { wait: false });
@@ -82,7 +82,7 @@ export const tests = !live ? [] : [
       const strips = [
         ['S01-flip', async () => { await rich(t, 11); await t.game('act', 'placeBall', 200, 150, 120, -200); await t.game('act', 'flipAt', 'L', 60, 220); }, 3, { x: 242, y: 255, dist: 820, pitch: 0.5 }],
         ['S02-bumpers', async () => { await rich(t, 12); await t.game('act', 'placeBall', 252, 962, 0, -900); }, 3, { x: 250, y: 860, dist: 560, pitch: 0.6 }],
-        ['S03-multiball', async () => { await rich(t, 13); await t.game('act', 'multiball', 'soak'); await t.game('step', 60); }, 12, { x: 260, y: 560, dist: 1250, pitch: 0.4 }],
+        ['S03-multiball', async () => { await rich(t, 13); await t.game('act', 'multiball', 'soak'); await t.game('step', 60); }, 12, { x: 250, y: 480, dist: 1450, pitch: 0.34 }],
       ];
       // a wide canvas and a framed camera, so each strip frame shows the action rather than the whole page
       await t.page.evaluate(() => { document.body.classList.add('closeup'); window.dispatchEvent(new Event('resize')); });

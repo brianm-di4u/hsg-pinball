@@ -113,7 +113,7 @@ export function createScreens(root, app) {
             <ol class="modes">${MODES.map((m) => `<li><b>${esc(m.name)}</b>: ${esc(m.goal.toLowerCase())}</li>`).join('')}</ol>
             <p>Play all six to light the wizard mode, <b>Valley of the Vapors</b>.</p>
             <h3>About</h3>${'' /* fact: reserved, older */}
-            <p class="small">An original game in the open-source Hot Springs Games collection (MIT). Places are shown as setting only; no affiliation with any business. Facts come from the collection's research notes, with "about" or "reportedly" where sources disagree. Horses, riders and characters are fictional. Hot Springs was set aside by Congress on April 20, 1832, forty years before Yellowstone.</p>
+            <p class="small" id="help-about">An original game in the open-source Hot Springs Games collection (MIT). Places are shown as setting only; no affiliation with any business. Facts come from the collection's research notes, with "about" or "reportedly" where sources disagree. Horses, riders and characters are fictional. Hot Springs was set aside by Congress on April 20, 1832, forty years before Yellowstone.</p>
           </div>
         </div>
         <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>Back</button></div>

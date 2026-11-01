@@ -1,0 +1,186 @@
+[
+  {
+    "id": "G-glare-bloom-clamp",
+    "category": "lighting",
+    "expectedGain": 0.4,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "desktop/r03-play",
+      "desktop/c04-vapors",
+      "desktop/c06-arlington",
+      "strips/s03-multiball"
+    ],
+    "fix": "Clamp or roughen the spinner edge specular, the lock and scoop wall rims, the Central Avenue emitter and the bumper base rings, and mask bloom to the cabinet silhouette; test that no non-insert region of 20 px or more exceeds 0.95 luminance in r03, c04 and c06 and that off-table pixels in s03 stay below 0.1.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-ramp-ball-contrast",
+    "category": "readability",
+    "expectedGain": 0.4,
+    "severity": 4,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "mobile/r05-ramp",
+      "desktop/r05-ramp"
+    ],
+    "fix": "Drop the ramp plastic to about 35% opacity with a faint tint so the art shows through, darken the floor under the ball path and add a ball contact shadow on the ramp; test for at least 3:1 luminance contrast between the ball body and the surrounding ramp pixels in r05 on both viewports.",
+    "priority": 0.6,
+    "selected": true
+  },
+  {
+    "id": "G-landscape-framing",
+    "category": "mobile",
+    "expectedGain": 0.75,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS6",
+    "evidence": [
+      "mobile/r11-landscape"
+    ],
+    "fix": "In 844x390 lower the camera tilt and fit the playfield's projected bounds to the left 70% of the viewport; put a column-width DMD, Launch and the six-lamp grid in the HUD column and inset the apron 12 px from the bottom; test that the playfield is at least 60% of the width, no black band exceeds 40 px and no HUD-column gap exceeds 120 px in r11.",
+    "priority": 0.563,
+    "selected": true
+  },
+  {
+    "id": "G-bumper-light-pool",
+    "category": "lighting",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS1",
+    "evidence": [
+      "strips/s02-bumpers",
+      "desktop/r04-bumpers"
+    ],
+    "fix": "Pulse an additive light decal or short-range point light on the playfield under each bumper on a hit and recapture r04 on a hit tick; test that playfield pixels within one bumper radius rise at least 20% in luminance in the hit frame.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-multiball-strip-framing",
+    "category": "animation",
+    "expectedGain": 0.3,
+    "severity": 3,
+    "effort": "S",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s03-multiball"
+    ],
+    "fix": "Frame s03 on the full field (flippers in, no black half) at ticks where balls leave the lock and shooter lane; test that at least two balls are visible in at least four of the eight frames.",
+    "priority": 0.45,
+    "selected": true
+  },
+  {
+    "id": "G-bumper-skirt-followthrough",
+    "category": "animation",
+    "expectedGain": 0.25,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS3",
+    "evidence": [
+      "strips/s02-bumpers",
+      "strips/s01-flip"
+    ],
+    "fix": "Drop the bumper skirt and ring 3 to 4 px on a hit with a two-frame recovery and add a short ball trail above a speed threshold; test that the skirt offset is visible between consecutive s02 frames.",
+    "priority": 0.375,
+    "selected": true
+  },
+  {
+    "id": "G-toy-plinths-walls",
+    "category": "toys",
+    "expectedGain": 0.5,
+    "severity": 4,
+    "effort": "M",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c01-row",
+      "desktop/c04-vapors",
+      "desktop/c06-arlington"
+    ],
+    "fix": "Replace the cream box plinths with bevelled stone stoops matched to each facade or sink the models onto the playfield, and give the scoop and lock walls the rolled stainless profile of the ramp blades; test that c01, c04 and c06 show no plain cream boxes or flat grey bars.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-table-legend-size",
+    "category": "typography",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "M",
+    "workstream": "WS5",
+    "evidence": [
+      "mobile/r03-play",
+      "desktop/r03-play",
+      "mobile/r09-help"
+    ],
+    "fix": "Enlarge the bathhouse tags, mode labels and EXTRA BALL / VALLEY legends to at least 8 CSS px cap height at 390 px on quiet dark backings, and load a deliberate body face for menus and help; test that every shot name in mobile/r03 is legible at native size.",
+    "priority": 0.375,
+    "selected": false
+  },
+  {
+    "id": "G-hud-truth-and-help",
+    "category": "ui",
+    "expectedGain": 0.3,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r08-wizard",
+      "mobile/r07-mode",
+      "mobile/r09-help"
+    ],
+    "fix": "Derive the mode grid from game state and stage the wizard capture with all six won, use lamp-style dim, lit and flashing states, add the mode count and timer to the phone score pill, and add a visible scrollbar or chevron above Back in help; test that r08 shows six won lamps and phone r07 shows the mode count and timer.",
+    "priority": 0.3,
+    "selected": true
+  },
+  {
+    "id": "G-sling-rubber",
+    "category": "toys",
+    "expectedGain": 0.2,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS2",
+    "evidence": [
+      "desktop/c03-flippers"
+    ],
+    "fix": "Model a black rubber band along each sling's kicking face and a visible kicker arm beyond the existing post rubbers; test that c03 shows a rubber face and kicker on both slings.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-skill-shot-cue",
+    "category": "readability",
+    "expectedGain": 0.2,
+    "severity": 2,
+    "effort": "S",
+    "workstream": "WS5",
+    "evidence": [
+      "desktop/r02-serve",
+      "mobile/r02-serve"
+    ],
+    "fix": "Give the lit S·P·A skill lane a pulsing halo and a chevron at the plunger lane exit while the skill shot is live; test that the cue is visible at native size in r02 on both viewports.",
+    "priority": 0.3,
+    "selected": false
+  },
+  {
+    "id": "G-upper-field-repaint",
+    "category": "art",
+    "expectedGain": 0.5,
+    "severity": 3,
+    "effort": "L",
+    "workstream": "WS4",
+    "evidence": [
+      "desktop/c02-springs",
+      "desktop/r02-serve",
+      "desktop/c04-vapors"
+    ],
+    "fix": "Big lever: repaint the upper playfield as the Grand Promenade and Display Spring cascade under Hot Springs Mountain, composed around the bumpers, lanes and ball paths with lower value contrast under the paths and no text; paint the apron as a deco border with a menu-board rule card; restyle the four arrows as framed inserts in one family. Test that a reviewer names the Promenade and spring in c02 without labels and no lane guide or bumper sits on unrelated foliage.",
+    "priority": 0.188,
+    "bigLever": true,
+    "selected": true
+  }
+]

@@ -39,6 +39,9 @@ thermal teal #2A9D8F, turquoise #3FBFB5, coral #F26B5B.
 | `pf-mountain-v2.png` (replaces the pilot in game) | loop-0 review: the turquoise terraces read as Pamukkale, not Hot Springs | wooded oak-hickory-pine slope, small grey tufa mounds with moss, one modest steaming cascade into a stone pool, stone spring boxes, the promenade wall and railing along the bottom; muted water |
 | `backglass-v2.png` (replaces the pilot in game) | loop-0 review: palms read as the Riviera | repaint of the pilot keeping its composition; palms replaced by southern magnolia, oak and crepe myrtle |
 
+| `pf-full.png` (layout painting, in game until loop 7) | loop-1 review: zones read as separate rectangles | one continuous playfield painted over `playfield-guide.png` (rendered from the physics geometry): mountain and spring at the top, promenade wall behind the banks, terrazzo deco plaza with a fan down to the flippers |
+| `pf-full-v2.png` (in game from loop 8) | loop-7 review: busy foliage under the bumpers; the Promenade and spring not recognisable | edit of `pf-full.png`: the top third repainted as the Grand Promenade with railing and lamps over a calm Display Spring pool and cascade, bumpers placed over water and tufa, lower plaza unchanged |
+
 ## Checks done on every image
 - Text: none at full size (inspected with the Read tool).
 - People: small and generic.

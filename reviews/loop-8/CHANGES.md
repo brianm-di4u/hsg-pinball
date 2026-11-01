@@ -1,0 +1,10 @@
+- Big lever, upper playfield repaint (Codex edit of the playfield painting, lower plaza unchanged): the top third is now the Grand Promenade, a curving brick walk with an iron railing and lamp posts above the target banks, overlooking a calm Display Spring pool fed by a steaming cascade over grey tufa under the wooded mountain; the three pop bumpers stand on the water and tufa instead of busy foliage, and the lanes sit on a paved terrace.
+- Phone landscape: cabinet layout — backglass art on the left, the whole table in the centre (wider canvas, moderate tilt), DMD, progress and a two-column mode grid on the right.
+- Desktop: the table viewport is wider again (about 72% of the screen height in width).
+- Glare: the guides' rolled tops and the spinner bracket are satin; the spinner flag is a dark blue painted face with gold diamonds (it read as a white bar).
+- The ramp's plastic floor and walls are clearer (about 20% opacity) so the art and the ball read through them.
+- Bathhouse façades sit slightly into the playfield, so their plinths read as stoops.
+- Bumper hits throw a stronger warm pool of light on the playfield.
+- Mode grid: all six light during the wizard; the review's wizard capture now reaches the wizard with all six modes won (as in play). Phone chip shows the running mode's progress and timer.
+- Help: a "Scroll for more" cue above Back.
+- The multiball strip frames the whole field.
