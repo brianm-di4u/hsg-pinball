@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const REL = 'games/Pinball';
+const REL = 'repos/hsg-pinball';
 const N = +process.argv[2];
 if (!(N >= 0)) { console.error('usage: review-prep.mjs <N>'); process.exit(2); }
 const SHOTS = `review-loop-${N}`, shotDir = path.join(GAME, 'screenshots', SHOTS), loopDir = path.join(GAME, 'reviews', `loop-${N}`);
