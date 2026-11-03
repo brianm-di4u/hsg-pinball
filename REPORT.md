@@ -186,3 +186,10 @@ median) at full speed, and within two frames (19 ms median, 33 ms max) at 4× CP
 - `run.mjs` lowercases screenshot names. The review tools work around this; preserving case, or documenting it,
   would help.
 - A built-in way for a Codex critic to save its own output, which the review protocol now relies on.
+
+## Update: repainted backgrounds (v1.1.0, 2026-11-02)
+
+The backglass painting was repainted. The new source PNGs replace the `art-src/art.json` sources (git-ignored; the
+workspace keeps copies of the old and new paintings in `reference/backgrounds/`) and were packed with the usual tools.
+
+`npm test`: 77/77 passed.
