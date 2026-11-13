@@ -2,6 +2,7 @@
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGame, newGame, tick, plunger, nudge, api } from '../src/js/sim/rules.js';
+import { loadSettings, loadScores, qualifies, DEFAULT_SETTINGS } from '../src/js/save.js';
 import { autoPlunge, TICK } from '../src/js/sim/physics.js';
 
 const T = compileTable(spec);
@@ -106,6 +107,39 @@ export const tests = [
       await t.waitFrames(2);
       s = await t.state();
       t.equal(s.screen, 'over', 'Esc on the game-over screen leaves it alone');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S6-06
+  {
+    name: 'S6-06 malformed saved settings and scores are sanitised on load',
+    node: true,
+    async run(t) {
+      const mem = {};
+      globalThis.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
+      const put = (k, v) => { mem['hsg-pinball:' + k] = JSON.stringify(v); };
+      try {
+        put('settings', { v: 1, sound: 'yes', music: 0, volume: 'abc', motion: 'wild', balls: 99, tier: 'bogus', practice: 'x', textScale: 'x' });
+        t.equal(JSON.stringify(loadSettings()), JSON.stringify(DEFAULT_SETTINGS), 'every wrong-typed setting falls back to its default');
+        put('settings', { v: 1, volume: 7, balls: 0, textScale: 5 });
+        let s = loadSettings();
+        t.equal(s.volume, 1, 'volume clamps to 1'); t.equal(s.balls, 3, 'balls 0 -> 3'); t.equal(s.textScale, 1, 'odd text scale -> 1');
+        put('settings', { v: 1, volume: -2 });
+        t.equal(loadSettings().volume, 0, 'volume clamps to 0');
+        put('settings', { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3 });
+        t.equal(JSON.stringify(loadSettings()), JSON.stringify({ v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3 }), 'valid settings load untouched');
+        put('settings', [1, 2]); t.equal(loadSettings().balls, 3, 'an array is not settings');
+
+        const ok = (r) => r && typeof r.initials === 'string' && Number.isFinite(r.score);
+        for (const bad of [[null], [], [{ initials: 'AAA', score: '900' }], [{ score: 5 }], [1, 'x', { initials: 3, score: 4 }]]) {
+          put('scores', { v: 1, table: bad });
+          const rows = loadScores();
+          t.expect(rows.length === 10 && rows.every(ok), 'bad table ' + JSON.stringify(bad) + ' falls back to the defaults');
+        }
+        put('scores', { v: 1, table: [null, { initials: 'ZZZ', score: 10 }, { initials: 'BBB', score: 50 }, { initials: 'CCC', score: 'NaN' }] });
+        const rows = loadScores();
+        t.equal(rows.map((r) => r.initials).join(), 'BBB,ZZZ', 'good rows are kept, sorted, bad ones dropped');
+        t.expect(qualifies(60, rows), 'qualifies still works on the cleaned table');
+      } finally { delete globalThis.localStorage; }
     },
   },
 ];

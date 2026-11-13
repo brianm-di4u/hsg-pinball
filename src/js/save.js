@@ -13,9 +13,24 @@ export const store = {
 
 export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1 };
 
+// saved values come from storage anyone can edit: keep only what the settings screen could have written
+const pick = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt);
+const bool = (v, dflt) => (typeof v === 'boolean' ? v : dflt);
+function cleanSettings(s) {
+  const d = DEFAULT_SETTINGS;
+  return {
+    ...s, v: 1,
+    sound: bool(s.sound, d.sound), music: bool(s.music, d.music), practice: bool(s.practice, d.practice),
+    volume: typeof s.volume === 'number' && Number.isFinite(s.volume) ? Math.min(1, Math.max(0, s.volume)) : d.volume,
+    motion: pick(s.motion, ['auto', 'full', 'reduced'], d.motion),
+    balls: pick(s.balls, [3, 5], d.balls),
+    tier: pick(s.tier, ['auto', 'high', 'medium', 'low', '2d'], d.tier),
+    textScale: pick(s.textScale, [1, 1.15, 1.3], d.textScale),
+  };
+}
 export function loadSettings() {
   const s = store.get('settings', null);
-  return s && s.v === 1 ? { ...DEFAULT_SETTINGS, ...s } : { ...DEFAULT_SETTINGS };
+  return s && typeof s === 'object' && s.v === 1 ? cleanSettings(s) : { ...DEFAULT_SETTINGS };
 }
 export function saveSettings(s) { store.set('settings', s); }
 
@@ -27,7 +42,14 @@ const DEFAULT_SCORES = [
 
 export function loadScores() {
   const s = store.get('scores', null);
-  return s && s.v === 1 && Array.isArray(s.table) ? s.table : DEFAULT_SCORES.map((r) => ({ ...r }));
+  if (s && s.v === 1 && Array.isArray(s.table)) {
+    const rows = s.table
+      .filter((r) => r && typeof r.initials === 'string' && typeof r.score === 'number' && Number.isFinite(r.score))
+      .map((r) => ({ ...r, initials: r.initials.slice(0, 3) }))
+      .sort((a, b) => b.score - a.score).slice(0, 10);
+    if (rows.length) return rows;
+  }
+  return DEFAULT_SCORES.map((r) => ({ ...r }));
 }
 export function qualifies(score, table = loadScores()) { return score > 0 && (table.length < 10 || score > table[table.length - 1].score); }
 export function addScore(initials, score) {
