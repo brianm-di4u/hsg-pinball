@@ -61,10 +61,20 @@ export class DMD {
   push(c) {
     // higher priority interrupts; equal priority queues (max 3 waiting)
     const item = { ...c, start: null };
+    item.ms = Math.max(c.ms || 1500, this.scrollMs(c));
     if (!this.cur || (c.prio || 0) > (this.cur.prio || 0)) { if (this.cur && (this.cur.prio || 0) >= 2) this.queue.unshift(this.cur); this.cur = item; }
     else { this.queue.push(item); if (this.queue.length > 3) this.queue.splice(0, this.queue.length - 3); }
   }
   get busy() { return !!this.cur; }
+  /** How long a callout must stay up for each line that scrolls (see drawCallout and scrollLine) to make one full pass. */
+  scrollMs(c) {
+    const a = c.anim, kind = typeof a === 'string' ? a : a && a.kind;
+    if (!c.sub || kind === 'reels' || kind === 'derby' || ((kind === 'mode' || kind === 'multiball' || kind === 'wizard') && this.art[a.id || kind])) return 0;
+    const title = c.text || '', sub = DMD.wrap(c.sub, 21).join(' ');
+    let w = textWidth(sub) > DW - 2 ? textWidth(sub) : 0;
+    if (textWidth(title, 2) > DW - 4 && textWidth(title) > DW - 2) w = Math.max(w, textWidth(title));
+    return w ? 400 + 28 * (w + 40) : 0;
+  }
 
   /** Compose one frame. base(dmd) draws the idle screen (score, ball, mode). */
   frame(now, base) {
