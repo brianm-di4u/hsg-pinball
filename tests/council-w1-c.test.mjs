@@ -50,4 +50,45 @@ export const tests = [
       t.expect(s.player.bob > 0.5 && s.player.bob <= 1, 'one nudge counted (bob ' + s.player.bob + ')');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S6-04
+  {
+    name: 'S6-04 phone landscape keeps Menu, Launch and the title inside the screen',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      for (const [w, h] of [[667, 375], [568, 320], [844, 390], [932, 430]]) {
+        await t.page.setViewportSize({ width: w, height: h });
+        await t.waitFrames(5);
+        const m = await t.page.evaluate(() => {
+          const out = {};
+          for (const sel of ['#b-menu', '#b-launch', '#b-launch .lbl', '#table', '.glass-title .t-big']) {
+            const n = document.querySelector(sel); if (!n) { out[sel] = null; continue; }
+            const r = n.getBoundingClientRect();
+            const cs = getComputedStyle(n);
+            out[sel] = { l: r.left, t: r.top, r: r.right, b: r.bottom, vis: cs.visibility, d: cs.display, clipped: n.scrollWidth > n.clientWidth + 1 };
+          }
+          out.launchReady = document.querySelector('#b-launch').classList.contains('ready');
+          out.vw = innerWidth; out.vh = innerHeight;
+          const tn = document.querySelector('.glass-title .t-big'), rg = document.createRange(); rg.selectNodeContents(tn);
+          const tr = rg.getBoundingClientRect(), ga = document.querySelector('.glass-art').getBoundingClientRect();
+          out.title = tr.left >= ga.left && tr.right <= ga.right; out.titleBox = [tr.left, tr.right, ga.left, ga.right].map(Math.round).join(',');
+          return out;
+        });
+        const at = w + 'x' + h;
+        await t.shot('s6-04-' + at);
+        t.expect(m.launchReady, at + ': the ball waits in the lane, Launch is shown');
+        for (const sel of ['#b-menu', '#b-launch']) {
+          const r = m[sel];
+          t.expect(r.l >= 0 && r.t >= 0 && r.r <= w + 0.5 && r.b <= h + 0.5, at + ' ' + sel + ' is inside the viewport (' + [r.l, r.t, r.r, r.b].map(Math.round).join(',') + ')');
+          t.expect(r.r - r.l >= 44 && r.b - r.t >= 44, at + ' ' + sel + ' is at least 44 px');
+          t.expect(!r.clipped, at + ' ' + sel + ' label is not clipped');
+        }
+        t.expect(m.title, at + ': the backglass title sits inside the panel (' + m.titleBox + ')');
+        t.expect(m['#table'].r - m['#table'].l > 0 && m['#table'].b <= h + 0.5, at + ': the table fits the height');
+      }
+      await t.page.setViewportSize({ width: 390, height: 844 });
+    },
+  },
 ];
