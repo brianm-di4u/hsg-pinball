@@ -30,6 +30,15 @@ export function unlock() {
   } catch { audio.ctx = null; }
 }
 
+// browsers only allow audio after a gesture: the first tap, click or key anywhere starts it (touchend, not touchstart, for iOS)
+if (typeof window !== 'undefined' && window.addEventListener) {
+  const first = () => {
+    unlock();
+    if (audio.ctx && audio.ctx.state === 'running') for (const e of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(e, first, true);
+  };
+  for (const e of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(e, first, true);
+}
+
 // silence while paused or hidden: a suspended context stops the clock the sequencer reads, so nothing is lost or queued
 export function suspendAudio() { audio.hold = true; if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); }
 export function resumeAudio() { audio.hold = false; if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume(); }

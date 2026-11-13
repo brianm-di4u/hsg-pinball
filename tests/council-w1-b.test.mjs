@@ -84,6 +84,28 @@ export const tests = [
       t.expect(!G.cues.some((c) => c.k === 'dmd' && c.text === 'WRONG SIDE'), 'no complaint for a correct shot');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S5-01
+  {
+    name: 'S5-01 the first tap or key on the title starts the audio and the title loop',
+    async run(t) {
+      const fresh = async () => { await t.page.reload(); await t.page.waitForFunction(() => window.__game && window.__game.isIdle(), null, { timeout: 40000 }); await t.waitFrames(5); await t.game('scene', 'title'); await t.waitFrames(3); };
+      const settle = async () => { let s; for (let i = 0; i < 40; i++) { s = await t.state(); if (s.audio.ctx) break; await t.page.waitForTimeout(50); } return s; };
+      await fresh();
+      let s = await t.state();
+      t.expect(!s.audio.ctx, 'no audio context before any input');
+      if (t.viewport === 'mobile') await t.tap([20, 400]); else await t.page.mouse.click(20, 400);   // a dead area of the page
+      s = await settle();
+      t.expect(s.audio.ctx, 'a tap in a dead area creates the audio context');
+      await fresh();
+      await t.page.keyboard.press('Shift');
+      s = await settle();
+      t.expect(s.audio.ctx, 'a key press creates the audio context');
+      await fresh();
+      await t.page.click('#b-help');
+      s = await settle();
+      t.expect(s.audio.ctx, 'a click on How to play creates the audio context, so its blip is heard');
+    },
+  },
   // ---------------------------------------------------------------------------------------------- S5-07
   {
     name: 'S5-07 with Music Off the sequencer creates no oscillators, and turning it back on restarts the loop',
