@@ -500,7 +500,7 @@ function modeEvent(G, kind, arg) {
       score(G, 30000); sound(G, 'modeHit');
       dmd(G, 'TUB RACE LEG ' + m.progress, 'NOW SHOOT ' + (m.data.want === 'L' ? 'LEFT' : 'RIGHT'), 1000, 2);
       if (m.progress >= m.need) { dmd(G, 'TUB RACE WON', fact('tubs'), 2200, 3); endMode(G, true); }
-    }
+    } else { dmd(G, 'WRONG SIDE', 'SHOOT ' + (m.data.want === 'L' ? 'LEFT' : 'RIGHT'), 700, 1); sound(G, 'switch'); }
   } else if (M.id === 'coaster' && (kind === 'orbitTop' || kind === 'spin')) {
     if (kind === 'spin') { m.data.spins += arg; if (m.data.spins < 25) return; m.data.spins = 0; }
     m.progress++;
