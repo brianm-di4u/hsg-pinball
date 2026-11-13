@@ -142,4 +142,28 @@ export const tests = [
       } finally { delete globalThis.localStorage; }
     },
   },
+  // ---------------------------------------------------------------------------------------------- S6-11
+  {
+    name: 'S6-11 five failed renders in a row show the error banner with Reload; stray errors are logged once',
+    allowConsoleErrors: true,
+    async run(t) {
+      const logs = [];
+      t.page.on('console', (m) => { if (m.type() === 'error' && m.text().includes('Spa City Pinball:')) logs.push(m.text()); });
+      await t.page.evaluate(() => {
+        const orig = performance.now.bind(performance);
+        performance.now = () => { if (window.__breakRender && new Error().stack.includes('render')) throw new Error('boom'); return orig(); };
+      });
+      await t.waitFrames(5);
+      t.expect(await t.page.locator('#boot-error').isHidden(), 'no banner while rendering works');
+      await t.page.evaluate(() => { window.__breakRender = true; });
+      await t.page.waitForTimeout(600);
+      t.expect(await t.page.locator('#boot-error').isVisible(), 'banner shown after repeated render failures');
+      t.expect(await t.page.locator('#boot-error button').count() === 1, 'the banner has a Reload button');
+      t.equal(logs.filter((l) => l.includes('render failed')).length, 1, 'the render failure is logged once, not every frame');
+      await t.page.evaluate(() => { window.__breakRender = false; });
+      await t.page.evaluate(() => { setTimeout(() => { throw new Error('stray 1'); }); setTimeout(() => { throw new Error('stray 2'); }); });
+      await t.page.waitForTimeout(200);
+      t.equal(logs.filter((l) => l.includes('uncaught')).length, 1, 'later errors are not logged again');
+    },
+  },
 ];

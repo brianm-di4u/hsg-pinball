@@ -186,6 +186,17 @@ function gameOverFlow(c) {
   }, TEST ? 50 : 2600);
 }
 
+let renderFails = 0, errorsLogged = 0;
+function fatal(msg) {
+  const b = $('#boot-error'); b.hidden = false; b.textContent = msg + ' ';
+  const r = document.createElement('button'); r.type = 'button'; r.className = 'btn'; r.textContent = 'Reload';
+  r.addEventListener('click', () => location.reload());
+  b.appendChild(r);
+}
+const logOnce = (what, e) => { if (errorsLogged++ === 0) console.error('Spa City Pinball: ' + what, e); };
+window.addEventListener('error', (e) => logOnce('uncaught error', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => logOnce('unhandled rejection', e.reason));
+
 const live = $('#live');
 let lastAnnounce = 0;
 function announce(text) { const t = performance.now(); if (t - lastAnnounce < 900) return; lastAnnounce = t; live.textContent = text; }
@@ -246,7 +257,12 @@ function frame(ts) {
     while (acc >= TICK && n < 24) { capturePrev(); if (bot) bot(); tick(G); routeCues(); acc -= TICK; n++; }
     if (n >= 24) acc = 0;
   }
-  render(Math.min(1, acc / TICK));
+  try { render(Math.min(1, acc / TICK)); renderFails = 0; }
+  catch (e) {
+    // a throw mid-render leaves the HUD half updated: after 5 in a row say so instead of failing silently
+    if (++renderFails === 1) console.error('Spa City Pinball: render failed', e);
+    if (renderFails === 5) fatal('Spa City Pinball hit an error and the display stopped updating.');
+  }
 }
 
 function render(alpha) {
