@@ -56,4 +56,20 @@ export const tests = [
       }
     },
   },
+  // ---------------------------------------------------------------------------------------------- S3-12
+  {
+    name: 'S3-12 a tilted ball in practice drains, ends the ball and serves a live one',
+    node: true,
+    async run(t) {
+      const G = fresh({ practice: true });
+      autoPlunge(G.w, 0.9); run(G, 3);
+      for (let i = 0; i < 12; i++) nudge(G, 'up');
+      t.expect(G.player.tilted, 'the table is tilted');
+      run(G, 60);
+      const nBalls = G.w.balls.length;
+      t.expect(!G.player.tilted, 'a fresh ball is not tilted any more');
+      t.equal(G.player.ball, 2, 'the ball counter moved on to ball 2');
+      t.equal(nBalls, 1, 'one ball is waiting');
+    },
+  },
 ];

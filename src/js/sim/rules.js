@@ -111,7 +111,7 @@ function onDrain(G, ballId) {
   if (b) removeBall(G.w, b);
   sound(G, 'drain');
   const left = ballsInPlay(G);
-  if (G.t < G.ball.saveUntil && !G.player.tilted || (G.settings.practice && left === 0)) {
+  if (!G.player.tilted && (G.t < G.ball.saveUntil || (G.settings.practice && left === 0))) {
     dmd(G, 'BALL SAVED', '', 1400, 3); sound(G, 'save'); cue(G, { k: 'slowmo', ms: 500 });
     autoLaunch(G, 0.9);
     return;
