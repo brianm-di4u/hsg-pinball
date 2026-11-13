@@ -33,4 +33,27 @@ export const tests = [
       t.equal(G.ball.skillUntil, 0, 'no skill-shot window started');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S2-03
+  {
+    name: 'S2-03 Restart and Quit in the pause menu need a second tap',
+    async run(t) {
+      for (const [id, expectScreen] of [['#b-quit', 'pause'], ['#b-restart', 'pause']]) {
+        await t.game('newGame', { balls: 3, seed: 5 });
+        await t.game('setState', { player: { score: 123456 } });
+        await t.game('scene', 'pause');
+        await t.waitFrames(2);
+        await t.page.click(id);
+        let s = await t.state();
+        t.equal(s.screen, expectScreen, id + ': one tap leaves the pause menu open');
+        t.equal(s.player.score, 123456, id + ': one tap keeps the game');
+        t.equal(s.demo, false, id + ': still the live game');
+        t.expect((await t.page.textContent(id)).includes('again'), id + ': the button asks for a second tap');
+        await t.page.click(id);
+        await t.waitFrames(2);
+        s = await t.state();
+        if (id === '#b-quit') t.expect(s.demo && s.screen === 'title', 'second tap quits to the title');
+        else t.expect(!s.demo && s.screen === null && s.player.score === 0, 'second tap restarts the game');
+      }
+    },
+  },
 ];

@@ -11,6 +11,17 @@ export function createScreens(root, app) {
   let current = null;
   const el = (html) => { root.innerHTML = html; root.hidden = !html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
   const on = (sel, fn) => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx('ui'); fn(e); }); };
+  // a destructive button: the first tap asks, a second tap within 3 s does it
+  const confirmOn = (sel, fn) => {
+    const n = root.querySelector(sel); if (!n) return;
+    const label = n.textContent; let timer = 0;
+    n.addEventListener('click', () => {
+      app.sfx('ui');
+      if (timer) { clearTimeout(timer); timer = 0; fn(); return; }
+      n.textContent = 'Tap again to confirm';
+      timer = setTimeout(() => { timer = 0; n.textContent = label; }, 3000);
+    });
+  };
 
   const S = {
     get current() { return current; },
@@ -49,8 +60,8 @@ export function createScreens(root, app) {
       on('#b-resume', () => app.resume());
       on('#b-help', () => S.help('pause'));
       on('#b-settings', () => S.settings('pause'));
-      on('#b-restart', () => app.start());
-      on('#b-quit', () => app.quit());
+      confirmOn('#b-restart', () => app.start());
+      confirmOn('#b-quit', () => app.quit());
     },
     settings(back) {
       current = 'settings';
