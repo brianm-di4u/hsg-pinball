@@ -3,7 +3,7 @@
 import { compileTable } from './sim/table.js';
 import { spec } from './sim/table-spa-city.js';
 import { TICK, autoPlunge, addBall, LAYER, removeBall } from './sim/physics.js';
-import { createGame, newGame, tick, flipper, plunger, nudge, gameState, setGameState, mystery, api } from './sim/rules.js';
+import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api } from './sim/rules.js';
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
 import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
@@ -118,9 +118,15 @@ function pause() {
   paused = true;
   // keys released while paused never reach the game, so let go of everything now
   G.w.pending.length = 0;   // a flip queued for a later substep must not fire after the release
-  flipper(G, 'L', false); flipper(G, 'R', false); plunger(G, false);
+  for (const f of G.w.flippers) if (f.held) flipper(G, f.side, false);
+  plungerCancel(G);   // a plunger held through the pause is let go without firing
   screens.pause(); document.body.dataset.scene = 'pause';
 }
+
+// the window lost focus or the tab was hidden with a ball in play: the sim must not keep running unattended
+const autoPause = () => { if (!demo && !paused && G.scene === 'game' && G.w.balls.length) pause(); };
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 
 // ------------------------------------------------------------------------------------------------- input
 // The sim time an input event belongs to. The offset is capped like a frame's step (MAX_DT), so an event never lands
@@ -146,7 +152,7 @@ const input = createInput(tableEl, {
     }
     if (paused || demo || screens.current) return;
     if (a === 'flipL' || a === 'flipR') flipper(G, a === 'flipL' ? 'L' : 'R', down, simTimeFor(ts));
-    else if (a === 'plunge') plunger(G, down);
+    else if (a === 'plunge') { if (!down && src === 'blur') plungerCancel(G); else plunger(G, down); }
     else if (down && a.startsWith('nudge')) { nudge(G, { nudgeL: 'left', nudgeR: 'right', nudgeU: 'up' }[a]); if (!reducedMotion()) effects.push({ k: 'shake', dir: a, t: now() }); }
   },
 });

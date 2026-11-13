@@ -166,4 +166,40 @@ export const tests = [
       t.equal(logs.filter((l) => l.includes('uncaught')).length, 1, 'later errors are not logged again');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S6-03
+  {
+    name: 'S6-03 losing focus or hiding the tab pauses a live game and lets go of the plunger without firing it',
+    viewports: ['desktop'],
+    async run(t) {
+      const blur = () => t.page.evaluate(() => window.dispatchEvent(new Event('blur')));
+      // a charged plunger, then the window loses focus
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.waitFrames(3);
+      await t.page.keyboard.down('Space');
+      await t.page.waitForTimeout(400);
+      let s = await t.state();
+      t.expect(s.physics.plunger.holding && s.physics.plunger.pull > 3, 'the plunger is charging: ' + s.physics.plunger.pull);
+      await blur(); await t.waitFrames(3);
+      s = await t.state();
+      t.equal(s.screen, 'pause', 'the game paused on blur');
+      t.expect(!s.physics.plunger.holding && s.physics.plunger.pull === 0, 'the plunger was let go');
+      t.expect(s.ball.inLane && !s.ball.launched && s.physics.balls.every((b) => b.y < 150), 'and did not fire: the ball is still in the lane');
+      const tick0 = s.physics.tick;
+      await t.page.waitForTimeout(400);
+      t.equal((await t.state()).physics.tick, tick0, 'the sim is not running while paused');
+      await t.page.keyboard.up('Space');
+      // a hidden tab
+      await t.page.click('#b-resume');
+      await t.game('act', 'plunge', 0.9); await t.page.waitForTimeout(300);
+      await t.page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
+      await t.waitFrames(3);
+      t.equal((await t.state()).screen, 'pause', 'a hidden tab pauses too');
+      await t.page.evaluate(() => { delete document.hidden; });
+      // the attract demo and the title are not paused
+      await t.game('scene', 'title'); await t.waitFrames(3);
+      await blur(); await t.waitFrames(3);
+      s = await t.state();
+      t.expect(s.demo && s.screen === 'title', 'blur on the title leaves the demo and title alone');
+    },
+  },
 ];

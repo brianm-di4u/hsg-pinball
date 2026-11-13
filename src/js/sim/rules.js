@@ -1,6 +1,6 @@
 // Spa City Pinball rules: turns physics events into scores, modes, multiballs and presentation cues. Deterministic
 // (seeded rng, sim time only), no DOM, so Node tools and tests drive full games headless. PRD.md §4 is the spec.
-import { createWorld, addBall, removeBall, step, setFlipper, setPlunger, autoPlunge, nudge as physNudge, kickOut,
+import { createWorld, addBall, removeBall, step, setFlipper, setPlunger, cancelPlunger, autoPlunge, nudge as physNudge, kickOut,
   queueInput, snapshot, restore, TICK, LAYER } from './physics.js';
 import { BATHHOUSES } from './table-spa-city.js';
 import { makeRng } from './rng.js';
@@ -624,6 +624,8 @@ export function plunger(G, holding) {
   setPlunger(G.w, holding);
   if (!holding && was) sound(G, 'plunger');
 }
+
+export function plungerCancel(G) { cancelPlunger(G.w); }
 
 export function nudge(G, dir) {
   if (G.scene !== 'game' || G.player.tilted) return;

@@ -84,6 +84,12 @@ export function setPlunger(w, holding) {
   }
 }
 
+/** Let go of a held plunger without firing it (focus lost, pause): the pull springs back to rest. */
+export function cancelPlunger(w) {
+  const p = w.plunger;
+  if (p.holding) { p.holding = false; p.pull = 0; p.vel = 0; }
+}
+
 /** Fire the plunger at a set strength (0..1) without a pull: ball saves, multiball launches, tests. */
 export function autoPlunge(w, strength) {
   const p = w.plunger;
