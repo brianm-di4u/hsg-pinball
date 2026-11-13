@@ -114,7 +114,7 @@ app.applySettings = (s) => {
   document.body.dataset.view = view ? view.kind : '2d';
 };
 function pause() {
-  if (demo || paused) return;
+  if (demo || paused || G.scene === 'over') return;
   paused = true;
   // keys released while paused never reach the game, so let go of everything now
   G.w.pending.length = 0;   // a flip queued for a later substep must not fire after the release

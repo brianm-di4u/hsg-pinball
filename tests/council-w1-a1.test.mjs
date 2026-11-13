@@ -72,4 +72,40 @@ export const tests = [
       t.equal(nBalls, 1, 'one ball is waiting');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S6-01
+  {
+    name: 'S6-01 after a high-score entry Continue returns to a live attract demo, and Esc cannot pause a finished game',
+    async run(t) {
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:scores'));
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('setState', { player: { ball: 3, score: 9000000 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      await t.page.waitForSelector('#b-ok');
+      await t.page.click('#b-ok');
+      await t.page.waitForSelector('#b-back');
+      let s = await t.state();
+      t.equal(s.screen, 'scores', 'high scores shown after the entry');
+      await t.page.click('#b-back');
+      await t.waitFrames(3);
+      s = await t.state();
+      t.equal(s.screen, 'title', 'on the title');
+      t.equal(s.demo, true, 'the attract demo is running behind the title');
+      t.expect(s.scene !== 'over', 'the finished game is gone: scene ' + s.scene);
+      await t.page.keyboard.press('Escape');
+      await t.waitFrames(2);
+      s = await t.state();
+      t.expect(s.screen !== 'pause', 'Esc on the title does not open the pause menu');
+      // a finished game cannot be paused either
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('setState', { player: { ball: 3, score: 0 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      await t.page.waitForSelector('#b-again');
+      await t.page.keyboard.press('Escape');
+      await t.waitFrames(2);
+      s = await t.state();
+      t.equal(s.screen, 'over', 'Esc on the game-over screen leaves it alone');
+    },
+  },
 ];

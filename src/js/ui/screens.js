@@ -140,7 +140,7 @@ export function createScreens(root, app) {
         <table class="scores"><tbody>${rows}</tbody></table>
         <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>${back === 'over' ? 'Continue' : 'Back'}</button></div>
       </section>`);
-      on('#b-back', () => S.title());
+      on('#b-back', () => (back === 'over' ? app.quit() : S.title()));
     },
     over(score, match, won) {
       current = 'over';
