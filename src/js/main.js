@@ -197,8 +197,9 @@ function routeCues() {
       case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) startMusic(G.mb ? 'multiball' : c.on ? 'mode' : 'main'); break;
       case 'mb': if (!demo) startMusic(c.on ? 'multiball' : (G.mode ? 'mode' : 'main')); break;
-      case 'serve': if (!demo) { if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice); } break;
-      case 'over': if (!demo) gameOverFlow(c); else setTimeout(() => demo && startDemo(), 1500); break;
+      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice); } break;
+      case 'bonus': if (!demo) announce('Ball ' + G.player.ball + ' over. Bonus ' + fmt(c.total) + '. Score ' + fmt(G.player.score)); break;
+      case 'over': if (!demo) { announce('Game over. Final score ' + fmt(c.score)); gameOverFlow(c); } else setTimeout(() => demo && startDemo(), 1500); break;
       case 'tilt': effects.push({ k: 'tilt', t: now() }); break;
     }
   }
@@ -226,8 +227,10 @@ window.addEventListener('error', (e) => logOnce('uncaught error', e.error || e.m
 window.addEventListener('unhandledrejection', (e) => logOnce('unhandled rejection', e.reason));
 
 const live = $('#live');
-let lastAnnounce = 0;
-function announce(text) { const t = performance.now(); if (t - lastAnnounce < 900) return; lastAnnounce = t; live.textContent = text; }
+// announcements are spoken one at a time, 900 ms apart, and queued (not dropped) when they arrive together
+const liveQ = []; let liveTimer = 0;
+function announce(text) { liveQ.push(text); if (liveQ.length > 8) liveQ.shift(); if (!liveTimer) pumpLive(); }
+function pumpLive() { if (!liveQ.length) { liveTimer = 0; return; } live.textContent = liveQ.shift(); liveTimer = setTimeout(pumpLive, 900); }
 
 // ------------------------------------------------------------------------------------------------- DMD base screen
 function dmdBase(d) {

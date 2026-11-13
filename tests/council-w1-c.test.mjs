@@ -114,4 +114,34 @@ export const tests = [
       t.expect(!(await t.page.evaluate(() => document.getElementById('stage').inert)), 'the stage is live again once the game starts');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S2-09
+  {
+    name: 'S2-09 screen-reader announcements are queued, not dropped, and cover the ball number and score',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.evaluate(() => {
+        window.__said = [];
+        new MutationObserver(() => window.__said.push(document.querySelector('#live').textContent)).observe(document.querySelector('#live'), { childList: true, characterData: true, subtree: true });
+      });
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('step', 2);
+      // two callouts in the same instant: the second used to be dropped
+      await t.game('act', 'mode', 0);
+      await t.game('step', 1);
+      await t.game('act', 'award', 0);
+      await t.game('step', 1);
+      // drain the ball: bonus, then ball 2
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      await t.page.waitForTimeout(6000);
+      const said = await t.page.evaluate(() => window.__said);
+      const dmdTexts = said.filter((x) => !/^Ball \d/.test(x));
+      t.expect(said.some((x) => /^Ball 1 of 3/.test(x)), 'the first ball is announced: ' + JSON.stringify(said));
+      t.expect(said.some((x) => /^Ball 1 over\. Bonus .*Score /.test(x)), 'ball end announces bonus and score');
+      t.expect(said.some((x) => /^Ball 2 of 3/.test(x)), 'the next ball is announced');
+      t.expect(dmdTexts.length >= 3, 'callouts that arrived together were all announced (' + dmdTexts.length + ')');
+      const help = await t.page.evaluate(() => { const m = document.querySelector('#table'); const p = document.getElementById(m.getAttribute('aria-describedby')); return p ? p.textContent : ''; });
+      t.expect(/flipper/i.test(help) && /plunger/i.test(help), 'the table has a description of the controls and the goal');
+    },
+  },
 ];
