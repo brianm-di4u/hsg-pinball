@@ -33,13 +33,15 @@ export function createScreens(root, app) {
         <h1 id="t-h"><span class="t-small">Spa City</span><span class="t-big">Pinball</span></h1>
         <p class="tag">Bathhouse Row · Hot Springs, Arkansas</p>
         <div class="menu">
-          <button type="button" id="b-play" class="btn primary" autofocus>Play</button>
+          ${app.canContinue() ? '<button type="button" id="b-continue" class="btn primary" autofocus>Continue game</button>' : ''}
+          <button type="button" id="b-play" class="btn${app.canContinue() ? '' : ' primary'}"${app.canContinue() ? '' : ' autofocus'}>Play</button>
           <button type="button" id="b-help" class="btn">How to play</button>
           <button type="button" id="b-scores" class="btn">High scores</button>
           <button type="button" id="b-settings" class="btn">Settings</button>
         </div>
         <p class="hint">${app.touch ? 'Tap the left or right side to flip' : 'Z and / (or Shift) to flip · Space to plunge'}</p>
       </section>`);
+      on('#b-continue', () => app.continueGame());
       on('#b-play', () => app.start());
       on('#b-help', () => S.help('title'));
       on('#b-scores', () => S.scores('title'));

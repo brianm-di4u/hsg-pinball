@@ -11,7 +11,7 @@ import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { audio, unlock, sfx, setVolumes, startMusic, suspendAudio, resumeAudio } from './ui/audio.js';
-import { store, loadSettings, saveSettings, loadScores, qualifies, addScore } from './save.js';
+import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume } from './save.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
 
@@ -88,11 +88,27 @@ function startDemo() {
   startMusic('title');
 }
 
-app.start = () => {
+// copy back only the saved values that have the same shape as a fresh game's (storage anyone can edit)
+function mergeKnown(dst, src) {
+  for (const k of Object.keys(dst)) {
+    const a = dst[k], b = src[k];
+    if (Array.isArray(a)) { if (Array.isArray(b) && b.length === a.length && b.every((x) => typeof x === typeof a[0] && (typeof x !== 'number' || Number.isFinite(x)))) dst[k] = b.slice(); }
+    else if (a !== null && typeof b === typeof a && (typeof b !== 'number' || Number.isFinite(b))) dst[k] = b;
+  }
+}
+
+app.canContinue = () => !!loadResume();
+app.start = (resume = null) => {
   unlock(); resumeAudio();
   demo = false; bot = null; paused = false;
   G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffffff) });
-  newGame(G, { balls: app.settings.balls, practice: app.settings.practice });
+  newGame(G, { balls: resume ? resume.player.ballsPerGame : app.settings.balls, practice: resume ? resume.practice : app.settings.practice });
+  if (resume) {
+    mergeKnown(G.player, resume.player); mergeKnown(G.f, resume.features);
+    G.f.boilUntil = 0;   // a sim-clock time from the saved game: the clock starts again at 0
+    G.cues = G.cues.filter((c) => c.k !== 'dmd');
+    G.cues.push({ t: G.t, k: 'dmd', text: 'BALL ' + G.player.ball, sub: fmt(G.player.score), ms: 1600, prio: 2, anim: null });
+  }
   dmd.queue.length = 0; dmd.cur = null;   // a new game starts with a clean display
   screens.close();
   document.body.dataset.scene = 'game';
@@ -100,6 +116,7 @@ app.start = () => {
   clearTimeout(overTimer);
   tableEl.focus({ preventScroll: true });
 };
+app.continueGame = () => { const r = loadResume(); if (r) app.start(r); };
 app.resume = () => { resumeAudio(); paused = false; screens.close(); document.body.dataset.scene = demo ? 'title' : 'game'; lastNow = performance.now(); };
 app.quit = () => { resumeAudio(); paused = false; screens.title(); startDemo(); };
 app.applySettings = (s) => {
@@ -180,6 +197,7 @@ function routeCues() {
       case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) startMusic(G.mb ? 'multiball' : c.on ? 'mode' : 'main'); break;
       case 'mb': if (!demo) startMusic(c.on ? 'multiball' : (G.mode ? 'mode' : 'main')); break;
+      case 'serve': if (!demo) { if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice); } break;
       case 'over': if (!demo) gameOverFlow(c); else setTimeout(() => demo && startDemo(), 1500); break;
       case 'tilt': effects.push({ k: 'tilt', t: now() }); break;
     }
@@ -188,6 +206,7 @@ function routeCues() {
 }
 
 function gameOverFlow(c) {
+  clearResume();
   startMusic('title');
   overTimer = setTimeout(() => {
     if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score); screens.scores('over', i); });

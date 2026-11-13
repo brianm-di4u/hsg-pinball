@@ -60,3 +60,16 @@ export function addScore(initials, score) {
   store.set('scores', { v: 1, table: out });
   return out.findIndex((r) => r.initials === initials && r.score === score);
 }
+
+// the game in progress, written at each ball start so a reload or crash can offer Continue
+const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+export function loadResume() {
+  const r = store.get('resume', null);
+  if (!isObj(r) || r.v !== 1 || !isObj(r.player) || !isObj(r.features)) return null;
+  const p = r.player;
+  if (![3, 5].includes(p.ballsPerGame) || !Number.isInteger(p.ball) || p.ball < 1 || p.ball > p.ballsPerGame) return null;
+  if (typeof p.score !== 'number' || !Number.isFinite(p.score) || p.score < 0) return null;
+  return { v: 1, practice: r.practice === true, player: p, features: r.features };
+}
+export function saveResume(player, features, practice) { return store.set('resume', { v: 1, practice: !!practice, player, features }); }
+export function clearResume() { return store.set('resume', null); }

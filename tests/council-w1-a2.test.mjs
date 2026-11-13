@@ -91,4 +91,67 @@ export const tests = [
       } finally { stopMusic(); audio.ctx = null; audio.hold = false; delete globalThis.window; }
     },
   },
+  // ---------------------------------------------------------------------------------------------- S1-29
+  {
+    name: 'S1-29 a game in progress is offered as Continue after a reload, and is gone at game over',
+    async run(t) {
+      const reload = async () => { await t.page.reload(); await t.page.waitForFunction(() => window.__game && window.__game.isIdle(), null, { timeout: 30000 }); await t.waitFrames(5); };
+      const saved = () => t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:resume')));
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:resume'));
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('step', 10);
+      t.equal(await saved(), null, 'a fresh game has nothing to resume');
+      await t.game('setState', { player: { ball: 2, score: 123456, extraBalls: 1 }, features: { towerLevel: 2, ramps: 4, row: [1, 1, 0, 0, 0, 0, 0, 0], modesPlayed: [1, 0, 0, 0, 0, 0] }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      let s = await t.state();
+      t.equal(s.scene, 'game', 'back in play after the bonus');
+      let r = await saved();
+      t.expect(r && r.player.ball === 2 && r.player.score >= 123456, 'the new ball start was saved');
+      await reload();
+      s = await t.state();
+      t.expect(s.demo && s.screen === 'title', 'the reload lands on the title');
+      t.expect(await t.page.$('#b-continue') != null, 'the title offers Continue game');
+      await t.page.click('#b-continue');
+      await t.waitFrames(5);
+      s = await t.state();
+      t.expect(!s.demo && s.screen === null && s.scene === 'game', 'Continue starts the game');
+      t.equal(s.player.ball, r.player.ball, 'same ball number');
+      t.equal(s.player.score, r.player.score, 'same score');
+      t.equal(s.player.ballsPerGame, 3, 'same balls per game');
+      t.equal(s.features.towerLevel, 2, 'tower level kept');
+      t.equal(s.features.row.join(), '1,1,0,0,0,0,0,0', 'bathhouses kept');
+      t.equal(s.features.modesPlayed.join(), '1,0,0,0,0,0', 'modes played kept');
+      t.equal(s.ballsInPlay, 1, 'one ball waits in the lane');
+      t.expect(s.ball.inLane && !s.ball.launched, 'in the shooter lane');
+      // last ball drained: the game is over and nothing is left to resume
+      await t.game('setState', { player: { ball: 3 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      s = await t.state();
+      t.equal(s.scene, 'over', 'game over');
+      t.equal(await saved(), null, 'the saved game is cleared at game over');
+    },
+  },
+  {
+    name: 'S1-29 a damaged saved game is ignored',
+    async run(t) {
+      for (const bad of ['{"v":1,"player":{"ball":9,"ballsPerGame":3,"score":5},"features":{}}', '{"v":1,"player":{"ball":2,"ballsPerGame":3,"score":"x"},"features":{}}', '[1]', '"x"', '{"v":2}', '{oops']) {
+        await t.page.evaluate((b) => localStorage.setItem('hsg-pinball:resume', b), bad);
+        await t.page.reload(); await t.page.waitForFunction(() => window.__game && window.__game.isIdle(), null, { timeout: 30000 }); await t.waitFrames(3);
+        t.expect(await t.page.$('#b-continue') == null, 'no Continue for ' + bad);
+        t.expect(await t.page.$('#b-play') != null, 'Play still there for ' + bad);
+      }
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:resume', JSON.stringify({ v: 1, practice: false, player: { ball: 2, ballsPerGame: 3, score: 777, tilted: 'yes', bob: 'x', skillShots: 1e999 }, features: { towerLevel: 'high', row: [1, 2], spa: [1, 1, 1] } })));
+      await t.page.reload(); await t.page.waitForFunction(() => window.__game && window.__game.isIdle(), null, { timeout: 30000 }); await t.waitFrames(3);
+      await t.page.click('#b-continue');
+      await t.waitFrames(5);
+      const s = await t.state();
+      t.equal(s.player.score, 777, 'the good value is used');
+      t.equal(s.player.tilted, false, 'a wrong-typed flag keeps its default');
+      t.equal(s.features.towerLevel, 0, 'a wrong-typed number keeps its default');
+      t.equal(s.features.row.length, 8, 'a wrong-length list keeps its default');
+      t.equal(s.features.spa.join(), '1,1,1', 'a good list is used');
+    },
+  },
 ];
