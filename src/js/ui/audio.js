@@ -41,6 +41,7 @@ export function setVolumes({ sound = audio.on, music = audio.music, volume = aud
   master.gain.setTargetAtTime(volume, t, 0.05);
   sfxBus.gain.setTargetAtTime(sound ? 0.9 : 0, t, 0.05);
   musBus.gain.setTargetAtTime(music ? 0.32 : 0, t, 0.05);
+  if (!music) stopMusic(); else if (audio.scene) startMusic(audio.scene);   // no oscillators are made for a muted bus
 }
 
 function env(g, t0, a, peak, dur) {
@@ -141,6 +142,7 @@ let seq = null;
 export function startMusic(name) {
   audio.scene = name;
   if (!audio.ctx) return;
+  if (!audio.music) return stopMusic();
   if (seq && seq.name === name) return;
   stopMusic();
   const song = SONGS[name];

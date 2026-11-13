@@ -3,10 +3,28 @@ import { DMD, DW, textWidth } from '../src/js/ui/dmd.js';
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGame, newGame, tick, api, MODES } from '../src/js/sim/rules.js';
+import { audio, unlock, startMusic, stopMusic, setVolumes } from '../src/js/ui/audio.js';
 import { TICK } from '../src/js/sim/physics.js';
 
 const T = compileTable(spec);
 const run = (G, seconds) => { for (let i = 0; i < Math.round(seconds / TICK); i++) tick(G); };
+// a context that records when oscillators and noise sources are told to start
+function fakeContext(starts) {
+  const stub = () => new Proxy(function () {}, {
+    get: (_, k) => (k === 'connect' ? (x) => x : k === 'start' ? (t) => starts.push(t) : k === Symbol.toPrimitive ? () => 0 : stub()),
+    set: () => true,
+    apply: () => stub(),
+  });
+  return class {
+    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = {}; fakeContext.last = this; }
+    suspend() { this.state = 'suspended'; return Promise.resolve(); }
+    resume() { this.state = 'running'; return Promise.resolve(); }
+    createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+    createGain() { return stub(); } createOscillator() { return stub(); } createBiquadFilter() { return stub(); }
+    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createConvolver() { return stub(); }
+  };
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const shoot = (G, name) => { G.w.events.push({ t: 'switch', sw: G.T.swName.indexOf(name) }); tick(G); };
 
 export const tests = [
@@ -64,6 +82,31 @@ export const tests = [
       G.cues.length = 0; shoot(G, 'orbitTop');   // left: correct
       t.equal(G.mode.progress, before + 1, 'the right side still counts');
       t.expect(!G.cues.some((c) => c.k === 'dmd' && c.text === 'WRONG SIDE'), 'no complaint for a correct shot');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S5-07
+  {
+    name: 'S5-07 with Music Off the sequencer creates no oscillators, and turning it back on restarts the loop',
+    node: true,
+    async run(t) {
+      const starts = [];
+      globalThis.window = { AudioContext: fakeContext(starts) };
+      try {
+        audio.music = false;
+        unlock();
+        startMusic('main');
+        const c = fakeContext.last;
+        await wait(150); c.currentTime = 5; await wait(150);
+        t.equal(starts.length, 0, 'music off: nothing was started');
+        setVolumes({ music: true });
+        t.expect(starts.length > 0, 'music on: the loop starts straight away on the current scene');
+        const n = starts.length;
+        setVolumes({ music: false });
+        c.currentTime = 10; await wait(200);
+        t.equal(starts.length, n, 'music off again: the running sequencer stops');
+        setVolumes({ music: true });
+        t.expect(starts.length > n, 'and starts again');
+      } finally { stopMusic(); audio.ctx = null; audio.music = true; audio.scene = null; delete globalThis.window; }
     },
   },
 ];
