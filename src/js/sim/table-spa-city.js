@@ -159,7 +159,7 @@ triggers.push({ a: [400, 364], b: [432, 352], sw: 'wireDrop', layer: [LAYER.WIRE
 
 // ---------------------------------------------------------------------------------------------------- shooter
 const plunger = { x0: 485, x1: 512, y: 90, maxPull: 50, pullRate: 40, maxVel: 1750, e: 0.25 };
-triggers.push({ a: [483, 300], b: [514, 300], sw: 'shooterLane', name: 'shooterLane' });
+triggers.push({ a: [483, 872], b: [514, 872], sw: 'shooterLane', name: 'shooterLane' });   // just past the one-way gate: a ball that falls back never trips it
 
 export const spec = {
   name: 'Spa City', width: W, height: H, drainY: 30, rollDamp: 0.03,

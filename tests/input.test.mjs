@@ -35,7 +35,7 @@ export const tests = [
     },
   },
   {
-    name: 'input: a quick plunger tap launches round the arch; a full hold still does', node: true,
+    name: 'input: a quick plunger tap launches round the arch; any real hold still clears the lane', node: true,
     async run(t) {
       const apex = (holdS) => {
         const w = createWorld(T); const b = addBall(w, 498.5, 104);
@@ -47,7 +47,7 @@ export const tests = [
       const tap = apex(0.05), zero = apex(0), soft = apex(0.4), full = apex(1.4);
       t.log(`apex: tap ${tap.toFixed(0)}, zero-length tap ${zero.toFixed(0)}, 0.4 s hold ${soft.toFixed(0)}, full hold ${full.toFixed(0)} mm`);
       t.expect(tap > 1050 && zero > 1050, 'a tap rounds the arch');
-      t.expect(soft < 600, 'a short real hold is still a soft plunge');
+      t.expect(soft > 900, 'a short real hold clears the lane (a weaker launch used to roll back and burn the ball save)');
       t.expect(full > 1050, 'a full hold rounds the arch');
     },
   },

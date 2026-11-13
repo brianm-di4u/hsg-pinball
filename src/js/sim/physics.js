@@ -72,6 +72,7 @@ export function setFlipper(w, side, held) {
 
 export const TAP_PULL = 6;          // mm: a release before the plunger has drawn this far (~150 ms) is a tap
 export const TAP_STRENGTH = 0.85;   // a tap fires like a launch button, round the arch
+export const MIN_STRENGTH = 0.7;    // a real hold never fires weaker than this: below about 0.68 the ball rolls back into the lane
 
 /** Hold (true) to draw the plunger back, release (false) to fire. */
 export function setPlunger(w, holding) {
@@ -79,7 +80,7 @@ export function setPlunger(w, holding) {
   if (holding && !p.holding) p.holding = true;
   else if (!holding && p.holding) {
     if (p.pull < TAP_PULL) { autoPlunge(w, TAP_STRENGTH); return; }
-    p.holding = false; p.vel = p.maxVel * (p.pull / p.maxPull);
+    p.holding = false; p.vel = p.maxVel * (MIN_STRENGTH + (1 - MIN_STRENGTH) * (p.pull / p.maxPull));   // longer is stronger, from a launch that always clears the lane
   }
 }
 
