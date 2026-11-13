@@ -101,7 +101,7 @@ export function createScreens(root, app) {
             <table class="keys"><tbody>${app.touch ? `
               <tr><th>Flippers</th><td>Tap and hold the left or right half of the table</td></tr>
               <tr><th>Plunger</th><td>Hold Launch, then let go (longer = stronger). A quick tap launches.</td></tr>
-              <tr><th>Nudge</th><td>Two-finger tap. Too many and the table tilts.</td></tr>
+              <tr><th>Nudge</th><td>Tap two fingers together on one side. Too many and the table tilts.</td></tr>
               <tr><th>Pause</th><td>The ☰ button</td></tr>` : `
               <tr><th>Left flipper</th><td>Left Shift · Z · ←</td></tr>
               <tr><th>Right flipper</th><td>Right Shift · / · →</td></tr>

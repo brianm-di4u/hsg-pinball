@@ -1,6 +1,6 @@
 // Keyboard, touch and gamepad → game actions, with event timestamps so flips land on the right physics substep.
 // Held keys use keydown/keyup only (auto-repeat ignored). Touch: left / right half of the table area flips that
-// side; the plunger button pulls while held; a two-finger tap nudges.
+// side; the plunger button pulls while held; two fingers landing together on one side nudge.
 
 export const KEYS = {
   flipL: ['ShiftLeft', 'KeyZ', 'ArrowLeft'],
@@ -46,24 +46,26 @@ export function createInput(target, handlers) {
   document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 
   // touch on the table area
-  const touches = new Map();  // id → action
+  const touches = new Map();  // id → { a: action, at: start time }
+  const NUDGE_MS = 60;        // two fingers landing together on one side nudge; a thumb landing on the other flipper does not
   const ts = (e) => {
     if (!handlers.touchActive || !handlers.touchActive()) return;
-    if (e.touches.length >= 2 && e.changedTouches.length === 1 && touches.size >= 1) { handlers.action('nudgeU', true, e.timeStamp, 'touch'); }
     for (const t of e.changedTouches) {
       const r = target.getBoundingClientRect();
       const a = t.clientX < r.left + r.width / 2 ? 'flipL' : 'flipR';
-      touches.set(t.identifier, a);
-      handlers.action(a, true, e.timeStamp, 'touch');
+      const pair = [...touches.values()].some((o) => o.a === a && e.timeStamp - o.at <= NUDGE_MS);
+      touches.set(t.identifier, { a, at: e.timeStamp });
+      if (pair) handlers.action('nudgeU', true, e.timeStamp, 'touch');
+      else handlers.action(a, true, e.timeStamp, 'touch');
     }
     e.preventDefault();
   };
   const te = (e) => {
     for (const t of e.changedTouches) {
-      const a = touches.get(t.identifier);
+      const a = (touches.get(t.identifier) || {}).a;
       if (!a) continue;
       touches.delete(t.identifier);
-      if (![...touches.values()].includes(a)) handlers.action(a, false, e.timeStamp, 'touch');
+      if (![...touches.values()].some((o) => o.a === a)) handlers.action(a, false, e.timeStamp, 'touch');
     }
     e.preventDefault();
   };
