@@ -91,4 +91,27 @@ export const tests = [
       await t.page.setViewportSize({ width: 390, height: 844 });
     },
   },
+  // ---------------------------------------------------------------------------------------------- S2-07
+  {
+    name: 'S2-07 the title is a modal dialog and Tab never leaves it for the page behind',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('scene', 'title');
+      await t.waitFrames(3);
+      const d = await t.page.evaluate(() => { const s = document.querySelector('#screens section'); return { role: s.getAttribute('role'), modal: s.getAttribute('aria-modal'), inert: document.getElementById('stage').inert }; });
+      t.equal(d.role, 'dialog', 'the title section is a dialog');
+      t.equal(d.modal, 'true', 'and modal');
+      t.expect(d.inert, 'the stage is inert while the title is open');
+      const seen = new Set();
+      for (let i = 0; i < 12; i++) {
+        await t.page.keyboard.press('Tab');
+        const id = await t.page.evaluate(() => { const a = document.activeElement; return (document.querySelector('#screens').contains(a) ? 'in:' : 'out:') + (a.id || a.tagName); });
+        seen.add(id);
+      }
+      t.expect([...seen].every((x) => x.startsWith('in:') || x === 'out:BODY'), 'Tab reaches nothing behind the dialog (only the dialog, or off the page to the browser): ' + [...seen].join(' '));
+      await t.page.click('#b-play');
+      await t.waitFrames(3);
+      t.expect(!(await t.page.evaluate(() => document.getElementById('stage').inert)), 'the stage is live again once the game starts');
+    },
+  },
 ];

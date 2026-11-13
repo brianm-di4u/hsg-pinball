@@ -9,7 +9,7 @@ const fmt = (n) => Number(n).toLocaleString('en-US');
 
 export function createScreens(root, app) {
   let current = null;
-  const el = (html) => { root.innerHTML = html; root.hidden = !html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
+  const el = (html) => { root.innerHTML = html; root.hidden = !html; const st = document.getElementById('stage'); if (st) st.inert = !!html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
   const on = (sel, fn) => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx('ui'); fn(e); }); };
   // a destructive button: the first tap asks, a second tap within 3 s does it
   const confirmOn = (sel, fn) => {
@@ -28,7 +28,7 @@ export function createScreens(root, app) {
     close() { current = null; el(''); },
     title() {
       current = 'title';
-      el(`<section class="screen title" aria-labelledby="t-h">
+      el(`<section class="screen title" role="dialog" aria-modal="true" aria-labelledby="t-h">
         <div class="title-art" aria-hidden="true"></div>
         <h1 id="t-h"><span class="t-small">Spa City</span><span class="t-big">Pinball</span></h1>
         <p class="tag">Bathhouse Row · Hot Springs, Arkansas</p>
