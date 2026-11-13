@@ -2,12 +2,12 @@
 // hsg-property-game audio.js (tone, noise, unlock on the first gesture), grown into a small mixer: SFX and music
 // buses through a compressor, a generated room reverb, rate limiting so a bumper frenzy never clips, and a
 // step sequencer for four short jazz loops (title, main, mode, multiball/wizard).
-export const audio = { ctx: null, on: true, music: true, vol: 0.8, played: [], last: {}, scene: null };
+export const audio = { ctx: null, on: true, music: true, vol: 0.8, played: [], last: {}, scene: null, hold: false };
 
 let master, sfxBus, musBus, verb, noiseBuf;
 
 export function unlock() {
-  if (audio.ctx) { if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
+  if (audio.ctx) { if (audio.ctx.state === 'suspended' && !audio.hold) audio.ctx.resume(); return; }
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -26,8 +26,13 @@ export function unlock() {
     const n = c.sampleRate; noiseBuf = c.createBuffer(1, n, n);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
     if (audio.scene) startMusic(audio.scene);
+    if (audio.hold) c.suspend();
   } catch { audio.ctx = null; }
 }
+
+// silence while paused or hidden: a suspended context stops the clock the sequencer reads, so nothing is lost or queued
+export function suspendAudio() { audio.hold = true; if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); }
+export function resumeAudio() { audio.hold = false; if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume(); }
 
 export function setVolumes({ sound = audio.on, music = audio.music, volume = audio.vol } = {}) {
   audio.on = sound; audio.music = music; audio.vol = volume;
@@ -64,7 +69,7 @@ const LIMIT = { bumper: 0.045, wall: 0.03, spinner: 0.025, switch: 0.03, rollove
 
 export function sfx(name, v = 1) {
   audio.played.push(name); if (audio.played.length > 40) audio.played.shift();
-  if (!audio.ctx || !audio.on) return;
+  if (!audio.ctx || !audio.on || audio.hold) return;
   const t = audio.ctx.currentTime;
   if (LIMIT[name] && t - (audio.last[name] || 0) < LIMIT[name]) return;
   audio.last[name] = t;
@@ -145,6 +150,7 @@ export function startMusic(name) {
   const s = seq;
   const sched = () => {
     if (seq !== s) return;
+    if (s.next < c.currentTime) s.next = c.currentTime + 0.05;   // a throttled timer must not start every missed step at once
     while (s.next < c.currentTime + 0.25) {
       const bar = Math.floor(s.step / 16) % 4, st = s.step % 16, t = s.next;
       const swing = st % 2 ? stepDur * 0.18 : 0;

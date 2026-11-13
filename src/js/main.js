@@ -10,7 +10,7 @@ import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
 import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
-import { audio, unlock, sfx, setVolumes, startMusic } from './ui/audio.js';
+import { audio, unlock, sfx, setVolumes, startMusic, suspendAudio, resumeAudio } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore } from './save.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
@@ -89,7 +89,7 @@ function startDemo() {
 }
 
 app.start = () => {
-  unlock();
+  unlock(); resumeAudio();
   demo = false; bot = null; paused = false;
   G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffffff) });
   newGame(G, { balls: app.settings.balls, practice: app.settings.practice });
@@ -100,8 +100,8 @@ app.start = () => {
   clearTimeout(overTimer);
   tableEl.focus({ preventScroll: true });
 };
-app.resume = () => { paused = false; screens.close(); document.body.dataset.scene = demo ? 'title' : 'game'; lastNow = performance.now(); };
-app.quit = () => { paused = false; screens.title(); startDemo(); };
+app.resume = () => { resumeAudio(); paused = false; screens.close(); document.body.dataset.scene = demo ? 'title' : 'game'; lastNow = performance.now(); };
+app.quit = () => { resumeAudio(); paused = false; screens.title(); startDemo(); };
 app.applySettings = (s) => {
   const tierChanged = s.tier && s.tier !== app.settings.tier;
   Object.assign(app.settings, s);
@@ -115,7 +115,7 @@ app.applySettings = (s) => {
 };
 function pause() {
   if (demo || paused || G.scene === 'over') return;
-  paused = true;
+  paused = true; suspendAudio();
   // keys released while paused never reach the game, so let go of everything now
   G.w.pending.length = 0;   // a flip queued for a later substep must not fire after the release
   for (const f of G.w.flippers) if (f.held) flipper(G, f.side, false);
@@ -126,7 +126,10 @@ function pause() {
 // the window lost focus or the tab was hidden with a ball in play: the sim must not keep running unattended
 const autoPause = () => { if (!demo && !paused && G.scene === 'game' && G.w.balls.length) pause(); };
 window.addEventListener('blur', autoPause);
-document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { autoPause(); suspendAudio(); }
+  else if (!paused) resumeAudio();
+});
 
 // ------------------------------------------------------------------------------------------------- input
 // The sim time an input event belongs to. The offset is capped like a frame's step (MAX_DT), so an event never lands
@@ -306,7 +309,7 @@ window.__game = {
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
     s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(); s.frame = frameNo;
-    s.audio = { ctx: !!audio.ctx, played: [...audio.played] };
+    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played] };
     return s;
   },
   setState(s) { setGameState(G, s); return true; },
@@ -315,7 +318,7 @@ window.__game = {
   pause() { this.paused = true; return true; },
   resume() { this.paused = false; lastNow = performance.now(); return true; },
   scene(name) {
-    if (name === 'title') { screens.title(); startDemo(); }
+    if (name === 'title') { resumeAudio(); screens.title(); startDemo(); }
     else if (name === 'game') { app.start(); }
     else if (name === 'settings') screens.settings('title');
     else if (name === 'help') screens.help('title');
