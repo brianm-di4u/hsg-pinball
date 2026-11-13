@@ -8,7 +8,7 @@
     "setup": "cd shared/test-harness && npm install && npx playwright install chromium",
     "vendor": "node tools/build-vendor.mjs",
     "table": "node tools/table/compile.mjs && node tools/table/check.mjs",
-    "sim": "node --test tests-node/",
+    "sim": "node tools/flow.mjs && node tools/balance.mjs",
     "build": "node tools/assets-list.mjs && node shared/tools/inline.mjs .",
     "test": "node shared/test-harness/run.mjs ."
   }

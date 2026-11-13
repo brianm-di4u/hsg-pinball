@@ -2,6 +2,9 @@
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGame, newGame, tick, plunger, nudge, api } from '../src/js/sim/rules.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadSettings, loadScores, qualifies, DEFAULT_SETTINGS } from '../src/js/save.js';
 import { autoPlunge, TICK } from '../src/js/sim/physics.js';
 
@@ -200,6 +203,39 @@ export const tests = [
       await blur(); await t.waitFrames(3);
       s = await t.state();
       t.expect(s.demo && s.screen === 'title', 'blur on the title leaves the demo and title alone');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S6-07
+  {
+    name: 'S6-07 throttled phone with the quality governor on: the tier falls to low and the frame rate is playable',
+    viewports: ['mobile'],
+    initScript: () => { window.__GOVERNOR__ = true; },
+    async run(t) {
+      await t.game('newGame', { balls: 3, seed: 3 });
+      await t.game('act', 'plunge', 0.9);
+      const first = (await t.state()).tier;
+      await t.cpuThrottle(4);
+      let s = await t.state();
+      for (let i = 0; i < 60 && s.tier !== 'low' && s.tier !== null; i++) { await t.page.waitForTimeout(500); s = await t.state(); }
+      const fc = await t.frameCost(3000);
+      await t.cpuThrottle(1);
+      s = await t.state();
+      t.log('tier', first, '->', s.tier, 'fps', fc.fps, 'taskMs', fc.taskMs);
+      t.expect(first !== 'low', 'starts above the low tier: ' + first);
+      t.expect(s.tier === 'low' || s.view === '2d', 'the governor dropped the quality: ' + s.tier);
+      t.expect(fc.fps > 20 || !t.gpu, 'playable frame rate at 4x throttle once the governor has acted: ' + fc.fps);
+    },
+  },
+  {
+    name: 'S6-07 npm run sim points at files that exist',
+    node: true,
+    async run(t) {
+      const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+      const sim = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).scripts.sim;
+      t.expect(!!sim, 'a sim script exists');
+      const targets = (sim || '').split(' ').filter((w) => w.includes('/'));
+      t.expect(targets.length > 0, 'it runs something: ' + sim);
+      for (const f of targets) t.expect(fs.existsSync(path.join(root, f)), f + ' exists');
     },
   },
 ];

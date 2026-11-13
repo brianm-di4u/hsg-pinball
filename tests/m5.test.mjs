@@ -67,15 +67,18 @@ export const tests = [
   {
     name: 'AC31 throttled phone-class CPU',
     viewports: ['mobile'],
+    initScript: () => { window.__GOVERNOR__ = true; },   // the quality governor is off under __TEST__; a player has it
     async run(t) {
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
       await t.cpuThrottle(4);
-      await t.page.waitForTimeout(800);
+      let g = await t.state();
+      for (let i = 0; i < 60 && g.tier !== 'low' && g.tier !== null; i++) { await t.page.waitForTimeout(500); g = await t.state(); }   // the governor steps down every ~2 slow windows
       const fc = await t.frameCost(3000);
       await t.cpuThrottle(1);
       const s = await t.state();
       t.log('tier', s.tier, 'fps', fc.fps, 'taskMs', fc.taskMs);
+      t.expect(!t.gpu || s.tier === 'low' || s.view === '2d', 'the governor fell to the low tier under load: ' + s.tier);
       t.expect(fc.fps > 20 || !t.gpu, 'playable frame rate at 4× throttle');
     },
   },

@@ -583,8 +583,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     draw(G, alpha, lampOn, interp, o) {
       canvas.style.visibility = 'visible';
       const t = o.t, dt = Math.min(0.1, Math.max(0, t - lastT)); lastT = t;
-      // governor (ignore long frames from test stepping)
-      if (!window.__TEST__ && dt > 0 && dt < 0.2) {
+      // governor (ignore long frames from test stepping; a test opts in with window.__GOVERNOR__ to measure what a player gets)
+      if ((!window.__TEST__ || window.__GOVERNOR__) && dt > 0 && dt < 0.2) {
         frames.push(dt); if (frames.length > 60) frames.shift();
         if (frames.length === 60) {
           const med = [...frames].sort((a, b) => a - b)[30];

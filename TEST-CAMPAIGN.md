@@ -54,3 +54,11 @@ and the plunger tap. On v1.0.0 six of the eight fail; on v1.0.1 all pass.
 One Windows limit remains and no browser can see past it: while one Shift is held, releasing the other sends
 nothing until both are up. Z and / (or the arrows) have no such limit; the help screen says so.
 
+## Not covered by any test
+Areas the suite does not exercise: gamepad input, two tabs open on the same saved scores, typed-storage corruption
+beyond the settings and scores shapes checked in `tests/council-w1-a1.test.mjs`, real (not synthetic) window blur,
+real game-over timing (the 2.6 s delay is 50 ms under `__TEST__`), and phone landscape in play.
+
+`npm run sim` runs the headless containment fuzz (`tools/flow.mjs`) and the balance run (`tools/balance.mjs`).
+The throttled-phone test (AC31) turns the quality governor on with `window.__GOVERNOR__`, because the governor is
+off under `__TEST__` and a player always has it.
