@@ -44,7 +44,7 @@ function resetPlayer(G) {
   G.f = { spa: [0, 0, 0], springTemp: 100, boilUntil: 0, row: new Array(8).fill(0), rowsDone: 0, grandSoakLit: false,
     ramps: 0, towerLevel: 0, lockLit: false, locks: 0, fifth: 0, spins: 0, ebLit: false, modesPlayed: [0, 0, 0, 0, 0, 0],
     modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0 };
-  G.ball = { saveUntil: 0, saving: false, launched: false, skillLane: -1, skillUntil: 0, inLane: false, kicks: [],
+  G.ball = { saveUntil: 0, saving: false, saveWarned: 0, launched: false, skillLane: -1, skillUntil: 0, inLane: false, kicks: [],
     lastMajor: { t: -10, side: '' }, combo: 0, switches: 0, searchAt: 0 };
   G.mode = null;
   G.mb = null;
@@ -54,7 +54,15 @@ function resetPlayer(G) {
 // ------------------------------------------------------------------------------------------------- cues
 function cue(G, c) { G.cues.push({ t: G.t, ...c }); }
 function dmd(G, text, sub = '', ms = 1600, prio = 1, anim = null) { cue(G, { k: 'dmd', text, sub, ms, prio, anim }); G.callouts.push(text); if (G.callouts.length > 8) G.callouts.shift(); }
-function sound(G, name, v = 1) { cue(G, { k: 'sound', name, v }); }
+// A sound cue. x is where it happened on the table (the sound is panned by it); the cues of things the ball does take the
+// x of the event being handled (evX) unless given one. o: { n, m } the step of a ladder or countdown and the mode.
+let evX = null;
+const POSITIONAL = new Set(['bumper', 'sling', 'wall', 'clack', 'rollover', 'target', 'spinner', 'switch', 'outlane', 'rampEnter', 'rampMade', 'wireDrop', 'orbit', 'saucer', 'kick', 'lock', 'drain', 'flipHit', 'modeHit']);
+function sound(G, name, v = 1, x, o) {
+  if (x === undefined) x = POSITIONAL.has(name) ? evX : null;
+  cue(G, { k: 'sound', name, v, x, ...o });
+}
+const ballX = (G, id) => { const b = G.w.balls.find((q) => q.id === id); return b ? b.x : null; };
 function show(G, name, ms = 1500) { G.lampShow = { name, until: G.t + ms / 1000 }; cue(G, { k: 'show', name, ms }); }
 function score(G, n, where) {
   if (G.player.tilted || G.scene !== 'game') return 0;
@@ -83,14 +91,18 @@ function serve(G) {
   const b = addBall(G.w, SHOOTER.x, SHOOTER.y);
   G.ball.inLane = true; G.ball.launched = false; G.ball.switches = 0;
   G.ball.skillLane = G.rng.int(3);
-  G.ball.saveUntil = 0; G.ball.saving = false;
+  G.ball.saveUntil = 0; G.ball.saving = false; G.ball.saveWarned = 0;
   cue(G, { k: 'serve', ball: b.id });
   return b;
 }
 
 function ballsInPlay(G) { return G.w.balls.filter((b) => !(b.held && b.held.drained)).length; }
 
-function startBallSave(G, secs) { G.ball.saveUntil = Math.max(G.ball.saveUntil, G.t + secs); }
+// the cue follows after a moment (delay, in seconds) so it does not land on top of the launch or a fanfare; null for none
+function startBallSave(G, secs, delay = 0.2) {
+  G.ball.saveUntil = Math.max(G.ball.saveUntil, G.t + secs);
+  if (delay != null) after(G, delay, () => sound(G, 'saveOn'));
+}
 
 const inShooter = (b) => !b.held && b.x > 480 && b.y < 160;
 function autoLaunch(G, delay = 0.7, strength = 0.82) {
@@ -102,7 +114,7 @@ function autoLaunch(G, delay = 0.7, strength = 0.82) {
     return null;
   }
   const b = addBall(G.w, SHOOTER.x, SHOOTER.y);
-  after(G, delay, () => { autoPlunge(G.w, strength); sound(G, 'plunger'); });
+  after(G, delay, () => { autoPlunge(G.w, strength); sound(G, 'plunger', 1, SHOOTER.x); });
   return b;
 }
 
@@ -191,6 +203,8 @@ function perTick(G) {
   const p = G.player, f = G.f;
   p.bob = Math.max(0, p.bob - 1.2 * TICK);
   if (f.boilUntil && G.t > f.boilUntil) { f.boilUntil = 0; f.springTemp = 120; dmd(G, 'SPRINGS COOL TO 120°F', '', 1200); }
+  const sv = G.ball;
+  if (sv.launched && !p.tilted && sv.saveUntil > G.t && sv.saveUntil - G.t <= 2 && sv.saveWarned !== sv.saveUntil) { sv.saveWarned = sv.saveUntil; sound(G, 'saveEnd'); }
   if (G.mode) tickMode(G);
   if (G.mb) tickMultiball(G);
   if (G.lampShow && G.t > G.lampShow.until) G.lampShow = null;
@@ -210,8 +224,15 @@ function perTick(G) {
 
 // ------------------------------------------------------------------------------------------------- events
 function handle(G, e) {
+  evX = e.x != null ? e.x : ballX(G, e.ball);
+  try { handleEvent(G, e); } finally { evX = null; }
+}
+const flipX = (G, side) => G.T.width * (side === 'L' ? 0.22 : 0.78);
+
+function handleEvent(G, e) {
   if (e.t === 'drain') { G.lastDrainX = e.x; if (G.scene === 'game' || G.scene === 'bonus') onDrain(G, e.ball); return; }
-  if (e.t === 'flipEnd' || e.t === 'plungerHit') { sound(G, e.t === 'flipEnd' ? 'flipStop' : 'plungerHit'); return; }
+  if (e.t === 'flipEnd') { sound(G, 'flipStop', 1, flipX(G, e.side)); return; }
+  if (e.t === 'plungerHit') { sound(G, 'plungerHit', 1, SHOOTER.x); return; }
   if (e.t === 'wall') { sound(G, 'wall', Math.min(1, e.speed / 2500)); return; }
   if (e.t === 'clack') { sound(G, 'clack', Math.min(1, e.speed / 2000)); return; }
   if (e.t === 'flipHit') { sound(G, 'flipHit', Math.min(1, e.speed / 3000)); return; }
@@ -237,6 +258,7 @@ function sw(G, name, e) {
       if (!G.ball.saveUntil || G.ball.saveUntil < G.t) startBallSave(G, G.mb ? 15 : 10);
       G.ball.skillUntil = G.t + 4;
       sound(G, 'launch');
+      after(G, 0.3, () => { if (G.ball.skillUntil > G.t) sound(G, 'skillOn', 1, 356 + 40 * G.ball.skillLane); });   // a ping from the lit lane
     }
     return;
   }
@@ -330,7 +352,7 @@ function spinner(G, e) {
   cue(G, { k: 'spin', n: spins, dir: e.dir });
   sound(G, 'spinner', Math.min(1, spins / 20));
   if (G.mode && G.mode.id === 'coaster') modeEvent(G, 'spin', spins);
-  if (f.fifth >= 300 && !f.ebLit) { f.fifth = 0; f.ebLit = true; dmd(G, 'FIFTH SEASON', 'EXTRA BALL IS LIT', 2000, 3); sound(G, 'ebLit'); }
+  if (f.fifth >= 300 && !f.ebLit) { f.fifth = 0; f.ebLit = true; dmd(G, 'FIFTH SEASON', 'EXTRA BALL IS LIT', 2000, 3); sound(G, 'lit', 1, null, { n: 1 }); }
 }
 
 function major(G, name) {
@@ -355,7 +377,7 @@ function major(G, name) {
       if (!G.mb) f.lockLit = true;
       const t = ['woolman', 'rix', 'tower'][Math.min(2, f.towerLevel - 1)];
       dmd(G, 'TOWER LEVEL ' + f.towerLevel, fact(t), 2000, 2, 'tower');
-      if (!G.mb) after(G, 2.1, () => dmd(G, 'LOCK IS LIT', 'SHOOT THE ARLINGTON', 1500, 2));
+      if (!G.mb) after(G, 2.1, () => { dmd(G, 'LOCK IS LIT', 'SHOOT THE ARLINGTON', 1500, 2); sound(G, 'lit', 1, null, { n: 0 }); });
       sound(G, 'towerUp');
     } else if (!G.mode) dmd(G, 'MOUNTAIN TOWER', (3 - (f.ramps % 3)) + ' MORE FOR NEXT LEVEL', 1100, 1);
   } else if (name === 'orbitTop') {
@@ -375,7 +397,7 @@ function major(G, name) {
 function holdThen(G, ballId, secs, angle, speed, after2) {
   after(G, secs, () => {
     const b = G.w.balls.find((q) => q.id === ballId);
-    if (b && b.held) { kickOut(G.w, b, angle, speed); sound(G, 'kick'); cue(G, { k: 'flash', name: 'kick' }); }
+    if (b && b.held) { kickOut(G.w, b, angle, speed); sound(G, 'kick', 1, b.x); cue(G, { k: 'flash', name: 'kick' }); }
     if (after2) after2();
   });
 }
@@ -415,12 +437,17 @@ export function mystery(G, forced) {
     case 'lock': if (!G.mb) f.lockLit = true; break;
     case 'heat': f.springTemp = Math.min(143, f.springTemp + 10); break;
     case 'tower': f.ramps++; if (f.ramps % 3 === 0) { f.towerLevel = Math.min(3, f.towerLevel + 1); if (!G.mb) f.lockLit = true; } break;
-    case 'save': startBallSave(G, 15); break;
+    case 'save': startBallSave(G, 15, null); break;
     case 'bonusx': if (G.player.bonusX < 5) G.player.bonusX++; break;
     case 'eb': f.ebLit = true; break;
   }
   dmd(G, 'THE VAPORS', m.label, 1700, 2, { kind: 'reels', reels });
   sound(G, 'reels');
+  // each award has its own short payoff once the reels have stopped
+  after(G, 1.15, () => {
+    const pay = { pts10: ['payPts', 0], pts25: ['payPts', 1], lock: ['lit', 0], heat: ['payHeat'], tower: ['towerUp'], save: ['saveOn'], bonusx: ['multUp', G.player.bonusX - 1], eb: ['lit', 1] }[m.id];
+    sound(G, pay[0], 1, null, { n: pay[1] });
+  });
   return m.id;
 }
 
@@ -451,7 +478,7 @@ function startMode(G, forceIdx) {
   G.mode = { i, id: M.id, t0: G.t + 2.2, end: G.t + 2.2 + M.dur, progress: 0, need: 0, phase: 1, lit: [], data: {} };
   const m = G.mode;
   if (M.id === 'soak') { m.need = 6; m.lit = [G.rng.int(8)]; m.data.nextMove = m.t0 + 3; }
-  if (M.id === 'derby') { m.need = 100; m.data.horses = [0, 0, 0, 0]; m.data.names = ['YOU', 'SODA POP', 'MISS VAPOR', 'RED TILE']; }
+  if (M.id === 'derby') { m.need = 100; m.data.horses = [0, 0, 0, 0]; m.data.rank = 3; m.data.names = ['YOU', 'SODA POP', 'MISS VAPOR', 'RED TILE']; }
   if (M.id === 'raid') { m.need = 3; m.lit = pickN(G, 8, 3); m.data.value = 200000; }
   if (M.id === 'tower') m.need = 3;
   if (M.id === 'tub') { m.need = 5; m.data.want = ''; }
@@ -470,18 +497,18 @@ function modeEvent(G, kind, arg) {
   if (M.id === 'soak' && kind === 'bh' && m.lit.includes(arg)) {
     m.progress++; G.f.bathsTotal++;
     score(G, 15000);
-    dmd(G, 'BATH ' + m.progress + ' OF ' + m.need, BATHHOUSES[arg].toUpperCase(), 1000, 2); sound(G, 'modeHit');
+    dmd(G, 'BATH ' + m.progress + ' OF ' + m.need, BATHHOUSES[arg].toUpperCase(), 1000, 2); modeHit(G, m.progress);
     m.lit = [nextLit(G, arg)]; m.data.nextMove = G.t + 3;
   } else if (M.id === 'derby' && (kind === 'rampMade' || kind === 'orbitTop' || kind === 'reserve')) {
     m.data.horses[0] = Math.min(100, m.data.horses[0] + 18); m.progress = m.data.horses[0];
-    score(G, 25000); sound(G, 'modeHit');
+    score(G, 25000); modeHit(G, Math.round(m.progress / 12.5));
     dmd(G, 'DERBY DAY', 'YOU ' + placeOf(m) + ' · ' + Math.round(m.progress) + '%', 900, 2, { kind: 'derby', horses: [...m.data.horses] });
   } else if (M.id === 'raid') {
     if (m.phase === 1 && kind === 'bh' && m.lit.includes(arg)) {
       m.lit = m.lit.filter((q) => q !== arg); m.progress++;
-      score(G, 20000); sound(G, 'modeHit');
+      score(G, 20000); modeHit(G, m.progress);
       dmd(G, 'SLOT MACHINE FOUND', m.progress + ' OF 3', 1000, 2);
-      if (m.progress >= 3) { m.phase = 2; m.data.value = 200000; dmd(G, 'HURRY UP', 'SHOOT THE VAPORS', 1600, 3); sound(G, 'hurry'); }
+      if (m.progress >= 3) { m.phase = 2; m.data.value = 200000; m.data.nextTick = G.t + 1.5; dmd(G, 'HURRY UP', 'SHOOT THE VAPORS', 1600, 3); sound(G, 'hurry'); }
     } else if (m.phase === 2 && kind === 'vapors') {
       const v = score(G, Math.round(m.data.value / 1000) * 1000);
       dmd(G, 'RAID COMPLETE', fmt(v), 2200, 3, 'jackpot');
@@ -497,20 +524,22 @@ function modeEvent(G, kind, arg) {
     const side = MAJOR[kind];
     if (!m.data.want || side === m.data.want) {
       m.progress++; m.data.want = side === 'L' ? 'R' : 'L';
-      score(G, 30000); sound(G, 'modeHit');
+      score(G, 30000); modeHit(G, m.progress);
       dmd(G, 'TUB RACE LEG ' + m.progress, 'NOW SHOOT ' + (m.data.want === 'L' ? 'LEFT' : 'RIGHT'), 1000, 2);
       if (m.progress >= m.need) { dmd(G, 'TUB RACE WON', fact('tubs'), 2200, 3); endMode(G, true); }
     } else { dmd(G, 'WRONG SIDE', 'SHOOT ' + (m.data.want === 'L' ? 'LEFT' : 'RIGHT'), 700, 1); sound(G, 'switch'); }
   } else if (M.id === 'coaster' && (kind === 'orbitTop' || kind === 'spin')) {
     if (kind === 'spin') { m.data.spins += arg; if (m.data.spins < 25) return; m.data.spins = 0; }
     m.progress++;
-    score(G, 35000); sound(G, 'modeHit');
+    score(G, 35000); modeHit(G, m.progress);
     dmd(G, 'COASTER LAP ' + m.progress, 'OF 4', 900, 2);
     if (m.progress >= 4) { dmd(G, 'COASTER HILL DONE', fact('coaster'), 2200, 3); endMode(G, true); }
   }
   if (M.id === 'soak' && m.progress >= m.need) { score(G, 50000); dmd(G, 'A FULL COURSE', fact('baths21'), 2200, 3); endMode(G, true); }
 }
 
+// a hit that moves a mode on: the voice is the mode's own and climbs a step with each one
+function modeHit(G, step) { sound(G, 'modeHit', 1, undefined, { n: Math.max(1, Math.min(8, step)), m: G.mode.i }); }
 function nextLit(G, prev) { let n; do n = G.rng.int(8); while (n === prev); return n; }
 function placeOf(m) { const h = m.data.horses; const ahead = h.slice(1).filter((x) => x > h[0]).length; return ['1ST', '2ND', '3RD', '4TH'][ahead]; }
 
@@ -522,10 +551,23 @@ function tickMode(G) {
   if (M.id === 'derby') {
     const h = m.data.horses;
     for (let k = 1; k < 4; k++) h[k] = Math.min(100, h[k] + (1.25 + G.rng.next() * 1.2) * TICK);
+    const rank = h.slice(1).filter((x) => x > h[0]).length;
+    if (rank > (m.data.rank || 0)) sound(G, 'rivalPass', 1, null);   // a rival goes by
+    m.data.rank = rank;
     if (h[0] >= 100) { const first = h.slice(1).every((x) => x < 100); score(G, first ? 150000 : 50000); dmd(G, first ? 'YOU WIN THE DERBY' : 'YOU PLACED', fact('derby1936'), 2200, 3); return endMode(G, first); }
     if (h.slice(1).some((x) => x >= 100) && h[0] < 100) { dmd(G, 'BEATEN AT THE WIRE', '', 1600, 2); return endMode(G, false); }
   }
   if (M.id === 'raid' && m.phase === 2) m.data.value = Math.max(50000, m.data.value - 16000 * TICK);
+  // the clock is heard: a tick that speeds up as the Raid hurry-up value falls, and in the last five seconds of any mode a tick a second
+  const left = m.end - G.t;
+  if (left <= 5 && left > 0) {
+    const sec = Math.ceil(left);
+    if (m.data.tickSec !== sec) { m.data.tickSec = sec; sound(G, 'countTick', 1, null, { n: sec }); }
+  } else if (M.id === 'raid' && m.phase === 2 && G.t >= (m.data.nextTick || 0)) {
+    const u = 1 - (m.data.value - 50000) / 150000;   // 0 at the start of the hurry-up, 1 once the value has bottomed out
+    sound(G, 'hurryTick', 1, null, { n: +u.toFixed(2) });
+    m.data.nextTick = G.t + 0.9 - 0.55 * u;
+  }
   if (G.t > m.end) { dmd(G, M.name + ' OVER', '', 1500, 2); endMode(G, false); }
 }
 
@@ -538,8 +580,8 @@ function endMode(G, won) {
   cue(G, { k: 'mode', id: m.id, on: false, won });
   sound(G, won ? 'modeWon' : 'modeEnd');
   const played = f.modesPlayed.reduce((a, b) => a + b, 0);
-  if (played === 3 && !f.ebLitByModes) { f.ebLitByModes = true; f.ebLit = true; after(G, 2.3, () => dmd(G, 'EXTRA BALL IS LIT', 'AT THE VAPORS', 1600, 2)); }
-  if (played === 6 && !f.wizardLit) { f.wizardLit = true; after(G, 2.3, () => dmd(G, 'VALLEY OF THE VAPORS', 'IS LIT AT THE VAPORS', 2200, 3)); }
+  if (played === 3 && !f.ebLitByModes) { f.ebLitByModes = true; f.ebLit = true; after(G, 2.3, () => { dmd(G, 'EXTRA BALL IS LIT', 'AT THE VAPORS', 1600, 2); sound(G, 'lit', 1, null, { n: 1 }); }); }
+  if (played === 6 && !f.wizardLit) { f.wizardLit = true; after(G, 2.3, () => { dmd(G, 'VALLEY OF THE VAPORS', 'IS LIT AT THE VAPORS', 2200, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
 }
 
 // ------------------------------------------------------------------------------------------------- multiballs
@@ -552,7 +594,7 @@ function startArlington(G, heldBallId) {
   G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t };
   dmd(G, 'ARLINGTON MULTIBALL', 'RAMP JACKPOTS', 2600, 3, 'multiball');
   after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact('arlington'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
-  startBallSave(G, 15);
+  startBallSave(G, 15, 1.4);
   holdThen(G, heldBallId, 1.6, h.kickAngle, h.kickSpeed);
   addMultiballs(G, 2);
   cue(G, { k: 'mb', kind: 'arlington', on: true });
@@ -562,7 +604,7 @@ function startGrandSoak(G) {
   G.f.grandSoakLit = false;
   G.mb = { kind: 'soak', hit: new Array(8).fill(0), superLit: false, t0: G.t };
   dmd(G, 'GRAND SOAK', 'HIT BATHHOUSES', 2400, 3, { kind: 'multiball', id: 'soak' }); sound(G, 'multiball'); show(G, 'multiball', 2400);
-  startBallSave(G, 15);
+  startBallSave(G, 15, 1.4);
   addMultiballs(G, 1);
   cue(G, { k: 'mb', kind: 'soak', on: true });
 }
@@ -573,7 +615,7 @@ function startValley(G) {
   if (G.mode) endMode(G, false);
   G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 };
   dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
-  startBallSave(G, 20);
+  startBallSave(G, 20, 1.6);
   addMultiballs(G, 2);
   cue(G, { k: 'mb', kind: 'valley', on: true });
 }
@@ -595,8 +637,10 @@ function valleyShot(G, name) {
 function tickMultiball(G) {
   const mb = G.mb;
   if (mb.kind === 'valley') {
-    mb.mult = 1 << Math.min(5, Math.floor((G.t - mb.t0) / 10));
-    if (G.t > mb.end) { dmd(G, 'THE VAPORS CLEAR', '', 1800, 2); mb.end = Infinity; }
+    const mult = 1 << Math.min(5, Math.floor((G.t - mb.t0) / 10));
+    if (mult > mb.mult) sound(G, 'multUp', 1, null, { n: Math.log2(mult) });   // the multiplier doubles, a step higher each time
+    mb.mult = mult;
+    if (G.t > mb.end) { dmd(G, 'THE VAPORS CLEAR', '', 1800, 2); sound(G, 'vaporsClear', 1, null); mb.end = Infinity; }
   }
 }
 
@@ -605,7 +649,7 @@ function endMultiball(G) {
   if (!mb) return;
   G.mb = null;
   cue(G, { k: 'mb', kind: mb.kind, on: false });
-  dmd(G, mb.kind === 'valley' ? 'WIZARD MODE OVER' : 'MULTIBALL OVER', '', 1400, 2);
+  dmd(G, mb.kind === 'valley' ? 'WIZARD MODE OVER' : 'MULTIBALL OVER', '', 1400, 2); sound(G, 'mbEnd', 1, null);
   if (mb.kind === 'valley') { G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0; }
 }
 
@@ -614,15 +658,15 @@ export function flipper(G, side, down, at) {
   if (G.player.tilted && down) return;
   if (at != null) queueInput(G.w, at, (w) => setFlipper(w, side, down), side);
   else setFlipper(G.w, side, down);
-  if (down && G.scene === 'game') { laneChange(G, side === 'R' ? 1 : -1); sound(G, 'flip'); }
-  if (!down && G.scene === 'game') sound(G, 'flipDown');
+  if (down && G.scene === 'game') { laneChange(G, side === 'R' ? 1 : -1); sound(G, 'flip', 1, flipX(G, side)); }
+  if (!down && G.scene === 'game') sound(G, 'flipDown', 1, flipX(G, side));
 }
 
 export function plunger(G, holding) {
   if (G.scene !== 'game') return;
   const was = G.w.plunger.holding;
   setPlunger(G.w, holding);
-  if (!holding && was) sound(G, 'plunger');
+  if (!holding && was) sound(G, 'plunger', 1, SHOOTER.x);
 }
 
 export function plungerCancel(G) { cancelPlunger(G.w); }

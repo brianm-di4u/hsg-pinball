@@ -10,7 +10,7 @@ import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
 import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
-import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, suspendAudio, resumeAudio } from './ui/audio.js';
+import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, suspendAudio, resumeAudio } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume } from './save.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
@@ -192,7 +192,7 @@ function routeCues() {
   for (const c of G.cues) {
     switch (c.k) {
       case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
-      case 'sound': if (!demo) sfx(c.name, c.v); break;
+      case 'sound': if (!demo) sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); break;   // pan by where it happened (the cue carries n and m for ladders and countdowns)
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
       case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
@@ -298,12 +298,15 @@ function frame(ts) {
   let dt = Math.min(MAX_DT, (ts - lastNow) / 1000);
   lastNow = ts;
   if (slowUntil && ts > slowUntil) { timeScale = 1; slowUntil = 0; }
-  if (!paused && !(TEST && window.__game.paused)) {
+  const running = !paused && !(TEST && window.__game.paused);
+  if (running) {
     acc += dt * timeScale;
     let n = 0;
     while (acc >= TICK && n < 24) { capturePrev(); if (bot) bot(); tick(G); routeCues(); acc -= TICK; n++; }
     if (n >= 24) acc = 0;
   }
+  // the ball's rolling, ramp and rail sound follows the fastest ball; on the low tier it is updated every fourth frame
+  if (frameNo % (view && view.tier === 'low' ? 4 : 1) === 0) setRoll(G.w.balls, G.T.width, running && !demo && G.scene === 'game');
   if (frameNo % 20 === 0) mixState();
   try { render(Math.min(1, acc / TICK)); renderFails = 0; }
   catch (e) {
@@ -348,12 +351,14 @@ window.__game = {
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
     s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(); s.frame = frameNo;
-    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], ...audioNow() };
+    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], pans: { ...audio.pans }, roll: { ...audio.roll }, ...audioNow() };
     return s;
   },
   setState(s) { setGameState(G, s); return true; },
   audioList() { return audioList(); },
   audioRender(name, seconds, wantWav, intensity) { return audioRender(name, seconds, wantWav, intensity); },
+  cueRender(name, opts) { return cueRender(name, opts); },
+  rollRender(seconds, wantWav) { return rollRender(seconds, wantWav); },
   isIdle() { return !loading && (!view || !view.busy || !view.busy()); },
   step(n = 1) { for (let i = 0; i < n; i++) { capturePrev(); if (bot) bot(); tick(G); routeCues(); } mixState(); render(1); return G.w.tick; },
   pause() { this.paused = true; return true; },
@@ -386,7 +391,7 @@ window.__game = {
       case 'lamps': G.lampShow = { name: a[0], until: G.t + (a[1] || 3) }; return true;
       case 'camera': if (view && view.setCamera) view.setCamera(a[0]); return true;
       case 'lampLevel': return view && view.lampLevel ? view.lampLevel(a[0]) : null;
-      case 'switch': { const id = G.T.sw[a[0]]; G.w.events.push({ t: a[1] || 'hit', sw: id, speed: 1000, dir: 1, ball: (w.balls[0] || {}).id }); return id; }
+      case 'switch': { const id = G.T.sw[a[0]]; G.w.events.push({ t: a[1] || 'hit', sw: id, speed: 1000, dir: 1, ball: (w.balls[0] || {}).id, x: a[2] }); return id; }
       case 'multiball': (api[{ arlington: 'startArlington', soak: 'startGrandSoak', valley: 'startValley' }[a[0]]])(G); return true;
       case 'demo': if (a[0]) { screens.close(); startDemo(); } return demo;
     }
