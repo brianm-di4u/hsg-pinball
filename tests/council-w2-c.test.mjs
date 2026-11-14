@@ -4,8 +4,8 @@
 import fs from 'node:fs';
 import { compileTable } from '../src/js/sim/table.js';
 import { spec, BATHHOUSES } from '../src/js/sim/table-spa-city.js';
-import { createGame, newGame, tick, api, nudge, MODES, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
-import { wantedShots } from '../src/js/sim/bot.js';
+import { createGame, newGame, tick, api, nudge, MODES, STANDARD, DIFFICULTY, ROUND } from '../src/js/sim/rules.js';
+import { wantedShots, createBot } from '../src/js/sim/bot.js';
 import { TICK } from '../src/js/sim/physics.js';
 import { simulate, verdict, TARGETS, LADDER } from '../tools/balance.mjs';
 
@@ -302,6 +302,117 @@ export const tests = [
       await t.waitFrames(3);
       t.equal((await t.state()).difficulty, 'standard', 'an old resume record plays on Standard');
       await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:resume'));
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S3-04 escalation by round
+  {
+    name: 'S3-04 round 0 is the game as it was: the goals, values and clocks of all six modes are the old constants',
+    node: true,
+    async run(t) {
+      const G = fresh(11);
+      t.equal(G.f.round, 0, 'a new game starts in round 0');
+      const need = {}, dur = {};
+      for (let i = 0; i < 6; i++) { api.startMode(G, i); need[G.mode.id] = G.mode.need; dur[G.mode.id] = Math.round(G.mode.end - G.mode.t0); api.endMode(G, false); G.cues.length = 0; }
+      t.equal(need, { soak: 6, derby: 100, raid: 3, tower: 3, tub: 5, coaster: 4 }, 'goals 6 baths, 100 percent, 3 slots, 3 ramps, 5 legs, 4 laps');
+      t.equal(dur, { soak: 40, derby: 45, raid: 45, tower: 40, tub: 40, coaster: 40 }, 'clocks 40 and 45 s');
+      api.startMode(G, 0); run(G, 2.4);
+      G.cues.length = 0; G.mode.lit = [3]; G.w.events.push({ t: 'target', sw: T.sw.bhFordyce, speed: 900, dir: 1, ball: G.w.balls[0].id, x: 190 }); tick(G);
+      t.equal(G.cues.filter((c) => c.k === 'score').reduce((a, c) => a + c.n, 0), 3000 + 15000, 'a Soak bath pays 15,000 on top of the Row target');
+      api.endMode(G, false);
+      api.startMode(G, 2); t.equal(G.mode.data.value, 200000, 'the Raid hurry-up starts at 200,000');
+    },
+  },
+  {
+    name: 'S3-04 finishing the wizard mode raises the round, with a callout, and the round stops at the cap',
+    node: true,
+    async run(t) {
+      const G = fresh(12);
+      for (let r = 1; r <= ROUND.max + 2; r++) {
+        api.startValley(G); G.cues.length = 0;
+        api.endMultiball(G);
+        run(G, 2);
+        const want = Math.min(ROUND.max, r);
+        t.equal(G.f.round, want, `after wizard ${r} the round is ${want}`);
+        if (r <= ROUND.max) t.expect(dmds(G, 'ROUND ' + (want + 1)).length === 1, 'the display says ROUND ' + (want + 1));
+        else t.expect(!dmds(G).some((c) => /^ROUND/.test(c.text)), 'past the cap there is no new round');
+      }
+    },
+  },
+  {
+    name: 'S3-04 in round 2 goals, values and clocks have grown by the named constants (and the display counts the new goal)',
+    node: true,
+    async run(t) {
+      const G = fresh(13);
+      G.f.round = 2;
+      const m = (i) => { api.startMode(G, i); const x = G.mode; return x; };
+      let x = m(0); t.equal([x.need, Math.round(x.end - x.t0)], [8, 50], 'Soak: 8 baths in 50 s');
+      t.expect(dmds(G, 'BATHHOUSE SOAK').some((c) => c.sub === 'HIT 8 BATHS'), 'the display says HIT 8 BATHS'); api.endMode(G, false);
+      x = m(2); t.equal([x.need, x.lit.length, x.data.value], [5, 5, 300000], 'Raid: 5 slots lit, a 300,000 hurry-up'); api.endMode(G, false);
+      x = m(3); t.equal(x.need, 5, 'Tower: 5 ramps'); t.expect(dmds(G, 'TOWER CLIMB').some((c) => c.sub === 'RAMP 5 TIMES'), 'RAMP 5 TIMES'); api.endMode(G, false);
+      x = m(4); t.equal(x.need, 7, 'Tub Race: 7 legs'); api.endMode(G, false);
+      x = m(5); t.equal(x.need, 6, 'Coaster: 6 laps (the cap)'); api.endMode(G, false);
+      x = m(1); t.equal(Math.round(x.end - x.t0), 55, 'Derby: a 55 s race'); api.endMode(G, false);
+      // a Soak bath pays 1.5 times as much
+      G.cues.length = 0; api.startMode(G, 0); run(G, 2.4);
+      G.cues.length = 0; G.mode.lit = [3]; G.w.events.push({ t: 'target', sw: T.sw.bhFordyce, speed: 900, dir: 1, ball: G.w.balls[0].id, x: 190 }); tick(G);
+      t.equal(G.cues.filter((c) => c.k === 'score').reduce((a, c) => a + c.n, 0), 3000 + 22500, 'a Soak bath pays 22,500 in round 2 (15,000 x 1.5)');
+    },
+  },
+  {
+    name: 'S3-04 the escalated modes can still be won: Tower needs 5 ramps in round 2 and pays 1.5 times, and the Derby rivals run faster',
+    node: true,
+    async run(t) {
+      const G = fresh(14); G.f.round = 2; G.ball.inLane = false;
+      api.startMode(G, 3); run(G, 2.4); G.cues.length = 0;
+      const ramp = () => { G.ball.lastMajor = { t: -10, side: '' }; G.w.events.push({ t: 'hit', sw: T.sw.rampMade, speed: 900, dir: 1, ball: G.w.balls[0].id, x: 498 }); tick(G); };
+      for (let i = 0; i < 4; i++) ramp();
+      t.expect(G.mode && G.mode.progress === 4, 'four ramps are not enough in round 2');
+      ramp();
+      t.expect(!G.mode && dmds(G, 'TOP OF THE TOWER').length === 1, 'the fifth wins it');
+      const ends = (round) => { const H = fresh(15); H.f.round = round; api.startMode(H, 1); run(H, 2.4); run(H, 20); return H.mode.data.horses.slice(1).reduce((a, b) => a + b, 0); };
+      t.expect(ends(2) > ends(0) * 1.2, 'the rivals have covered more ground after the same 20 s in round 2 than in round 0');
+    },
+  },
+  {
+    name: 'S3-04 the round is part of the game in progress: it is in the state, in a resume, and an old resume without it starts at round 0',
+    async run(t) {
+      await t.page.evaluate(() => { localStorage.removeItem('hsg-pinball:resume'); localStorage.removeItem('hsg-pinball:settings'); });
+      await t.reload();
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('step', 10);
+      await t.game('setState', { player: { ball: 2, score: 5000 }, features: { round: 2 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      const r = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:resume')));
+      t.equal(r && r.features.round, 2, 'the resume record carries the round');
+      await t.reload();
+      await t.page.click('#b-continue');
+      await t.waitFrames(3);
+      t.equal((await t.state()).features.round, 2, 'Continue brings the round back');
+      await t.page.evaluate(() => { const q = JSON.parse(localStorage.getItem('hsg-pinball:resume')); delete q.features.round; localStorage.setItem('hsg-pinball:resume', JSON.stringify(q)); });
+      await t.reload();
+      await t.page.click('#b-continue');
+      await t.waitFrames(3);
+      t.equal((await t.state()).features.round, 0, 'an old resume (no round) starts at round 0');
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:resume'));
+    },
+  },
+  {
+    name: 'S3-04 a full bot game with the round forced up still finishes, and the first round of the balance run is unchanged by the escalation',
+    node: true,
+    async run(t) {
+      for (const round of [1, 4]) {
+        const G = fresh(30 + round); G.f.round = round;
+        const bot = createBot(G, { skill: 0.9, seed: 3 });
+        let n = 0;
+        while (G.scene !== 'over' && n < 120 * 60 * 30) { bot(); tick(G); G.cues.length = 0; n++; }
+        t.expect(G.scene === 'over', `a round ${round} game reaches game over (${(n / 120 / 60).toFixed(1)} min)`);
+      }
+      // ROUND at zero changes nothing: the same seed plays the same game
+      const play = () => { const G = fresh(41); const bot = createBot(G, { skill: 0.8, seed: 9 }); let n = 0; while (G.scene !== 'over' && n < 120 * 60 * 20) { bot(); tick(G); G.cues.length = 0; n++; } return G.player.score; };
+      const a = play();
+      const was = { ...ROUND };
+      try { ROUND.value = 0.5; ROUND.goal = 2; ROUND.time = 9; ROUND.rivals = 0.4; t.equal(play(), a, 'with the escalation turned up the game before the first wizard is the same game (round 0)'); } finally { Object.assign(ROUND, was); }
     },
   },
 ];

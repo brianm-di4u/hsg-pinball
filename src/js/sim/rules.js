@@ -32,6 +32,20 @@ export const DIFFICULTY = {
 };
 export const DIFFICULTIES = Object.keys(DIFFICULTY);
 const tune = (G) => DIFFICULTY[G.difficulty] || STANDARD;
+// Escalation (S3-04): each time the wizard mode ends the round goes up by one, and the modes ask a little more and pay
+// a little more. Round 0 (the first time through) is exactly the game as it was. Every number is here: set `value`, `goal`,
+// `time` and `rivals` to 0 to take the escalation out.
+export const ROUND = {
+  max: 4,          // the last round that changes anything
+  value: 0.25,     // every score a mode pays (and the Raid hurry-up) is x (1 + value x round)
+  goal: 1,         // counted goals (baths, slots, ramps, tub legs, laps) grow by this many a round ...
+  goalMax: { soak: 8, raid: 5, tower: 5, tub: 8, coaster: 6 },   // ... up to these
+  time: 5,         // seconds added to a mode's clock per round, so the longer goal can still be made
+  rivals: 0.15,    // Derby rivals run this much faster per round
+};
+const roundOf = (G) => Math.min(ROUND.max, G.f.round || 0);
+const worth = (G, n) => Math.round(n * (1 + ROUND.value * roundOf(G)));   // a mode's score for round 0 is n itself
+const goalFor = (G, id, base) => Math.min(Math.max(base, ROUND.goalMax[id] || base), base + ROUND.goal * roundOf(G));
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
 const SHOOTER = { x: 498.5, y: 104 };
 const MAJOR = { rampMade: 'R', orbitTop: 'L', reserve: 'R' };
@@ -61,7 +75,7 @@ function resetPlayer(G) {
     bob: 0, match: null, skillShots: 0, eb: 0 };
   G.f = { spa: [0, 0, 0], springTemp: 100, boilUntil: 0, row: new Array(8).fill(0), rowsDone: 0, grandSoakLit: false,
     ramps: 0, towerLevel: 0, lockLit: false, locks: 0, fifth: 0, spins: 0, ebLit: false, modesPlayed: [0, 0, 0, 0, 0, 0],
-    modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0 };
+    modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0, round: 0 };
   G.ball = { saveUntil: 0, saving: false, saveWarned: 0, launched: false, skillLane: -1, skillUntil: 0, inLane: false, kicks: [],
     lastMajor: { t: -10, side: '' }, combo: 0, switches: 0, searchAt: 0, kb: { outL: 0, outR: 0 } };
   G.mode = null;
@@ -506,17 +520,22 @@ function startMode(G, forceIdx) {
   let i = forceIdx ?? f.nextMode;
   if (forceIdx == null) { for (let k = 0; k < 6 && f.modesPlayed[i]; k++) i = (i + 1) % 6; }
   const M = MODES[i];
-  G.mode = { i, id: M.id, t0: G.t + 2.2, end: G.t + 2.2 + M.dur, progress: 0, need: 0, phase: 1, lit: [], data: {} };
+  G.mode = { i, id: M.id, t0: G.t + 2.2, end: G.t + 2.2 + M.dur + ROUND.time * roundOf(G), progress: 0, need: 0, phase: 1, lit: [], data: {} };
   const m = G.mode;
-  if (M.id === 'soak') { m.need = 6; m.lit = [G.rng.int(8)]; m.data.nextMove = m.t0 + 3; }
+  if (M.id === 'soak') { m.need = goalFor(G, 'soak', 6); m.lit = [G.rng.int(8)]; m.data.nextMove = m.t0 + 3; }
   if (M.id === 'derby') { m.need = 100; m.data.horses = [0, 0, 0, 0]; m.data.rank = 3; m.data.names = ['YOU', 'SODA POP', 'MISS VAPOR', 'RED TILE']; }
-  if (M.id === 'raid') { m.need = 3; m.lit = pickN(G, 8, 3); m.data.value = 200000; }
-  if (M.id === 'tower') m.need = 3;
-  if (M.id === 'tub') { m.need = 5; m.data.want = ''; }
-  if (M.id === 'coaster') { m.need = 4; m.data.spins = 0; }
+  if (M.id === 'raid') { m.need = goalFor(G, 'raid', 3); m.lit = pickN(G, 8, m.need); m.data.value = worth(G, 200000); }
+  if (M.id === 'tower') m.need = goalFor(G, 'tower', 3);
+  if (M.id === 'tub') { m.need = goalFor(G, 'tub', 5); m.data.want = ''; }
+  if (M.id === 'coaster') { m.need = goalFor(G, 'coaster', 4); m.data.spins = 0; }
   f.nextMode = (i + 1) % 6;
-  dmd(G, M.name, M.cue, 2200, 3, { kind: 'mode', id: M.id }); sound(G, 'modeStart'); show(G, 'mode', 1800);
+  dmd(G, M.name, modeCue(M, m.need), 2200, 3, { kind: 'mode', id: M.id }); sound(G, 'modeStart'); show(G, 'mode', 1800);
   cue(G, { k: 'mode', id: M.id, on: true });
+}
+
+// the short goal line on the display, with this round's count in it (round 0 reads as it always did)
+function modeCue(M, need) {
+  return { soak: 'HIT ' + need + ' BATHS', raid: 'FIND ' + need + ' SLOTS', tower: 'RAMP ' + need + ' TIMES', coaster: 'ORBIT ' + need + ' LAPS' }[M.id] || M.cue;
 }
 
 function pickN(G, n, k) { const a = [...Array(n).keys()]; const out = []; while (out.length < k) out.push(a.splice(G.rng.int(a.length), 1)[0]); return out; }
@@ -527,19 +546,19 @@ function modeEvent(G, kind, arg) {
   const M = MODES[m.i];
   if (M.id === 'soak' && kind === 'bh' && m.lit.includes(arg)) {
     m.progress++; G.f.bathsTotal++;
-    score(G, 15000);
+    score(G, worth(G, 15000));
     dmd(G, 'BATH ' + m.progress + ' OF ' + m.need, BATHHOUSES[arg].toUpperCase(), 1000, 2); modeHit(G, m.progress);
     m.lit = [nextLit(G, arg)]; m.data.nextMove = G.t + 3;
   } else if (M.id === 'derby' && (kind === 'rampMade' || kind === 'orbitTop' || kind === 'reserve')) {
     m.data.horses[0] = Math.min(100, m.data.horses[0] + 18); m.progress = m.data.horses[0];
-    score(G, 25000); modeHit(G, Math.round(m.progress / 12.5));
+    score(G, worth(G, 25000)); modeHit(G, Math.round(m.progress / 12.5));
     dmd(G, 'DERBY DAY', 'YOU ' + placeOf(m) + ' · ' + Math.round(m.progress) + '%', 900, 2, { kind: 'derby', horses: [...m.data.horses] });
   } else if (M.id === 'raid') {
     if (m.phase === 1 && kind === 'bh' && m.lit.includes(arg)) {
       m.lit = m.lit.filter((q) => q !== arg); m.progress++;
-      score(G, 20000); modeHit(G, m.progress);
-      dmd(G, 'SLOT MACHINE FOUND', m.progress + ' OF 3', 1000, 2);
-      if (m.progress >= 3) { m.phase = 2; m.data.value = 200000; m.data.nextTick = G.t + 1.5; dmd(G, 'HURRY UP', 'SHOOT THE VAPORS', 1600, 3); sound(G, 'hurry'); }
+      score(G, worth(G, 20000)); modeHit(G, m.progress);
+      dmd(G, 'SLOT MACHINE FOUND', m.progress + ' OF ' + m.need, 1000, 2);
+      if (m.progress >= m.need) { m.phase = 2; m.data.value = worth(G, 200000); m.data.nextTick = G.t + 1.5; dmd(G, 'HURRY UP', 'SHOOT THE VAPORS', 1600, 3); sound(G, 'hurry'); }
     } else if (m.phase === 2 && kind === 'vapors') {
       const v = score(G, Math.round(m.data.value / 1000) * 1000);
       dmd(G, 'RAID COMPLETE', fmt(v), 2200, 3, 'jackpot');
@@ -548,25 +567,25 @@ function modeEvent(G, kind, arg) {
     }
   } else if (M.id === 'tower' && kind === 'rampMade') {
     m.progress++;
-    const v = score(G, 40000 * m.progress);
-    dmd(G, ['WOOLMAN TOWER', 'RIX TOWER', 'MOUNTAIN TOWER'][m.progress - 1], fmt(v), 1500, 2, 'tower'); sound(G, 'towerUp');
-    if (m.progress >= 3) { score(G, 100000); dmd(G, 'TOP OF THE TOWER', fact('tower'), 2200, 3); endMode(G, true); }
+    const v = score(G, worth(G, 40000 * m.progress));
+    dmd(G, ['WOOLMAN TOWER', 'RIX TOWER', 'MOUNTAIN TOWER'][Math.min(2, m.progress - 1)], fmt(v), 1500, 2, 'tower'); sound(G, 'towerUp');
+    if (m.progress >= m.need) { score(G, worth(G, 100000)); dmd(G, 'TOP OF THE TOWER', fact('tower'), 2200, 3); endMode(G, true); }
   } else if (M.id === 'tub' && (kind === 'rampMade' || kind === 'orbitTop' || kind === 'reserve')) {
     const side = MAJOR[kind];
     if (!m.data.want || side === m.data.want) {
       m.progress++; m.data.want = side === 'L' ? 'R' : 'L';
-      score(G, 30000); modeHit(G, m.progress);
+      score(G, worth(G, 30000)); modeHit(G, m.progress);
       dmd(G, 'TUB RACE LEG ' + m.progress, 'NOW SHOOT ' + (m.data.want === 'L' ? 'LEFT' : 'RIGHT'), 1000, 2);
       if (m.progress >= m.need) { dmd(G, 'TUB RACE WON', fact('tubs'), 2200, 3); endMode(G, true); }
     } else { dmd(G, 'WRONG SIDE', 'SHOOT ' + (m.data.want === 'L' ? 'LEFT' : 'RIGHT'), 700, 1); sound(G, 'switch'); }
   } else if (M.id === 'coaster' && (kind === 'orbitTop' || kind === 'spin')) {
     if (kind === 'spin') { m.data.spins += arg; if (m.data.spins < 25) return; m.data.spins = 0; }
     m.progress++;
-    score(G, 35000); modeHit(G, m.progress);
-    dmd(G, 'COASTER LAP ' + m.progress, 'OF 4', 900, 2);
-    if (m.progress >= 4) { dmd(G, 'COASTER HILL DONE', fact('coaster'), 2200, 3); endMode(G, true); }
+    score(G, worth(G, 35000)); modeHit(G, m.progress);
+    dmd(G, 'COASTER LAP ' + m.progress, 'OF ' + m.need, 900, 2);
+    if (m.progress >= m.need) { dmd(G, 'COASTER HILL DONE', fact('coaster'), 2200, 3); endMode(G, true); }
   }
-  if (M.id === 'soak' && m.progress >= m.need) { score(G, 50000); dmd(G, 'A FULL COURSE', fact('baths21'), 2200, 3); endMode(G, true); }
+  if (M.id === 'soak' && m.progress >= m.need) { score(G, worth(G, 50000)); dmd(G, 'A FULL COURSE', fact('baths21'), 2200, 3); endMode(G, true); }
 }
 
 // a hit that moves a mode on: the voice is the mode's own and climbs a step with each one
@@ -581,21 +600,21 @@ function tickMode(G) {
   if (M.id === 'soak' && G.t > m.data.nextMove) { m.lit = [nextLit(G, m.lit[0])]; m.data.nextMove = G.t + 3; }
   if (M.id === 'derby') {
     const h = m.data.horses;
-    for (let k = 1; k < 4; k++) h[k] = Math.min(100, h[k] + (1.25 + G.rng.next() * 1.2) * TICK);
+    for (let k = 1; k < 4; k++) h[k] = Math.min(100, h[k] + (1.25 + G.rng.next() * 1.2) * (1 + ROUND.rivals * roundOf(G)) * TICK);
     const rank = h.slice(1).filter((x) => x > h[0]).length;
     if (rank > (m.data.rank || 0)) sound(G, 'rivalPass', 1, null);   // a rival goes by
     m.data.rank = rank;
-    if (h[0] >= 100) { const first = h.slice(1).every((x) => x < 100); score(G, first ? 150000 : 50000); dmd(G, first ? 'YOU WIN THE DERBY' : 'YOU PLACED', fact('derby1936'), 2200, 3); return endMode(G, first); }
+    if (h[0] >= 100) { const first = h.slice(1).every((x) => x < 100); score(G, worth(G, first ? 150000 : 50000)); dmd(G, first ? 'YOU WIN THE DERBY' : 'YOU PLACED', fact('derby1936'), 2200, 3); return endMode(G, first); }
     if (h.slice(1).some((x) => x >= 100) && h[0] < 100) { dmd(G, 'BEATEN AT THE WIRE', '', 1600, 2); return endMode(G, false); }
   }
-  if (M.id === 'raid' && m.phase === 2) m.data.value = Math.max(50000, m.data.value - 16000 * TICK);
+  if (M.id === 'raid' && m.phase === 2) m.data.value = Math.max(worth(G, 50000), m.data.value - worth(G, 16000) * TICK);
   // the clock is heard: a tick that speeds up as the Raid hurry-up value falls, and in the last five seconds of any mode a tick a second
   const left = m.end - G.t;
   if (left <= 5 && left > 0) {
     const sec = Math.ceil(left);
     if (m.data.tickSec !== sec) { m.data.tickSec = sec; sound(G, 'countTick', 1, null, { n: sec }); }
   } else if (M.id === 'raid' && m.phase === 2 && G.t >= (m.data.nextTick || 0)) {
-    const u = 1 - (m.data.value - 50000) / 150000;   // 0 at the start of the hurry-up, 1 once the value has bottomed out
+    const u = 1 - (m.data.value - worth(G, 50000)) / worth(G, 150000);   // 0 at the start of the hurry-up, 1 once the value has bottomed out
     sound(G, 'hurryTick', 1, null, { n: +u.toFixed(2) });
     m.data.nextTick = G.t + 0.9 - 0.55 * u;
   }
@@ -681,7 +700,10 @@ function endMultiball(G) {
   G.mb = null;
   cue(G, { k: 'mb', kind: mb.kind, on: false });
   dmd(G, mb.kind === 'valley' ? 'WIZARD MODE OVER' : 'MULTIBALL OVER', '', 1400, 2); sound(G, 'mbEnd', 1, null);
-  if (mb.kind === 'valley') { G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0; }
+  if (mb.kind === 'valley') {
+    G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0;
+    if (roundOf(G) < ROUND.max) { G.f.round = roundOf(G) + 1; after(G, 1.6, () => { dmd(G, 'ROUND ' + (G.f.round + 1), 'GOALS AND VALUES UP', 2000, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
+  }
 }
 
 // ------------------------------------------------------------------------------------------------- player input
