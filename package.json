@@ -9,6 +9,8 @@
     "vendor": "node tools/build-vendor.mjs",
     "table": "node tools/table/compile.mjs && node tools/table/check.mjs",
     "sim": "node tools/flow.mjs && node tools/balance.mjs",
+    "balance": "node tools/balance.mjs --ladder",
+    "balance:check": "node tools/balance.mjs --check",
     "build": "node tools/assets-list.mjs && node shared/tools/inline.mjs .",
     "test": "node shared/test-harness/run.mjs ."
   }

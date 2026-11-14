@@ -14,6 +14,14 @@ export const MODES = [
   { id: 'tub', name: 'TUB RACE', short: 'TUBS', goal: 'ALTERNATE LEFT AND RIGHT', cue: 'LEFT, RIGHT...', dur: 40 },
   { id: 'coaster', name: 'COASTER HILL', short: 'COASTER', goal: 'RIDE THE ORBIT 4 LAPS', cue: 'ORBIT 4 LAPS', dur: 40 },
 ];
+// The table's tuning, in one place (S3-03). Standard is the game as tuned with tools/balance.mjs; to reverse a retune put
+// the old value back (the number in the comment) and run `npm run balance` to see what it does.
+export const STANDARD = {
+  saveSecs: 10,         // ball save after a launch (unchanged)
+  saveSecsMulti: 15,    // ... after a multiball starts (unchanged)
+  nudge: 260,           // sideways nudge, mm/s added to every ball (unchanged)
+  kickbacks: 3,         // outlane kickbacks per side per ball; the ball is returned instead of draining (was 0: no kickback)
+};
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
 const SHOOTER = { x: 498.5, y: 104 };
 const MAJOR = { rampMade: 'R', orbitTop: 'L', reserve: 'R' };
@@ -45,7 +53,7 @@ function resetPlayer(G) {
     ramps: 0, towerLevel: 0, lockLit: false, locks: 0, fifth: 0, spins: 0, ebLit: false, modesPlayed: [0, 0, 0, 0, 0, 0],
     modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0 };
   G.ball = { saveUntil: 0, saving: false, saveWarned: 0, launched: false, skillLane: -1, skillUntil: 0, inLane: false, kicks: [],
-    lastMajor: { t: -10, side: '' }, combo: 0, switches: 0, searchAt: 0 };
+    lastMajor: { t: -10, side: '' }, combo: 0, switches: 0, searchAt: 0, kb: { outL: 0, outR: 0 } };
   G.mode = null;
   G.mb = null;
   G.bonus = null;
@@ -91,7 +99,7 @@ function serve(G) {
   const b = addBall(G.w, SHOOTER.x, SHOOTER.y);
   G.ball.inLane = true; G.ball.launched = false; G.ball.switches = 0;
   G.ball.skillLane = G.rng.int(3);
-  G.ball.saveUntil = 0; G.ball.saving = false; G.ball.saveWarned = 0;
+  G.ball.saveUntil = 0; G.ball.saving = false; G.ball.saveWarned = 0; G.ball.kb = { outL: 0, outR: 0 };
   cue(G, { k: 'serve', ball: b.id });
   return b;
 }
@@ -255,7 +263,7 @@ function sw(G, name, e) {
   if (name === 'shooterLane') {
     if (e.dir > 0 && G.ball.inLane) {
       G.ball.inLane = false; G.ball.launched = true;
-      if (!G.ball.saveUntil || G.ball.saveUntil < G.t) startBallSave(G, G.mb ? 15 : 10);
+      if (!G.ball.saveUntil || G.ball.saveUntil < G.t) startBallSave(G, G.mb ? STANDARD.saveSecsMulti : STANDARD.saveSecs);
       G.ball.skillUntil = G.t + 4;
       sound(G, 'launch');
       after(G, 0.3, () => { if (G.ball.skillUntil > G.t) sound(G, 'skillOn', 1, 356 + 40 * G.ball.skillLane); });   // a ping from the lit lane
@@ -266,7 +274,18 @@ function sw(G, name, e) {
   if (name.startsWith('bumper')) return bumper(G, +name[6] - 1, e);
   if (name.startsWith('sling')) { score(G, 110); sound(G, 'sling'); cue(G, { k: 'flash', name: name }); return; }
   if (name === 'inL' || name === 'inR') { score(G, 1000); sound(G, 'rollover'); return; }
-  if (name === 'outL' || name === 'outR') { score(G, 5000); sound(G, 'outlane'); dmd(G, 'OUTLANE', '5,000', 900); return; }
+  if (name === 'outL' || name === 'outR') {
+    score(G, 5000);
+    // the kickback: the ball is returned to the shooter lane instead of draining, until this side has used its share
+    const left = G.t < G.ball.saveUntil ? 0 : STANDARD.kickbacks - G.ball.kb[name];   // the ball save covers the first seconds
+    const b = left > 0 ? G.w.balls.find((q) => q.id === e.ball) : null;
+    if (!b) { sound(G, 'outlane'); dmd(G, 'OUTLANE', '5,000', 900); return; }
+    G.ball.kb[name]++;
+    removeBall(G.w, b);
+    dmd(G, 'KICKBACK', left > 1 ? 'ANOTHER ON THIS SIDE' : 'NONE LEFT THIS SIDE', 1400, 3); sound(G, 'save', 1, b.x); cue(G, { k: 'kickback', side: name === 'outL' ? 'L' : 'R' });
+    autoLaunch(G, 0.9);
+    return;
+  }
   if (name.startsWith('bh')) return bathhouse(G, BATHHOUSES.indexOf(name.slice(2)), e);
   if (name === 'spinner') return spinner(G, e);
   if (name === 'orbitTop') return major(G, 'orbitTop');
@@ -673,7 +692,7 @@ export function plungerCancel(G) { cancelPlunger(G.w); }
 
 export function nudge(G, dir) {
   if (G.scene !== 'game' || G.player.tilted) return;
-  const v = { left: [-260, 60], right: [260, 60], up: [0, 300] }[dir] || [0, 300];
+  const n = STANDARD.nudge, v = { left: [-n, 60], right: [n, 60], up: [0, 300] }[dir] || [0, 300];
   physNudge(G.w, v[0], v[1]);
   cue(G, { k: 'nudge', dir });
   sound(G, 'nudge');

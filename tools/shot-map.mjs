@@ -1,6 +1,7 @@
 // Sweeps flip timing for a ball fed down each inlane (and dropped from a cradle) and plots where every shot goes,
 // so features can be placed where shots really land and every major shot is proven makeable.
 //   node tools/shot-map.mjs [--feed inlane|cradle|drop] [--side L|R] [--out tools/out/shots.png] [--json]
+//   node tools/shot-map.mjs --aim     prints the bat positions that make each shot (the table the autoplay bot aims with, sim/bot.js)
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createWorld, addBall, step, setFlipper, queueInput, TICK } from '../src/js/sim/physics.js';
@@ -40,6 +41,52 @@ export function shoot(side, feedKind, flipAt, { secs = 1.6, hold = 0.25 } = {}) 
   let cross = null;
   for (let i = 1; i < pts.length; i++) if (pts[i - 1][1] < 450 && pts[i][1] >= 450) { cross = pts[i][0]; break; }
   return { pts, cross, apex, result, hits };
+}
+
+// Where along the bat a slow ball must be when the flipper is pressed to send it at each shot. The ball starts at rest
+// at the pivot end of the resting bat, rolls down it, and the flipper goes up the moment it passes `trig` (0 pivot, 1 tip).
+// Returns what it hit first, ranked: the Vapors, the lock, the ramp, an orbit, then a bathhouse.
+const SHOTS = [['vapors', /^vapors$/], ['lock', /^lock$/], ['ramp', /^rampMade$/], ['orbit', /^orbitTop$/], ['reserve', /^reserve$/], ['bh', /^bh/]];
+export function rollShot(side, trig, mode = 'roll') {
+  // drop: the ball falls onto the bat from 80 mm above, at position `trig` along it, and the flipper goes up as it arrives
+  // cradle: the ball is held on the raised bat, let go, rolls down it and the flipper goes up at `trig`
+  const drop = mode === 'drop';
+  const w = createWorld(T);
+  const f = w.flippers.find((q) => q.side === side);
+  const ca = Math.cos(f.rest), sa = Math.sin(f.rest);
+  const a0 = (drop ? trig : 0.02) * f.len, h0 = drop ? 80 : 16;
+  let b;
+  if (mode === 'cradle') {
+    setFlipper(w, side, true);
+    b = addBall(w, side === 'L' ? 74 : mx(74), 300, 0, -250);
+    for (let i = 0; i < 180; i++) step(w);
+    setFlipper(w, side, false);
+  } else b = addBall(w, f.x + ca * a0 - sa * h0 * f.dir, f.y + sa * a0 + ca * h0 * f.dir, 0, 0);
+  let flipped = false, release = 0; const hits = [];
+  for (let i = 0; i < 2.2 / TICK && !b.held; i++) {
+    const dx = b.x - f.x, dy = b.y - f.y;
+    const along = (dx * ca + dy * sa) / f.len, across = (-dx * sa + dy * ca) * f.dir, vAcross = (-b.vx * sa + b.vy * ca) * f.dir;
+    const go = drop ? (vAcross < -1 ? (across - 15) / -vAcross : 9) <= 0.035 : along >= trig;
+    if (!flipped && go) { setFlipper(w, side, true); flipped = true; release = w.time + 0.25; }
+    if (flipped && w.time >= release) setFlipper(w, side, false);
+    step(w);
+    for (const e of w.events) if (e.sw !== undefined && e.sw >= 0) hits.push(T.swName[e.sw]);
+    w.events.length = 0;
+  }
+  for (const [key, re] of SHOTS) { const h = hits.find((n) => re.test(n)); if (h) return key === 'bh' ? h : key; }
+  return null;
+}
+if (process.argv.includes('--aim')) {
+  const out = {};
+  for (const mode of ['roll', 'cradle', 'drop']) for (const side of sides) {
+    const by = {}; let prev = null, run = [];
+    const flush = () => { if (prev && run.length >= 2) (by[prev] ||= []).push([run[0], run[run.length - 1]]); };
+    for (let t = 0.02; t <= 1.001; t += 0.01) { const k = rollShot(side, t, mode); if (k !== prev) { flush(); run = []; prev = k; } run.push(+t.toFixed(2)); }
+    flush();
+    (out[mode] ||= {})[side] = Object.fromEntries(Object.entries(by).map(([k, runs]) => [k, runs.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[0]]));
+  }
+  console.log(JSON.stringify(out));
+  process.exit(0);
 }
 
 const paths = [], rows = [];
