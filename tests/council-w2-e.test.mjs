@@ -88,7 +88,8 @@ export const tests = [
       t.equal([c.step, c.text, c.kind], [0, tipText(0, touch ? 'touch' : 'key'), touch ? 'touch' : 'key'], 'the plunge tip uses this device\'s words: ' + c.text);
       t.expect(await t.page.locator('#coach-skip').isVisible(), 'Skip tips is on screen');
       t.expect(await t.page.locator('#b-launch').evaluate((n) => n.classList.contains('coached')), 'the Launch button wears the ring');
-      t.expect(/Hold/.test(await t.page.locator('#live').textContent()) || true, 'announcing');
+      const spoken = await t.page.waitForFunction((x) => document.querySelector('#live').textContent.includes(x), tipText(0, touch ? 'touch' : 'key'), { timeout: 8000 }).then(() => true, () => false);
+      t.expect(spoken, 'the tip is announced through the live region');
       const box = await t.page.evaluate(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; }; return { tip: r('#coach'), launch: r('#b-launch'), vw: innerWidth, vh: innerHeight }; });
       t.expect(box.tip.x >= 8 && box.tip.x + box.tip.w <= box.vw - 8, 'the tip is inside the window: ' + JSON.stringify(box.tip));
       const apart = box.tip.y + box.tip.h < box.launch.y || box.launch.y + box.launch.h < box.tip.y || box.tip.x + box.tip.w < box.launch.x || box.launch.x + box.launch.w < box.tip.x;

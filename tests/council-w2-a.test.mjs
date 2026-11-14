@@ -142,7 +142,12 @@ export const tests = [
       t.expect(cold && hot && hot.steam > cold.steam + 0.5, `steam ${cold && cold.steam} at 100 F, ${hot && hot.steam} at 140 F`);
       await t.game('act', 'mode', 1); await t.game('step', 25);
       const race = await api();
-      t.expect(race.crowd >= 0, 'the crowd follows the race (' + race.crowd + ')');
+      t.equal(race.crowd, 0, 'the crowd is quiet at the start of the race');
+      await t.game('step', 300);
+      await t.game('act', 'switch', 'rampMade', 'hit', 300); await t.game('step', 25);
+      await t.game('act', 'switch', 'orbitTop', 'hit', 300); await t.game('step', 25);
+      const late = await api();
+      t.expect(late.crowd >= 0.3 && late.crowd > race.crowd, 'two shots on the track bring the crowd up (' + race.crowd + ' to ' + late.crowd + ')');
     },
   },
   {
