@@ -13,8 +13,10 @@ let master, sfxBus, verb, noiseBuf;
 // dst is where the current cue's dry sound goes: the sfx bus, or a stereo panner in front of it
 let cx = null, dst = null, roll = null;
 // music and ambience obey the sound switch as well as their own
-const musicOn = () => audio.on && audio.music;
-const ambOn = () => audio.on && audio.ambience;
+// Sound effects, Music and Ambience are three separate switches. Music never depended on the effects switch: a player
+// who turns the effects off keeps the music, as before the ambience was added.
+const musicOn = () => audio.music;
+const ambOn = () => audio.ambience;
 
 export function unlock() {
   if (audio.ctx) { if (audio.ctx.state === 'suspended' && !audio.hold) audio.ctx.resume(); return; }

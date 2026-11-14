@@ -129,7 +129,7 @@ export const tests = [
         put('settings', { v: 1, volume: -2 });
         t.equal(loadSettings().volume, 0, 'volume clamps to 0');
         put('settings', { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3 });
-        t.equal(loadSettings(), { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3, ambience: true, ballGlow: true, difficulty: 'standard', tipsSeen: true }, 'valid settings (from before the Ambience switch, the table difficulty, the ball highlight and the tips) load untouched, with Ambience on, the table Standard, the highlight on and the tips seen');
+        t.equal(loadSettings(), { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3, ambience: false, ballGlow: true, difficulty: 'standard', tipsSeen: true }, 'valid settings (from before the Ambience switch, the table difficulty, the ball highlight and the tips) load untouched, with Ambience where Sound effects was (off here), the table Standard, the highlight on and the tips seen');
         put('settings', [1, 2]); t.equal(loadSettings().balls, 3, 'an array is not settings');
 
         const ok = (r) => r && typeof r.initials === 'string' && Number.isFinite(r.score);

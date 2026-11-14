@@ -151,7 +151,7 @@ export const tests = [
     },
   },
   {
-    name: 'S5-03 S5-25 Music and Ambience are separate settings that silence their own bus, obey Sound, and persist',
+    name: 'S5-03 S5-25 Sound effects, Music and Ambience are separate settings: each silences its own bus only, and persists',
     async run(t) {
       await gesture(t);
       await t.game('scene', 'settings');
@@ -181,13 +181,15 @@ export const tests = [
       t.equal(s.audio.music, 'title', 'turned back on, the piece plays'); t.equal(s.audio.ambience, 'street', 'and the bed');
       await t.game('scene', 'settings');
       await t.page.selectOption('#s-sound', '0');
-      s = await settle(t, (a) => a.musicLevel === 0);
-      t.equal(s.audio.musicLevel, 0, 'Sound effects Off silences the music'); t.equal(s.audio.ambienceLevel, 0, 'and the ambience');
-      t.equal(s.audio.music, null, 'with nothing scheduled');
+      await t.page.waitForTimeout(400);
+      s = await t.state();
+      t.equal(s.settings.sound, false, 'Sound effects is off');
+      t.equal(s.audio.musicLevel, 0.4, 'Sound effects Off leaves the music on, as it did before the ambience was added'); t.equal(s.audio.ambienceLevel, 1, 'and the ambience');
+      t.equal(s.audio.music, 'title', 'the piece keeps playing'); t.equal(s.audio.ambience, 'street', 'and the bed');
     },
   },
   {
-    name: 'S5-03 S5-25 a save from before this wave loads with music and ambience on; one with sound off stays silent',
+    name: 'S5-03 S5-25 a save from before this wave: effects on gains the ambience, effects off gains no new sound and keeps its music, both off stays silent',
     viewports: ['desktop'],
     async run(t) {
       await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, sound: true, music: true, volume: 0.5, motion: 'auto', balls: 5, tier: 'auto', practice: false, textScale: 1 })));
@@ -199,8 +201,17 @@ export const tests = [
       await gesture(t);
       await t.game('scene', 'title');
       s = await t.state();
-      t.equal(s.audio.musicLevel, 0, 'sound off: the music bus stays shut'); t.equal(s.audio.ambienceLevel, 0, 'the ambience bus too');
-      t.equal(s.audio.music, null, 'and no piece is scheduled'); t.equal(s.audio.ambience, null, 'nor a bed');
+      t.equal(s.settings.ambience, false, 'effects were off: the new ambience starts off too'); t.equal(s.audio.ambienceLevel, 0, 'its bus is shut'); t.equal(s.audio.ambience, null, 'and no bed is scheduled');
+      s = await settle(t, (a) => a.music === 'title');
+      t.equal(s.audio.musicLevel, 0.4, 'the music this save had on still plays'); t.equal(s.audio.music, 'title', 'the title piece');
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, sound: false, music: false, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1 })));
+      await t.reload();
+      await gesture(t);
+      await t.game('scene', 'title');
+      await t.page.waitForTimeout(400);
+      s = await t.state();
+      t.equal(s.audio.musicLevel, 0, 'effects and music both off: the music bus stays shut'); t.equal(s.audio.ambienceLevel, 0, 'the ambience bus too');
+      t.equal(s.audio.music, null, 'no piece is scheduled'); t.equal(s.audio.ambience, null, 'nor a bed');
       await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, sound: true, music: true, ambience: 'maybe' })));
       await t.reload();
       s = await t.state();

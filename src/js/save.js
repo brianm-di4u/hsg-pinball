@@ -23,7 +23,9 @@ function cleanSettings(s) {
   const d = DEFAULT_SETTINGS;
   return {
     ...s, v: 1,
-    sound: bool(s.sound, d.sound), music: bool(s.music, d.music), ambience: bool(s.ambience, d.ambience), practice: bool(s.practice, d.practice), ballGlow: bool(s.ballGlow, d.ballGlow),
+    sound: bool(s.sound, d.sound), music: bool(s.music, d.music),
+    ambience: bool(s.ambience, bool(s.sound, d.ambience)),   // a save from before the Ambience switch gets it where its Sound effects switch is, so effects off means no new sound
+    practice: bool(s.practice, d.practice), ballGlow: bool(s.ballGlow, d.ballGlow),
     volume: typeof s.volume === 'number' && Number.isFinite(s.volume) ? Math.min(1, Math.max(0, s.volume)) : d.volume,
     motion: pick(s.motion, ['auto', 'full', 'reduced'], d.motion),
     balls: pick(s.balls, [3, 5], d.balls),
