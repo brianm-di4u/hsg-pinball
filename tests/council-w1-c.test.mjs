@@ -134,7 +134,8 @@ export const tests = [
       // drain the ball: bonus, then ball 2
       await t.game('act', 'placeBall', 242, 60, 0, -1500);
       await t.game('step', 400);
-      await t.page.waitForTimeout(6000);
+      // the queue speaks one line every 900 ms; wave 2's goal and tip lines join it, so wait for the last line, not a fixed time
+      await t.page.waitForFunction(() => window.__said.some((x) => /^Ball 2 of 3/.test(x)), null, { timeout: 25000 }).catch(() => {});
       const said = await t.page.evaluate(() => window.__said);
       const dmdTexts = said.filter((x) => !/^Ball \d/.test(x));
       t.expect(said.some((x) => /^Ball 1 of 3/.test(x)), 'the first ball is announced: ' + JSON.stringify(said));
