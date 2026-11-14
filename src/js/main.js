@@ -402,7 +402,7 @@ function render(alpha) {
   const t = now();
   const lampOn = lampStates(G, LAMPS, t);
   const interp = interpolated(alpha);
-  if (view) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), debug: qs.get('debug') === 'physics' });
+  if (view) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), highlight: app.settings.ballGlow, debug: qs.get('debug') === 'physics' });
   while (effects.length && t - effects[0].t > 2) effects.shift();
   dmd.frame(t * 1000, dmdBase);
   // repaint the dot canvas only when a dot changed (4,096 dots is real work on a phone)
@@ -438,6 +438,10 @@ window.__game = {
   },
   setState(s) { setGameState(G, s); return true; },
   progress() { return app.progress(); },
+  applySettings(o) { app.applySettings(o); return { ...app.settings }; },
+  highlight() { return view && view.highlightInfo ? view.highlightInfo() : null; },
+  viewScreen(x, y, h = 0) { return view.toScreen(x, y, h); },
+  viewScale(x, y) { const a = view.toScreen(x, y), b = view.toScreen(x + 100, y); return Math.hypot(b[0] - a[0], b[1] - a[1]) / 100; },
   coach() { return { active: coach.active, step: coach.step, text: coach.text, kind: coach.kind, shown: !coachEl.hidden, seen: app.settings.tipsSeen }; },
   setToday(d) { setToday(d); return todayKey(); },
   startDaily() { app.startDaily(); return G.daily; },
@@ -468,7 +472,7 @@ window.__game = {
       case 'flipAt': { const t0 = w.tick * TICK; flipper(G, a[0], true, t0 + a[1] / 1000); flipper(G, a[0], false, t0 + (a[1] + (a[2] || 250)) / 1000); return true; }
       case 'plunge': autoPlunge(w, a[0] ?? 0.85); return true;
       case 'nudge': nudge(G, a[0] || 'up'); return true;
-      case 'placeBall': { const b = w.balls.find((q) => !q.held) || addBall(w, 0, 0); Object.assign(b, { x: a[0], y: a[1], px: a[0], py: a[1], vx: a[2] || 0, vy: a[3] || 0, layer: a[4] || LAYER.FIELD, held: null }); G.ball.inLane = false; return b.id; }
+      case 'placeBall': { const b = w.balls.find((q) => !q.held) || addBall(w, 0, 0); Object.assign(b, { x: a[0], y: a[1], px: a[0], py: a[1], vx: a[2] || 0, vy: a[3] || 0, layer: a[4] || LAYER.FIELD, held: null }); prev.set(b.id, [b.x, b.y, b.z]); G.ball.inLane = false; return b.id; }
       case 'addBall': return addBall(w, a[0], a[1], a[2] || 0, a[3] || 0).id;
       case 'clearBalls': for (const b of [...w.balls]) removeBall(w, b); return true;
       case 'clock': renderClock = a[0] == null ? null : a[0] / 1000; return true;

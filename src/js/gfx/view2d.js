@@ -70,6 +70,11 @@ export function createView2D(canvas, T, lamps) {
       // balls
       for (const b of interp.balls) {
         const r = BALL_R * s * (1 + b.z / 400);
+        if (opts.highlight) {   // the Ball highlight setting: a rim glow, and a short trail that grows with speed (none under reduced motion)
+          const sp = Math.hypot(b.vx || 0, b.vy || 0), tk = opts.reduced ? 0 : Math.min(1, Math.max(0, (sp - 400) / 2600));
+          for (let k = 4; k >= 1 && tk > 0; k--) { ctx.globalAlpha = 0.34 * tk * (1 - k / 4.6); ctx.fillStyle = '#dfe8ff'; ctx.beginPath(); ctx.arc(X(b.x - b.vx * 0.006 * k), Y(b.y - b.vy * 0.006 * k), r * (1.1 - k * 0.14), 0, Math.PI * 2); ctx.fill(); }
+          ctx.globalAlpha = 0.55; ctx.strokeStyle = '#fff1d0'; ctx.lineWidth = r * 0.35; ctx.beginPath(); ctx.arc(X(b.x), Y(b.y), r * 1.3, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+        }
         const gg = ctx.createRadialGradient(X(b.x) - r * 0.35, Y(b.y) - r * 0.35, r * 0.1, X(b.x), Y(b.y), r);
         gg.addColorStop(0, '#ffffff'); gg.addColorStop(0.5, '#b9c2cc'); gg.addColorStop(1, '#5b6270');
         ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(X(b.x), Y(b.y), r, 0, Math.PI * 2); ctx.fill();

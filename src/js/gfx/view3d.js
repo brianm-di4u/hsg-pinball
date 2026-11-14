@@ -12,6 +12,19 @@ const TIERS = {
   low: { ratio: 0.75, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 24, gi: 0, flashers: 0, cube: 0 },
 };
 
+// Ball highlight (S1-11): a rim glow round the ball, a short trail that grows with speed, and a darkening of the lower
+// playfield's painting (a shader parameter, not a repaint). One setting turns all three off. Reverse any of it here.
+export const HIGHLIGHT = {
+  rim: 0.55,            // opacity of the rim glow
+  trailGhosts: 4,       // ghost positions behind a moving ball
+  trailStep: 0.006,     // seconds of travel between one ghost and the next
+  trailMin: 400,        // mm/s below which there is no trail
+  trailFull: 3000,      // mm/s at which the trail is at full strength
+  trailOpacity: 0.34,
+  floorDark: 0.40,      // how far the painting darkens at the foot of the table (0 = not at all)
+  floorTo: 0.6,         // the darkening fades out by this fraction of the table's height
+};
+
 export function probeGL() {
   if (!window.THREE) return false;
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
@@ -107,6 +120,12 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   pfTex.colorSpace = THREE.SRGBColorSpace; pfTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const pfMat = new THREE.MeshPhysicalMaterial({ map: pfTex, roughness: 0.5, metalness: 0, clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.55 });
   const pfLow = new THREE.MeshStandardMaterial({ map: pfTex, roughness: 0.55, metalness: 0 });
+  // darken the lower playfield under the ball's busiest paths: a gradient on the painting's V coordinate, set by the Ball highlight setting
+  const pfDark = { value: HIGHLIGHT.floorDark };
+  for (const m of [pfMat, pfLow]) m.onBeforeCompile = (sh) => {
+    sh.uniforms.uPfDark = pfDark;
+    sh.fragmentShader = 'uniform float uPfDark;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= 1.0 - uPfDark * (1.0 - smoothstep(0.03, ' + HIGHLIGHT.floorTo.toFixed(3) + ', vMapUv.y));');
+  };
   const pfMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), pfMat);
   function applyMaterials() { pfMesh.material = tierName === 'low' ? pfLow : pfMat; }
   applyMaterials();
@@ -435,11 +454,20 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const ballGeo = new THREE.SphereGeometry(BALL_R, 40, 28);
   const shadowMat = new THREE.MeshBasicMaterial({ map: soft, color: '#000000', transparent: true, opacity: 0.55, depthWrite: false });
   const ballPool = [];
+  // the rim glow: a soft ring a little outside the ball's edge; the trail: ghost discs of the same soft light
+  const rimTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.4, 'rgba(255,255,255,0)'); gr.addColorStop(0.62, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.8, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+  const rimMat = new THREE.MeshBasicMaterial({ map: rimTex, color: '#fff1d0', transparent: true, opacity: HIGHLIGHT.rim, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const rimGeo = new THREE.PlaneGeometry(BALL_R * 4, BALL_R * 4); rimGeo.rotateX(-Math.PI / 2);
+  const ghostGeo = new THREE.PlaneGeometry(BALL_R * 2.3, BALL_R * 2.3); ghostGeo.rotateX(-Math.PI / 2);
   const getBall = (i) => {
     while (ballPool.length <= i) {
       const m = new THREE.Mesh(ballGeo, M.ball); m.castShadow = true;
       const sh = new THREE.Mesh(new THREE.PlaneGeometry(BALL_R * 3, BALL_R * 3), shadowMat); sh.rotation.x = -Math.PI / 2; sh.renderOrder = 1;
-      scene.add(m, sh); ballPool.push({ m, sh, last: null });
+      const rim = new THREE.Mesh(rimGeo, rimMat); rim.renderOrder = 2; rim.visible = false;
+      const ghosts = Array.from({ length: HIGHLIGHT.trailGhosts }, () => { const g = new THREE.Mesh(ghostGeo, new THREE.MeshBasicMaterial({ map: soft, color: '#dfe8ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); g.renderOrder = 2; g.visible = false; return g; });
+      scene.add(m, sh, rim, ...ghosts); ballPool.push({ m, sh, rim, ghosts, last: null });
     }
     return ballPool[i];
   };
@@ -570,6 +598,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       window.dispatchEvent(new Event('resize'));
     },
     hide() { canvas.style.visibility = 'hidden'; },
+    /** For tests: where a table point (mm) lands on the canvas, in CSS pixels, and what the ball highlight is showing. */
+    toScreen(x, y, h = 0) { const v = P(x, y, h).project(camera), r = canvas.getBoundingClientRect(); return [(v.x + 1) / 2 * r.width, (1 - v.y) / 2 * r.height]; },
+    highlightInfo() { return { rims: ballPool.filter((B) => B.rim.visible).length, ghosts: ballPool.reduce((n, B) => n + B.ghosts.filter((g) => g.visible).length, 0), floorDark: pfDark.value }; },
     /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */
     /** The rendered (uploaded) brightness of a lamp's insert, for tests. */
     lampLevel(name) { const i = lamps.findIndex((l) => l.name === name); if (i < 0) return null; const li = lampInst[i], c = new THREE.Color(); li.mesh.getColorAt(li.k, c); return li.mesh.instanceColor.version > 0 ? Math.max(c.r, c.g, c.b) : 0; },
@@ -607,8 +638,21 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         B.m.position.copy(p); B.last = { id: b.id };
         B.sh.position.set(p.x + 4 + b.z * 0.3, (b.z > 2 ? b.z : 0) + 0.6, p.z + 3 + b.z * 0.2);
         B.sh.material.opacity = 0.55;
+        // the highlight: rim glow, a speed-scaled trail (none under reduced motion) and the darker floor
+        const hy = p.y - BALL_R + 0.9;
+        B.rim.visible = !!o.highlight; B.rim.position.set(p.x, hy, p.z);
+        const sp = Math.hypot(b.vx || 0, b.vy || 0), tk = o.highlight && !o.reduced ? Math.min(1, Math.max(0, (sp - HIGHLIGHT.trailMin) / (HIGHLIGHT.trailFull - HIGHLIGHT.trailMin))) : 0;
+        B.ghosts.forEach((g, k) => {
+          g.visible = tk > 0;
+          if (!tk) return;
+          const dt = HIGHLIGHT.trailStep * (k + 1);
+          g.position.set(p.x - b.vx * dt, p.y - 1, p.z + b.vy * dt);
+          g.scale.setScalar(1 - k * 0.14);
+          g.material.opacity = HIGHLIGHT.trailOpacity * tk * (1 - k / (HIGHLIGHT.trailGhosts + 0.6));
+        });
       });
-      for (let i = interp.balls.length; i < ballPool.length; i++) { ballPool[i].m.visible = ballPool[i].sh.visible = false; ballPool[i].last = null; }
+      pfDark.value = o.highlight ? HIGHLIGHT.floorDark : 0;
+      for (let i = interp.balls.length; i < ballPool.length; i++) { const B = ballPool[i]; B.m.visible = B.sh.visible = B.rim.visible = false; B.ghosts.forEach((g) => { g.visible = false; }); B.last = null; }
       // lamps
       const touched = new Set();
       lamps.forEach((l, i) => {

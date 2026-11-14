@@ -112,6 +112,7 @@ export function createScreens(root, app) {
           ${opt('s-balls', 'Balls per game', [[3, '3'], [5, '5']], s.balls)}
           ${opt('s-practice', 'Practice (endless ball save)', [[0, 'Off'], [1, 'On']], +s.practice)}
           ${opt('s-tier', 'Graphics quality', [['auto', 'Automatic'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['2d', 'Flat 2D']], s.tier)}
+          ${opt('s-glow', 'Ball highlight', [[1, 'On'], [0, 'Off']], +s.ballGlow)}
           ${opt('s-text', 'Text size', [[1, 'Normal'], [1.15, 'Large'], [1.3, 'Larger']], s.textScale)}
           <div class="row"><span>First-game tips</span><button type="button" id="s-tips" class="btn sm">Show tips again</button></div>
           <p class="hint" id="s-tips-hint" aria-live="polite">${s.tipsSeen ? '' : 'The tips will show on the next ball.'}</p>
@@ -121,7 +122,7 @@ export function createScreens(root, app) {
       const read = () => {
         const v = (id) => root.querySelector(id).value;
         app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), motion: v('#s-motion'),
-          balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text') });
+          balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text'), ballGlow: v('#s-glow') === '1' });
       };
       on('#s-tips', () => { app.showTipsAgain(); root.querySelector('#s-tips-hint').textContent = 'The tips will show on the next ball.'; });
       root.querySelectorAll('select, input').forEach((n) => n.addEventListener('change', read));

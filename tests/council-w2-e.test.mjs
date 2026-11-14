@@ -190,3 +190,95 @@ export const tests = [
     },
   },
 ];
+
+// ------------------------------------------------------------------------------------------------- S1-11: the ball highlight
+// the 3D view only: read the canvas around a table point (mm) and report mean luminance in the ball core, the rim ring and the floor beyond it
+async function sampleBall(t, x, y) {
+  await t.game('act', 'placeBall', x, y, 0, 0);
+  await t.game('step', 0);
+  await t.waitFrames(3);
+  return t.page.evaluate(async ([px, py]) => {
+    const gl = document.getElementById('gl'), r = gl.getBoundingClientRect(), k = gl.width / r.width;
+    const v = window.__game.viewScreen(px, py);
+    const R = 13.5 * window.__game.viewScale(px, py) * k;   // the ball's radius in canvas pixels
+    const tmp = document.createElement('canvas'); tmp.width = gl.width; tmp.height = gl.height;
+    const g = tmp.getContext('2d'); g.drawImage(gl, 0, 0);
+    const cx = v[0] * k, cy = v[1] * k, W = gl.width, H = gl.height;
+    const d = g.getImageData(0, 0, W, H).data;
+    const ring = (a, b) => { let sum = 0, n = 0; for (let yy = Math.max(0, Math.floor(cy - b)); yy < Math.min(H, cy + b); yy++) for (let xx = Math.max(0, Math.floor(cx - b)); xx < Math.min(W, cx + b); xx++) { const q = Math.hypot(xx - cx, yy - cy); if (q >= a && q <= b) { const i = (yy * W + xx) * 4; sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; n++; } } return n ? sum / n : 0; };
+    return { core: ring(0, R * 0.55), rim: ring(R * 1.3, R * 1.7), floor: ring(R * 2.5, R * 3.5), R };
+  }, [x, y]);
+}
+const SPOTS = [[300, 250], [190, 420], [360, 330]];
+async function measureSpots(t) { const out = []; for (const [x, y] of SPOTS) out.push(await sampleBall(t, x, y)); const m = (k) => out.reduce((a, o) => a + o[k], 0) / out.length; return { core: m('core'), rim: m('rim'), floor: m('floor'), R: out[0].R }; }
+const skipTips = (t) => t.page.locator('#coach-skip').click({ timeout: 500 }).catch(() => {});
+
+export const ballTests = [
+  {
+    name: 'S1-11 the Ball highlight setting: on by default, in Settings, saved, and an old save gets it on',
+    async run(t) {
+      await clear(t);
+      t.equal((await t.state()).settings.ballGlow, true, 'on for a new player');
+      await t.game('scene', 'settings');
+      t.equal(await t.page.locator('#s-glow').inputValue(), '1', 'Settings shows Ball highlight: On');
+      await t.page.selectOption('#s-glow', '0');
+      t.equal((await read(t, 'settings')).ballGlow, false, 'turning it off is saved');
+      await t.reload();
+      t.equal((await t.state()).settings.ballGlow, false, 'and stays off after a reload');
+      await put(t, 'settings', { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard' });
+      await t.reload();
+      t.equal((await t.state()).settings.ballGlow, true, 'a save from before the setting gets the highlight on');
+      await t.game('scene', 'settings'); await t.shot('S1-11-settings');
+    },
+  },
+  {
+    name: 'S1-11 the highlight: a rim on every ball, a trail that grows with speed (none under reduced motion), a darker floor, all gone when off',
+    async run(t) {
+      await clear(t);
+      await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here: the 2D fallback is not measured'); return; }
+      const info = () => t.page.evaluate(() => window.__game.highlight());
+      await t.game('act', 'placeBall', 300, 300, 0, 0); await t.game('step', 0); await t.waitFrames(3);
+      let h = await info(); t.equal([h.rims, h.ghosts], [1, 0], 'a ball at rest: a rim, no trail');
+      t.expect(h.floorDark > 0.1, 'the floor is darkened: ' + h.floorDark);
+      await t.game('act', 'placeBall', 300, 300, 0, 2500); await t.game('step', 0); await t.waitFrames(3);
+      h = await info(); t.equal(h.ghosts, 4, 'a fast ball trails four ghosts');
+      await t.game('act', 'placeBall', 300, 300, 0, 600); await t.game('step', 0); await t.waitFrames(3);
+      h = await info(); t.equal(h.ghosts, 4, 'a slow ball trails too, but faintly (opacity scales with speed)');
+      await t.game('act', 'placeBall', 300, 300, 0, 100); await t.game('step', 0); await t.waitFrames(3);
+      h = await info(); t.equal(h.ghosts, 0, 'a ball nearly still has no trail');
+      await t.game('act', 'placeBall', 300, 300, 0, 2500); await t.game('step', 0);
+      await t.game('applySettings', { motion: 'reduced' }); await t.waitFrames(3);
+      h = await info(); t.equal([h.rims, h.ghosts], [1, 0], 'reduced motion keeps the rim and drops the trail');
+      await t.game('applySettings', { motion: 'auto', ballGlow: false }); await t.waitFrames(3);
+      h = await info(); t.equal([h.rims, h.ghosts, h.floorDark], [0, 0, 0], 'with the setting off: no rim, no trail, the floor as painted');
+    },
+  },
+  {
+    name: 'S1-11 measured: the ball reads brighter against its surroundings with the highlight on (rim and floor, mean luminance at three spots)',
+    async run(t) {
+      await clear(t);
+      await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      await skipTips(t);
+      const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
+      await t.game('applySettings', { ballGlow: false }); await t.waitFrames(3);
+      const off = await measureSpots(t);
+      await t.game('applySettings', { ballGlow: true }); await t.waitFrames(3);
+      const on = await measureSpots(t);
+      const contrast = (m) => (m.core - m.floor) / (m.core + m.floor);
+      t.log(`highlight off: ball ${off.core.toFixed(1)}, rim ring ${off.rim.toFixed(1)}, floor ${off.floor.toFixed(1)}, contrast ${contrast(off).toFixed(3)}`);
+      t.log(`highlight on:  ball ${on.core.toFixed(1)}, rim ring ${on.rim.toFixed(1)}, floor ${on.floor.toFixed(1)}, contrast ${contrast(on).toFixed(3)}`);
+      t.expect(on.floor < off.floor * 0.95, 'the floor round the ball is darker: ' + off.floor.toFixed(1) + ' to ' + on.floor.toFixed(1));
+      t.expect(on.rim > off.rim * 1.08, "the ring at the ball's edge is brighter: " + off.rim.toFixed(1) + ' to ' + on.rim.toFixed(1));
+      t.expect(contrast(on) > contrast(off), 'the ball stands out more: ' + contrast(off).toFixed(3) + ' to ' + contrast(on).toFixed(3));
+      await t.game('act', 'placeBall', 300, 300, 0, 0); await t.game('step', 0); await t.waitFrames(3);
+      await t.shot('S1-11-ball-on');
+      await t.game('act', 'placeBall', 300, 300, 0, 2600); await t.game('step', 0); await t.waitFrames(3);
+      await t.shot('S1-11-ball-trail');
+      await t.game('applySettings', { ballGlow: false }); await t.waitFrames(3);
+      await t.game('act', 'placeBall', 300, 300, 0, 0); await t.game('step', 0); await t.waitFrames(3);
+      await t.shot('S1-11-ball-off');
+    },
+  },
+];
+tests.push(...ballTests);
