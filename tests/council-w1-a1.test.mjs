@@ -150,6 +150,7 @@ export const tests = [
     name: 'S6-11 five failed renders in a row show the error banner with Reload; stray errors are logged once',
     allowConsoleErrors: true,
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: let it finish, so the render under test is the real one
       const logs = [];
       t.page.on('console', (m) => { if (m.type() === 'error' && m.text().includes('Spa City Pinball:')) logs.push(m.text()); });
       await t.page.evaluate(() => {
@@ -211,6 +212,7 @@ export const tests = [
     viewports: ['mobile'],
     initScript: () => { window.__GOVERNOR__ = true; },
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: the governor is for playing it
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
       const first = (await t.state()).tier;

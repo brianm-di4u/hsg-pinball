@@ -167,6 +167,7 @@ export const tests = [
     name: 'input: flip latency is one frame, at full speed and at 4x CPU throttle',
     viewports: ['desktop'],
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: latency is measured on the finished table
       await inPlay(t);
       for (const rate of [1, 4]) {
         await t.cpuThrottle(rate);

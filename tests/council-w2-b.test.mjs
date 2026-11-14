@@ -164,6 +164,7 @@ export const tests = [
     name: 'S5-04 live: with Sound effects off the roll voice is told zero, and on the low tier it is updated a quarter as often',
     viewports: ['desktop'],
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: the tier throttle needs it
       await t.game('newGame', { balls: 3, seed: 5 });
       await gesture(t);
       const view = (await t.state()).view;

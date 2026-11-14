@@ -31,6 +31,7 @@ export const tests = [
     name: 'AC31 frame cost in play',
     viewports: ['desktop'],
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: measure the table, not its arrival
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
       await t.page.waitForTimeout(800);
@@ -53,6 +54,7 @@ export const tests = [
         const f = (ts) => { gaps.push(ts - last); last = ts; if (ts < end) requestAnimationFrame(f); else { po.disconnect(); gaps.sort((a, b) => a - b); res({ n: gaps.length, p50: gaps[gaps.length >> 1], p95: gaps[Math.floor(gaps.length * 0.95)], max: gaps[gaps.length - 1], over100: gaps.filter((g) => g > 100).length, longTasks: long.length, longMax: Math.max(0, ...long) }); } };
         requestAnimationFrame(f);
       }), ms);
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: measure the table, not its arrival
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.page.waitForTimeout(500);
       const lane = await probe(3000);
@@ -69,6 +71,7 @@ export const tests = [
     viewports: ['mobile'],
     initScript: () => { window.__GOVERNOR__ = true; },   // the quality governor is off under __TEST__; a player has it
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: the throttle is for playing it, not for building it
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
       await t.cpuThrottle(4);

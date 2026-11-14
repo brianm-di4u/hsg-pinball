@@ -80,8 +80,12 @@ function parseGLB(THREE, b64) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMotion = () => false } = {}) {
+// Give the page's own work (frames, input, the title) a turn between the heavy build steps, say how far along we are, and let the
+// caller hold the build (gate) while something more important, a ball in play, is going on.
+const yieldUI = () => new Promise((res) => setTimeout(res, 0));
+export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMotion = () => false, progress = () => {}, gate = null } = {}) {
   const THREE = window.THREE;
+  const step = async (p) => { progress(p); await yieldUI(); if (gate) await gate(); };
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!window.__TEST__ });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -93,6 +97,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   let Q = TIERS[tierName] || TIERS.high;
 
   const packs = await loadPacks();
+  await step(0.1);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#07060c');
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -174,6 +179,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const cab = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 40, H + 40), M.wood);
   cab.position.set(0, -20.5, 0); scene.add(cab);
 
+  await step(0.3);
   // ------------------------------------------------------------------------------------------- walls
   const geo = { blackRubber: [], blade: [], bladeTop: [], rampRibbon: [], rampLip: [], wire: [], railCap: [], wood: [], chrome: [], rubber: [], black: [], target: [], gate: [], ramp: [], rampEdge: [], steel: [], brass: [] };
   const box = (a, b, w, h, y0, bucket, extra = 0) => {
@@ -349,8 +355,10 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const rampMesh = addMerged(geo.ramp, M.rampPlastic, false); if (rampMesh) rampMesh.renderOrder = 2;
 
   // ------------------------------------------------------------------------------------------- models
+  await step(0.4);
   const models = {};
-  for (const [k, b64] of Object.entries(packs.models)) models[k] = await parseGLB(THREE, b64);
+  const modelPacks = Object.entries(packs.models);
+  for (const [i, [k, b64]] of modelPacks.entries()) { models[k] = await parseGLB(THREE, b64); await step(0.4 + 0.45 * (i + 1) / modelPacks.length); }
   const glowMats = [];
   const place = (name, x, y, h, rotY, scale = 1000) => {
     const src = models[name];
@@ -451,6 +459,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     sm.renderOrder = 0; sm.frustumCulled = false; scene.add(sm);
   }
 
+  await step(0.9);
   // ------------------------------------------------------------------------------------------- lamps (glowing inserts)
   // one instanced mesh per insert shape (unit size, scaled per lamp) and one for every halo: a handful of draw calls
   // instead of two per lamp. Brightness rides in the instance colour (HDR above 1 blooms).
@@ -684,6 +693,27 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       window.dispatchEvent(new Event('resize'));
     },
     hide() { canvas.style.visibility = 'hidden'; },
+    /** Compile the shaders before the first frame, off the main thread where the browser can, so the swap from the first view does not stall. */
+    async warm() {
+      // Draw the table once into the hidden canvas, a few parts at a time with the page getting a turn in between: the first draw of each
+      // part (shader variants for the screen, the bloom pass and the ball's reflection pass, texture uploads) is the slow one.
+      const parts = scene.children.filter((o) => !o.isLight), was = parts.map((o) => o.visible), per = Math.max(1, Math.ceil(parts.length / 8));
+      try {
+        const seen = new Set();
+        scene.traverse((o) => { for (const m of o.material ? [].concat(o.material) : []) for (const k of Object.keys(m)) { const v = m[k]; if (v && v.isTexture && !seen.has(v)) { seen.add(v); renderer.initTexture(v); } } });
+        // the reflection pass and the bloom pass render to a target (their own shader variants); the screen's variants only matter without bloom
+        renderer.setRenderTarget(cubeRT); await renderer.compileAsync(scene, camera); renderer.setRenderTarget(null);
+        if (!composer) await renderer.compileAsync(scene, camera);
+        for (let i = 0; i < parts.length; i += per) {
+          parts.forEach((o, k) => { o.visible = k >= i && k < i + per ? was[k] : false; });
+          cubeCam.update(renderer, scene);
+          if (composer) composer.render(); else renderer.render(scene, camera);
+          progress(0.9 + 0.1 * Math.min(1, (i + per) / parts.length));
+          await yieldUI();
+          if (gate) await gate();
+        }
+      } catch { /* the first real draw does the work instead */ } finally { parts.forEach((o, k) => { o.visible = was[k]; }); renderer.setRenderTarget(null); }
+    },
     /** For tests: where a table point (mm) lands on the canvas, in CSS pixels, and what the ball highlight is showing. */
     toScreen(x, y, h = 0) { const v = P(x, y, h).project(camera), r = canvas.getBoundingClientRect(); return [(v.x + 1) / 2 * r.width, (1 - v.y) / 2 * r.height]; },
     /** For tests: the lettering's current scale factors, label by label, and its CSS size on this screen. */

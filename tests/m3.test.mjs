@@ -185,6 +185,7 @@ export const tests = [
   {
     name: 'AC22 table render and close views',
     async run(t) {
+      await t.waitIdle(30000);   // the 3D table is built behind the title now: wait for it before looking at it
       await t.game('newGame', { balls: 3, seed: 4 });
       await t.game('pause');
       await t.game('act', 'plunge', 0.9); await t.game('step', 200);

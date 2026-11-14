@@ -121,6 +121,21 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
 .ini { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; border: 2px solid transparent; }
 .ini.on { border-color: var(--neon-blue); }
 .ini span { font: 800 2.2em var(--display); color: var(--gold-2); width: 1.2em; text-align: center; }
+/* the loading card: in the page's own HTML, so it is on screen before any script has run; the title replaces it, and a thin line along the bottom then shows the 3D table arriving */
+.boot { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px;
+  background: radial-gradient(120% 90% at 50% 0%, #1b1730 0%, #0b0a12 60%), var(--bg); color: var(--text); text-align: center; }
+.boot[hidden], .boot-strip[hidden] { display: none; }
+.boot-mark { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.boot-mark .t-small { font-family: var(--display); font-size: 1.1rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--cream); }
+.boot-mark .t-big { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 4.2rem); font-weight: 700; color: var(--gold-2); text-shadow: 0 0 22px rgba(255, 216, 119, 0.35); }
+.boot-line { margin: 0; color: var(--muted); font-size: 1rem; letter-spacing: 0.04em; }
+.boot-bar { width: min(260px, 70vw); height: 4px; border-radius: 2px; background: #2a2540; overflow: hidden; }
+.boot-bar i { display: block; width: 40%; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--gold), var(--gold-2)); animation: boot-slide 1.3s ease-in-out infinite; }
+@keyframes boot-slide { from { transform: translateX(-110%); } to { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) { .boot-bar i { animation: none; width: 100%; opacity: 0.6; } }
+body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
+.boot-strip { position: fixed; left: 0; right: 0; bottom: 0; height: 3px; z-index: 35; pointer-events: none; background: rgba(42, 37, 64, 0.6); }
+.boot-strip i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold), var(--gold-2)); transition: width 0.25s ease-out; }
 .boot-error { position: fixed; inset: auto 16px 16px; background: #400; color: #fff; padding: 12px; border-radius: 8px; z-index: 20; }
 
 /* ---------------------------------------------------------------- phone portrait */

@@ -3,7 +3,7 @@ import { STEPS, tipText, TIP_MAX_WORDS, KINDS, createCoach, GOAL_LINE } from '..
 
 // ------------------------------------------------------------------------------------------------- page helpers
 const KEYS = ['settings', 'scores', 'resume', 'stats', 'daily'];
-const clear = async (t) => { await t.page.evaluate((ks) => ks.forEach((k) => localStorage.removeItem('hsg-pinball:' + k)), KEYS); await t.reload(); };
+const clear = async (t) => { await t.page.evaluate((ks) => ks.forEach((k) => localStorage.removeItem('hsg-pinball:' + k)), KEYS); await t.reload(); await t.waitIdle(30000); };   // idle: the 3D table is built behind the title now, and the first-game tips need a settled page
 const put = (t, key, value) => t.page.evaluate(([k, v]) => localStorage.setItem('hsg-pinball:' + k, JSON.stringify(v)), [key, value]);
 const read = (t, key) => t.page.evaluate((k) => { const v = localStorage.getItem('hsg-pinball:' + k); return v == null ? null : JSON.parse(v); }, key);
 const coachState = (t) => t.game('coach');
@@ -236,6 +236,7 @@ export const ballTests = [
     async run(t) {
       await clear(t);
       await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      await t.waitIdle(30000);   // the 3D table is built behind the title now
       const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here: the 2D fallback is not measured'); return; }
       const info = () => t.page.evaluate(() => window.__game.highlight());
       await t.game('act', 'placeBall', 300, 300, 0, 0); await t.game('step', 0); await t.waitFrames(3);
@@ -260,6 +261,7 @@ export const ballTests = [
       await clear(t);
       await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
       await skipTips(t);
+      await t.waitIdle(30000);   // the 3D table is built behind the title now
       const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
       await t.game('applySettings', { ballGlow: false }); await t.waitFrames(3);
       const off = await measureSpots(t);
@@ -309,6 +311,7 @@ export const labelTests = [
       await clear(t);
       await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
       await skipTips(t);
+      await t.waitIdle(30000);   // the 3D table is built behind the title now
       const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
       const info = await t.page.evaluate(() => window.__game.labelInfo());
       const by = Object.fromEntries(info.map((l) => [l.text, l]));
@@ -380,6 +383,7 @@ export const artTests = [
       await clear(t);
       await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
       await skipTips(t);
+      await t.waitIdle(30000);   // the 3D table is built behind the title now
       const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
       let m = await t.game('modeInfo');
       t.equal(Object.keys(m.art).sort(), ['coaster', 'derby', 'raid', 'tub', 'valley'], 'five paintings are in: derby, raid, tubs, coaster and the Vapors');
@@ -415,6 +419,7 @@ export const artTests = [
       await clear(t);
       await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
       await skipTips(t);
+      await t.waitIdle(30000);   // the 3D table is built behind the title now
       const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
       const settle = (pred) => t.page.waitForFunction((p) => { const m = window.__game.modeInfo(); return new Function('m', 'return ' + p)(m); }, pred, { timeout: 8000 });
       await settle('m.tower.level < 0.02');

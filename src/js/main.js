@@ -50,18 +50,56 @@ function reducedMotion() { return app.settings.motion === 'reduced' || (app.sett
 
 function loadScript(src) { return new Promise((res) => { const s = document.createElement('script'); s.src = src; s.onload = () => res(true); s.onerror = () => res(false); document.head.appendChild(s); }); }
 
-async function initView() {
-  view2d = createView2D(canvas2D, T, LAMPS);
+// The first view is the flat 2D table: it needs no asset pack, so the title is up at once. The 3D table is built behind it
+// (packs and three.js download in parallel, the build yields to the page between steps) and swapped in when it is ready.
+const BOOT_PACKS = 3;   // asset pack scripts plus three.js, counted for the progress line
+let bootLoaded = 0, boot3d = 0;
+function bootProgress() { $('#boot-strip').style.setProperty('--p', Math.round((0.5 * bootLoaded / BOOT_PACKS + 0.5 * boot3d) * 100) + '%'); }
+let packsP = null, threeP = null, upgrading = false;
+function startLoads() {
   const want = qs.get('tier') || app.settings.tier;
-  if (want !== '2d' && !window.THREE) await loadScript('vendor/three-r186.min.js');
-  if (want !== '2d' && probeGL()) {
-    try { view = await createView3D(canvasGL, T, LAMPS, { tier: want, reducedMotion }); } catch (e) { console.error('3D view failed, using 2D', e); view = null; }   // an error, so tests catch it
+  const one = (p) => p.then((ok) => { bootLoaded++; bootProgress(); return ok; });
+  if (!packsP) {
+    const packs = typeof PB_ASSETS !== 'undefined' ? PB_ASSETS : [];
+    packsP = Promise.all(packs.map((f) => one(loadScript('assets/' + f).then((ok) => { if (ok && f === 'art.js' && window.__PB_ART && window.__PB_ART.backglass) $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`; return ok; }))));
   }
-  if (!view) view = view2d;
-  // the governor's last step: software GL still too slow at Low → the flat 2D table
-  if (view.kind === '3d') view.onTooSlow = () => { if (app.settings.tier === 'auto') { view.hide(); view = view2d; document.body.dataset.view = '2d'; } };
-  document.body.dataset.view = view.kind;
+  if (!threeP && want !== '2d') threeP = window.THREE ? Promise.resolve(true) : one(loadScript('vendor/three-r186.min.js'));
+  return Promise.all([packsP, threeP]);
+}
+
+function initView2D() {
+  view2d = createView2D(canvas2D, T, LAMPS);
+  view = view2d;
+  document.body.dataset.view = '2d';
   resize();
+}
+
+// no ball loose on the table (the demo counts: nobody is flipping): the swap waits for this, so it never lands mid-rally
+const quietTable = () => demo || paused || G.scene !== 'game' || G.w.balls.every((b) => b.held || (b.x > 480 && b.y < 150));
+// the build holds still while a ball is in play, so playing never stutters for it (a few seconds at most: it waits for the ball to drain or be plunged back)
+async function whenQuiet(maxMs = 30000) { const t0 = performance.now(); while (!quietTable() && performance.now() - t0 < maxMs) await new Promise((res) => setTimeout(res, 200)); }
+async function upgradeTo3D() {
+  const want = qs.get('tier') || app.settings.tier;
+  if (want === '2d') return;
+  upgrading = true; bootLoaded = 0; boot3d = 0; $('#boot-strip').hidden = false;
+  try { await buildAndSwap(want, startLoads()); } finally { upgrading = false; $('#boot-strip').hidden = true; }
+}
+async function buildAndSwap(want, loads) {
+  await loads;
+  if (!probeGL()) return;
+  let v3 = null;
+  try { v3 = await createView3D(canvasGL, T, LAMPS, { tier: want, reducedMotion, gate: whenQuiet, progress: (p) => { boot3d = p; bootProgress(); } }); } catch (e) { console.error('3D view failed, using 2D', e); return; }   // an error, so tests catch it
+  const r = tableEl.getBoundingClientRect(); v3.resize(r.width, r.height, Math.min(window.devicePixelRatio || 1, v3.maxRatio())); await v3.warm();
+  await whenQuiet();
+  // a player who chose the flat table while this was building keeps it
+  if (!qs.get('tier') && app.settings.tier === '2d') { v3.hide(); return; }
+  if (app.settings.tier !== 'auto' && v3.tier !== app.settings.tier && !qs.get('tier')) v3.setTier(app.settings.tier);
+  view = v3;
+  // the governor's last step: software GL still too slow at Low → the flat 2D table
+  v3.onTooSlow = () => { if (app.settings.tier === 'auto') { v3.hide(); view = view2d; document.body.dataset.view = '2d'; } };
+  resize();
+  render(Math.min(1, acc / TICK));   // draw the 3D table once before it is shown: no empty frame
+  document.body.dataset.view = '3d';
 }
 
 function resize() {
@@ -138,7 +176,7 @@ app.applySettings = (s) => {
   document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
   document.body.classList.toggle('reduced', reducedMotion());
   if (tierChanged && view && view.kind === '3d') { if (s.tier === '2d') { view.hide(); view = view2d; } else view.setTier(s.tier); }
-  else if (tierChanged && view === view2d && s.tier !== '2d') initView();
+  else if (tierChanged && view === view2d && s.tier !== '2d' && !upgrading) upgradeTo3D();
   document.body.dataset.view = view ? view.kind : '2d';
 };
 function pause() {
@@ -502,18 +540,22 @@ window.__game = {
     document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
     document.body.classList.toggle('reduced', reducedMotion());
     setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume });
-    const packs = typeof PB_ASSETS !== 'undefined' ? PB_ASSETS : [];
-    await Promise.all(packs.map((f) => loadScript('assets/' + f)));
-    if (window.__PB_ART && window.__PB_ART.backglass) $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`;
+    startLoads();   // the downloads start now and run while the title is built (upgradeTo3D joins them)
     try { dmd.art = makeSilhouettes(); } catch { /* optional */ }
-    await initView();
+    initView2D();
     startDemo();
     screens.title();
-    loading = false;
-    window.__bootMs = Math.round(performance.now());
     lastNow = performance.now();
-    requestAnimationFrame(frame);
+    requestAnimationFrame((ts) => {
+      frame(ts);   // the first frame is drawn under the loading card, then the card goes: the title is usable from here
+      window.__bootMs = window.__titleMs = Math.round(performance.now());
+      $('#boot').hidden = true;
+    });
+    await upgradeTo3D();
+    loading = false;
+    window.__readyMs = Math.round(performance.now());
   } catch (e) {
+    $('#boot').hidden = true;
     const b = $('#boot-error'); b.hidden = false; b.textContent = 'Spa City Pinball could not start: ' + e.message;
     throw e;
   }
