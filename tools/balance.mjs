@@ -74,6 +74,10 @@ export function report(r) {
   out.push(`score avg ${Math.round(r.scoreAvg).toLocaleString()}, median ${Math.round(r.scoreMedian).toLocaleString()}, p90 ${Math.round(r.scoreP90).toLocaleString()}`);
   out.push(`drains ${JSON.stringify(r.drains)}: side ${(r.sideShare * 100).toFixed(0)}% of ${r.drainTotal}; outlane entries ${r.outlaneHits} (${r.kickbacks} returned by a kickback); ball saves ${r.saves}; tilts ${r.tilts}`);
   out.push('aimed shots made: ' + Object.entries(r.aim).map(([k, v]) => `${k} ${v.made}/${v.tried}`).join(', '));
+  // a mode ends when its ball drains (rules.js endMode at the end of a ball), so a game of `balls` balls starts about this many modes:
+  // the later modes in the fixed order cannot be reached by a game that starts fewer than their place in the order
+  const starts = Object.values(r.modes).reduce((x, y) => x + y, 0);
+  out.push(`modes started per game ${(starts / r.games).toFixed(2)} (a mode ends with its ball; the sixth in the order needs five before it)`);
   out.push('games that reached: ' + Object.entries(r.reachShare).map(([k, v]) => `${k} ${(v * 100).toFixed(0)}%`).join(', '));
   return out.join('\n');
 }
