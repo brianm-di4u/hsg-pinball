@@ -123,6 +123,7 @@ export const tests = [
         window.__said = [];
         new MutationObserver(() => window.__said.push(document.querySelector('#live').textContent)).observe(document.querySelector('#live'), { childList: true, characterData: true, subtree: true });
       });
+      await t.game('applySettings', { tipsSeen: true });   // this test is about the game's own announcements: a returning player, so the first-game tips (S2-01) add none
       await t.game('newGame', { balls: 3, seed: 5 });
       await t.game('step', 2);
       // two callouts in the same instant: the second used to be dropped

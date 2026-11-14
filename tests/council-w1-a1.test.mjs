@@ -122,14 +122,14 @@ export const tests = [
       const put = (k, v) => { mem['hsg-pinball:' + k] = JSON.stringify(v); };
       try {
         put('settings', { v: 1, sound: 'yes', music: 0, volume: 'abc', motion: 'wild', balls: 99, tier: 'bogus', practice: 'x', textScale: 'x' });
-        t.equal(JSON.stringify(loadSettings()), JSON.stringify(DEFAULT_SETTINGS), 'every wrong-typed setting falls back to its default');
+        t.equal(loadSettings(), { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, ballGlow: true, difficulty: 'standard', tipsSeen: true }, 'every wrong-typed setting falls back to its default (a settings record from before the first-game tips counts as seen)');
         put('settings', { v: 1, volume: 7, balls: 0, textScale: 5 });
         let s = loadSettings();
         t.equal(s.volume, 1, 'volume clamps to 1'); t.equal(s.balls, 3, 'balls 0 -> 3'); t.equal(s.textScale, 1, 'odd text scale -> 1');
         put('settings', { v: 1, volume: -2 });
         t.equal(loadSettings().volume, 0, 'volume clamps to 0');
         put('settings', { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3 });
-        t.equal(JSON.stringify(loadSettings()), JSON.stringify({ v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3, ambience: true, difficulty: 'standard' }), 'valid settings (from before the Ambience switch and the table difficulty) load untouched, Ambience on and the table Standard');
+        t.equal(loadSettings(), { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3, ambience: true, ballGlow: true, difficulty: 'standard', tipsSeen: true }, 'valid settings (from before the Ambience switch, the table difficulty, the ball highlight and the tips) load untouched, with Ambience on, the table Standard, the highlight on and the tips seen');
         put('settings', [1, 2]); t.equal(loadSettings().balls, 3, 'an array is not settings');
 
         const ok = (r) => r && typeof r.initials === 'string' && Number.isFinite(r.score);
