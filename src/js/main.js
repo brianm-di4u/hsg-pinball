@@ -102,7 +102,7 @@ app.start = (resume = null) => {
   unlock(); resumeAudio();
   demo = false; bot = null; paused = false;
   G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffffff) });
-  newGame(G, { balls: resume ? resume.player.ballsPerGame : app.settings.balls, practice: resume ? resume.practice : app.settings.practice });
+  newGame(G, { balls: resume ? resume.player.ballsPerGame : app.settings.balls, practice: resume ? resume.practice : app.settings.practice, difficulty: resume ? resume.difficulty : app.settings.difficulty });
   if (resume) {
     mergeKnown(G.player, resume.player); mergeKnown(G.f, resume.features);
     G.f.boilUntil = 0;   // a sim-clock time from the saved game: the clock starts again at 0
@@ -197,7 +197,7 @@ function routeCues() {
       case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
       case 'mb': if (!demo) { startMusic(c.on ? mbScene(c.kind) : (G.mode ? 'mode' : 'main'), !c.on && G.mode ? G.mode.id : null); mixState(); } break;
-      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice); } break;
+      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty); } break;
       case 'bonus': if (!demo) announce('Ball ' + G.player.ball + ' over. Bonus ' + fmt(c.total) + '. Score ' + fmt(G.player.score)); break;
       case 'over': if (!demo) { announce('Game over. Final score ' + fmt(c.score)); gameOverFlow(c); } else setTimeout(() => demo && startDemo(), 1500); break;
       case 'tilt': effects.push({ k: 'tilt', t: now() }); break;
@@ -226,7 +226,7 @@ function gameOverFlow(c) {
   clearResume();
   startMusic('results'); musicIntensity(0);
   overTimer = setTimeout(() => {
-    if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score); screens.scores('over', i); });
+    if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty); screens.scores('over', i); });
     else screens.over(c.score, c.match, c.won);
   }, TEST ? 50 : 2600);
 }
@@ -373,7 +373,7 @@ window.__game = {
     else if (name === 'over') { if (demo) app.start(); api.endMode(G, false); G.scene = 'over'; screens.over(G.player.score, 0, false); }
     return screens.current || G.scene;
   },
-  newGame(o = {}) { if (o.balls) app.settings.balls = o.balls; app.start(); if (o.seed != null) { G = createGame(T, { seed: o.seed }); newGame(G, { balls: o.balls || 3, practice: !!o.practice, seed: o.seed }); dmd.queue.length = 0; dmd.cur = null; } return true; },
+  newGame(o = {}) { if (o.balls) app.settings.balls = o.balls; if (o.difficulty) app.settings.difficulty = o.difficulty; app.start(); if (o.seed != null) { G = createGame(T, { seed: o.seed }); newGame(G, { balls: o.balls || 3, practice: !!o.practice, difficulty: app.settings.difficulty, seed: o.seed }); dmd.queue.length = 0; dmd.cur = null; } return true; },
   act(name, ...a) {
     const w = G.w;
     switch (name) {

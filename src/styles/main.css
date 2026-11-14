@@ -101,6 +101,7 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .screen.title h1 { display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }
 .screen.title .tag { color: var(--cream); margin: 0 0 8px; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82em; }
 .hint { color: var(--muted); font-size: 0.86em; margin-top: 14px; }
+.form .hint { margin: -4px 0 2px; }
 .form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; }
 select, input[type=range] { font: inherit; min-height: 40px; background: var(--surface-2); color: var(--text); border: 1px solid #5a4f80; border-radius: 8px; padding: 4px 8px; }
@@ -112,6 +113,7 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
 .scores { margin: 0 auto; border-collapse: collapse; min-width: 260px; font-variant-numeric: tabular-nums; }
 .scores td { padding: 5px 12px; border-bottom: 1px solid #3a3358; }
 .scores td.num { text-align: right; color: var(--gold-2); font-weight: 700; }
+.scores td.diff { color: var(--muted); font-size: 0.8em; min-width: 4.5em; }
 .scores tr.hl td { background: rgba(212, 175, 55, 0.2); }
 .big-score { font: 800 2.2em var(--display); color: var(--gold-2); margin: 6px 0; font-variant-numeric: tabular-nums; }
 .won { color: var(--teal); }

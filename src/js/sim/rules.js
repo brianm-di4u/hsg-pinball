@@ -14,14 +14,24 @@ export const MODES = [
   { id: 'tub', name: 'TUB RACE', short: 'TUBS', goal: 'ALTERNATE LEFT AND RIGHT', cue: 'LEFT, RIGHT...', dur: 40 },
   { id: 'coaster', name: 'COASTER HILL', short: 'COASTER', goal: 'RIDE THE ORBIT 4 LAPS', cue: 'ORBIT 4 LAPS', dur: 40 },
 ];
-// The table's tuning, in one place (S3-03). Standard is the game as tuned with tools/balance.mjs; to reverse a retune put
-// the old value back (the number in the comment) and run `npm run balance` to see what it does.
+// The table's tuning, in one place (S3-03, S1-17). STANDARD is the game as tuned with tools/balance.mjs; to reverse a retune
+// put the old value back (the number in the comment) and run `npm run balance` to see what it does. Easy and Expert are
+// the other two table settings; the player picks one in Settings and each score is stored with it.
 export const STANDARD = {
-  saveSecs: 10,         // ball save after a launch (unchanged)
+  saveSecs: 10,         // ball save after a launch, seconds (unchanged)
   saveSecsMulti: 15,    // ... after a multiball starts (unchanged)
-  nudge: 260,           // sideways nudge, mm/s added to every ball (unchanged)
   kickbacks: 3,         // outlane kickbacks per side per ball; the ball is returned instead of draining (was 0: no kickback)
+  nudge: 260,           // sideways nudge, mm/s added to every ball (unchanged)
+  bobDecay: 1.2,        // how fast the nudge meter falls, per second (unchanged)
+  tiltAfter: 2,         // warnings given before the next one tilts the table: the third is a tilt (unchanged)
 };
+export const DIFFICULTY = {
+  easy: { saveSecs: 20, saveSecsMulti: 20, kickbacks: 5, nudge: 260, bobDecay: 1.6, tiltAfter: 3 },
+  standard: STANDARD,
+  expert: { saveSecs: 0, saveSecsMulti: 0, kickbacks: 0, nudge: 380, bobDecay: 0.8, tiltAfter: 1 },
+};
+export const DIFFICULTIES = Object.keys(DIFFICULTY);
+const tune = (G) => DIFFICULTY[G.difficulty] || STANDARD;
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
 const SHOOTER = { x: 498.5, y: 104 };
 const MAJOR = { rampMade: 'R', orbitTop: 'L', reserve: 'R' };
@@ -41,7 +51,7 @@ const fmt = (n) => n.toLocaleString('en-US');
 
 export function createGame(table, { seed = 1 } = {}) {
   const G = { T: table, w: createWorld(table), rng: makeRng(seed), seedValue: seed, t: 0, scene: 'attract',
-    cues: [], callouts: [], lampShow: null, timers: [], settings: { balls: 3, practice: false } };
+    cues: [], callouts: [], lampShow: null, timers: [], difficulty: 'standard', settings: { balls: 3, practice: false, difficulty: 'standard' } };
   resetPlayer(G);
   return G;
 }
@@ -81,9 +91,10 @@ function score(G, n, where) {
 function after(G, secs, fn) { G.timers.push({ at: G.t + secs, fn }); }
 
 // ------------------------------------------------------------------------------------------------- game flow
-export function newGame(G, { balls = G.settings.balls, practice = G.settings.practice, seed } = {}) {
+export function newGame(G, { balls = G.settings.balls, practice = G.settings.practice, difficulty = G.settings.difficulty, seed } = {}) {
   if (seed != null) { G.rng = makeRng(seed); G.seedValue = seed; }
   G.settings.balls = balls; G.settings.practice = practice;
+  G.difficulty = DIFFICULTIES.includes(difficulty) ? difficulty : 'standard';   // fixed for the whole game, whatever Settings says later
   G.w = createWorld(G.T);
   G.timers = []; G.cues.length = 0;
   resetPlayer(G);
@@ -108,6 +119,7 @@ function ballsInPlay(G) { return G.w.balls.filter((b) => !(b.held && b.held.drai
 
 // the cue follows after a moment (delay, in seconds) so it does not land on top of the launch or a fanfare; null for none
 function startBallSave(G, secs, delay = 0.2) {
+  if (secs <= 0) return;
   G.ball.saveUntil = Math.max(G.ball.saveUntil, G.t + secs);
   if (delay != null) after(G, delay, () => sound(G, 'saveOn'));
 }
@@ -186,7 +198,7 @@ function gameOver(G) {
   const p = G.player;
   p.match = G.rng.int(10) * 10;
   const won = (p.score % 100) === p.match;
-  cue(G, { k: 'over', score: p.score, match: p.match, won });
+  cue(G, { k: 'over', score: p.score, match: p.match, won, difficulty: G.difficulty });
   dmd(G, 'GAME OVER', fmt(p.score), 2500, 3);
   sound(G, 'gameOver');
   show(G, 'attract', 3000);
@@ -209,7 +221,7 @@ export function tick(G) {
 
 function perTick(G) {
   const p = G.player, f = G.f;
-  p.bob = Math.max(0, p.bob - 1.2 * TICK);
+  p.bob = Math.max(0, p.bob - tune(G).bobDecay * TICK);
   if (f.boilUntil && G.t > f.boilUntil) { f.boilUntil = 0; f.springTemp = 120; dmd(G, 'SPRINGS COOL TO 120°F', '', 1200); }
   const sv = G.ball;
   if (sv.launched && !p.tilted && sv.saveUntil > G.t && sv.saveUntil - G.t <= 2 && sv.saveWarned !== sv.saveUntil) { sv.saveWarned = sv.saveUntil; sound(G, 'saveEnd'); }
@@ -263,7 +275,7 @@ function sw(G, name, e) {
   if (name === 'shooterLane') {
     if (e.dir > 0 && G.ball.inLane) {
       G.ball.inLane = false; G.ball.launched = true;
-      if (!G.ball.saveUntil || G.ball.saveUntil < G.t) startBallSave(G, G.mb ? STANDARD.saveSecsMulti : STANDARD.saveSecs);
+      if (!G.ball.saveUntil || G.ball.saveUntil < G.t) startBallSave(G, G.mb ? tune(G).saveSecsMulti : tune(G).saveSecs);
       G.ball.skillUntil = G.t + 4;
       sound(G, 'launch');
       after(G, 0.3, () => { if (G.ball.skillUntil > G.t) sound(G, 'skillOn', 1, 356 + 40 * G.ball.skillLane); });   // a ping from the lit lane
@@ -277,7 +289,7 @@ function sw(G, name, e) {
   if (name === 'outL' || name === 'outR') {
     score(G, 5000);
     // the kickback: the ball is returned to the shooter lane instead of draining, until this side has used its share
-    const left = G.t < G.ball.saveUntil ? 0 : STANDARD.kickbacks - G.ball.kb[name];   // the ball save covers the first seconds
+    const left = G.t < G.ball.saveUntil ? 0 : tune(G).kickbacks - G.ball.kb[name];   // the ball save covers the first seconds
     const b = left > 0 ? G.w.balls.find((q) => q.id === e.ball) : null;
     if (!b) { sound(G, 'outlane'); dmd(G, 'OUTLANE', '5,000', 900); return; }
     G.ball.kb[name]++;
@@ -613,7 +625,7 @@ function startArlington(G, heldBallId) {
   G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t };
   dmd(G, 'ARLINGTON MULTIBALL', 'RAMP JACKPOTS', 2600, 3, 'multiball');
   after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact('arlington'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
-  startBallSave(G, 15, 1.4);
+  startBallSave(G, tune(G).saveSecsMulti, 1.4);
   holdThen(G, heldBallId, 1.6, h.kickAngle, h.kickSpeed);
   addMultiballs(G, 2);
   cue(G, { k: 'mb', kind: 'arlington', on: true });
@@ -623,7 +635,7 @@ function startGrandSoak(G) {
   G.f.grandSoakLit = false;
   G.mb = { kind: 'soak', hit: new Array(8).fill(0), superLit: false, t0: G.t };
   dmd(G, 'GRAND SOAK', 'HIT BATHHOUSES', 2400, 3, { kind: 'multiball', id: 'soak' }); sound(G, 'multiball'); show(G, 'multiball', 2400);
-  startBallSave(G, 15, 1.4);
+  startBallSave(G, tune(G).saveSecsMulti, 1.4);
   addMultiballs(G, 1);
   cue(G, { k: 'mb', kind: 'soak', on: true });
 }
@@ -634,7 +646,7 @@ function startValley(G) {
   if (G.mode) endMode(G, false);
   G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 };
   dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
-  startBallSave(G, 20, 1.6);
+  startBallSave(G, tune(G).saveSecsMulti && tune(G).saveSecsMulti + 5, 1.6);   // the wizard's is 5 s longer
   addMultiballs(G, 2);
   cue(G, { k: 'mb', kind: 'valley', on: true });
 }
@@ -692,7 +704,7 @@ export function plungerCancel(G) { cancelPlunger(G.w); }
 
 export function nudge(G, dir) {
   if (G.scene !== 'game' || G.player.tilted) return;
-  const n = STANDARD.nudge, v = { left: [-n, 60], right: [n, 60], up: [0, 300] }[dir] || [0, 300];
+  const n = tune(G).nudge, v = { left: [-n, 60], right: [n, 60], up: [0, 300] }[dir] || [0, 300];
   physNudge(G.w, v[0], v[1]);
   cue(G, { k: 'nudge', dir });
   sound(G, 'nudge');
@@ -701,7 +713,7 @@ export function nudge(G, dir) {
   if (p.bob > 2.0) {
     p.bob = 1;
     p.warnings++;
-    if (p.warnings > 2) tilt(G);
+    if (p.warnings > tune(G).tiltAfter) tilt(G);
     else { dmd(G, 'DANGER', 'WARNING ' + p.warnings, 1200, 3); sound(G, 'warning'); }
   }
 }
@@ -720,7 +732,7 @@ function tilt(G) {
 // ------------------------------------------------------------------------------------------------- state
 export function gameState(G) {
   return {
-    scene: G.scene, t: +G.t.toFixed(3), seed: G.seedValue,
+    scene: G.scene, t: +G.t.toFixed(3), seed: G.seedValue, difficulty: G.difficulty,
     player: { ...G.player },
     features: { ...G.f, spa: [...G.f.spa], row: [...G.f.row], modesPlayed: [...G.f.modesPlayed], modesWon: [...G.f.modesWon] },
     ball: { ...G.ball, lastMajor: { ...G.ball.lastMajor } },

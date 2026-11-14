@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import { compileTable } from '../src/js/sim/table.js';
 import { spec, BATHHOUSES } from '../src/js/sim/table-spa-city.js';
-import { createGame, newGame, tick, api, MODES, STANDARD } from '../src/js/sim/rules.js';
+import { createGame, newGame, tick, api, nudge, MODES, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
 import { wantedShots } from '../src/js/sim/bot.js';
 import { TICK } from '../src/js/sim/physics.js';
 import { simulate, verdict, TARGETS, LADDER } from '../tools/balance.mjs';
@@ -99,7 +99,7 @@ export const tests = [
   },
   // ---------------------------------------------------------------------------------------------- S3-03 the kickback
   {
-    name: 'S3-03 an outlane kickback returns the ball to the shooter lane instead of draining, twice a side a ball, then the outlane drains',
+    name: 'S3-03 an outlane kickback returns the ball to the shooter lane instead of draining, three times a side a ball, then the outlane drains',
     node: true,
     async run(t) {
       const G = fresh(); launched(G);
@@ -116,7 +116,10 @@ export const tests = [
       t.equal(G.ball.kb.outL, 2, 'a second on the left');
       run(G, 3); G.ball.saveUntil = 0; G.w.balls[0].x = 40; G.w.balls[0].y = 300; G.cues.length = 0;
       outlane(G, 'outL');
-      t.expect(dmds(G, 'OUTLANE').length === 1 && dmds(G, 'KICKBACK').length === 0, 'the third time it is only an outlane');
+      t.equal(G.ball.kb.outL, 3, 'a third on the left');
+      run(G, 3); G.ball.saveUntil = 0; G.w.balls[0].x = 40; G.w.balls[0].y = 300; G.cues.length = 0;
+      outlane(G, 'outL');
+      t.expect(dmds(G, 'OUTLANE').length === 1 && dmds(G, 'KICKBACK').length === 0, 'the fourth time it is only an outlane');
       G.ball.saveUntil = 0; G.w.balls[0].x = 450; G.w.balls[0].y = 300; G.cues.length = 0;
       outlane(G, 'outR');
       t.expect(dmds(G, 'KICKBACK').length === 1, 'the right side has its own two');
@@ -138,6 +141,167 @@ export const tests = [
       launched(G); G.player.tilted = true; G.cues.length = 0;
       outlane(G, 'outR');
       t.expect(dmds(G, 'KICKBACK').length === 0, 'a tilted table returns nothing');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S1-17 table difficulty
+  {
+    name: 'S1-17 Standard is the S3-03 tuning, the default, and an unknown name falls back to it',
+    node: true,
+    async run(t) {
+      t.expect(DIFFICULTY.standard === STANDARD, 'the Standard tier is the tuned numbers themselves (so one line reverses a retune)');
+      t.equal(fresh().difficulty, 'standard', 'a new game is Standard');
+      t.equal(fresh(1, { difficulty: 'impossible' }).difficulty, 'standard', 'a name that is not a tier is Standard');
+      t.equal(Object.keys(DIFFICULTY), ['easy', 'standard', 'expert'], 'three tiers');
+      t.equal([DIFFICULTY.easy.saveSecs, DIFFICULTY.standard.saveSecs, DIFFICULTY.expert.saveSecs], [20, 10, 0], 'ball save 20 s, 10 s, none');
+    },
+  },
+  {
+    name: 'S1-17 the ball-save window is 20 s on Easy, 10 s on Standard and there is none on Expert (no save cue, the drain ends the ball)',
+    node: true,
+    async run(t) {
+      const launch = (G) => { G.w.events.push({ t: 'hit', sw: T.sw.shooterLane, speed: 900, dir: 1, ball: G.w.balls[0].id, x: 498, y: 872 }); tick(G); };
+      for (const [name, secs] of [['easy', 20], ['standard', 10], ['expert', 0]]) {
+        const G = fresh(2, { difficulty: name });
+        launch(G);
+        const left = G.ball.saveUntil - G.t;
+        t.expect(secs ? Math.abs(left - secs) < 0.05 : G.ball.saveUntil === 0, `${name}: the save window is ${secs ? left.toFixed(2) + ' s' : 'closed'}`);
+        run(G, 0.5);
+        t.equal(G.cues.some((c) => c.k === 'sound' && c.name === 'saveOn'), secs > 0, `${name}: the ball-save cue plays only when there is a save`);
+      }
+      const G = fresh(2, { difficulty: 'expert' });
+      launch(G); run(G, 0.3);
+      G.w.events.push({ t: 'drain', ball: G.w.balls[0].id, x: 240 }); tick(G);
+      t.expect(!dmds(G, 'BALL SAVED').length && G.scene === 'bonus', 'Expert: an early drain ends the ball (no BALL SAVED)');
+      const H = fresh(2, { difficulty: 'easy' });
+      launch(H); run(H, 15);
+      H.w.events.push({ t: 'drain', ball: H.w.balls[0].id, x: 240 }); tick(H);
+      t.expect(dmds(H, 'BALL SAVED').length === 1, 'Easy: a drain 15 s into the ball is still saved');
+    },
+  },
+  {
+    name: 'S1-17 kickbacks a side per ball are 5 on Easy, 3 on Standard and none on Expert',
+    node: true,
+    async run(t) {
+      for (const [name, n] of [['easy', 5], ['standard', 3], ['expert', 0]]) {
+        const G = fresh(3, { difficulty: name }); launched(G);
+        let used = 0;
+        for (let i = 0; i < 7; i++) {
+          G.ball.saveUntil = 0; G.w.balls[0].x = 40; G.w.balls[0].y = 300; G.cues.length = 0;
+          outlane(G, 'outL');
+          if (dmds(G, 'KICKBACK').length) used++;
+          run(G, 0.1);
+          if (!G.w.balls.length || G.scene !== 'game') break;
+        }
+        t.equal(used, n, `${name}: ${n} kickbacks on the left`);
+      }
+    },
+  },
+  {
+    name: 'S1-17 tilt strictness: Easy takes more nudges to tilt than Standard, Standard more than Expert; Expert nudges harder and its meter falls slower',
+    node: true,
+    async run(t) {
+      const counts = {};
+      for (const name of ['easy', 'standard', 'expert']) {
+        const G = fresh(4, { difficulty: name }); launched(G);
+        let n = 0;
+        while (!G.player.tilted && n < 40) { nudge(G, 'left'); n++; run(G, 0.05); }
+        counts[name] = n;
+      }
+      t.log('nudges to tilt (50 ms apart): ' + JSON.stringify(counts));
+      t.expect(counts.easy > counts.standard && counts.standard > counts.expert, 'tilt comes sooner the harder the table: ' + JSON.stringify(counts));
+      const vx = (name) => { const G = fresh(4, { difficulty: name }); launched(G); const b = G.w.balls[0]; const v0 = b.vx; nudge(G, 'right'); return Math.abs(b.vx - v0); };
+      t.expect(vx('standard') === 260 && vx('easy') === 260 && vx('expert') === 380, 'a nudge adds 260 mm/s on Easy and Standard and 380 on Expert: ' + [vx('easy'), vx('standard'), vx('expert')].join(', '));
+      const bob = (name) => { const G = fresh(4, { difficulty: name }); launched(G); nudge(G, 'left'); nudge(G, 'left'); run(G, 1); return G.player.bob; };
+      t.expect(bob('easy') < bob('standard') && bob('standard') < bob('expert'), 'the nudge meter falls fastest on Easy and slowest on Expert');
+    },
+  },
+  {
+    name: 'S1-17 head to head, same bot and seeds: Easy keeps the ball longer than Standard, and Standard longer than Expert',
+    node: true,
+    async run(t) {
+      const names = ['easy', 'standard', 'expert'];
+      const r = names.map((difficulty) => simulate({ games: 20, skill: 0.8, seed: 7, difficulty }));
+      t.log(r.map((x, i) => `${names[i]}: ball ${x.ballAvg.toFixed(1)} s, side ${(x.sideShare * 100).toFixed(0)}%, score median ${Math.round(x.scoreMedian).toLocaleString()}, saves ${x.saves}, kickbacks ${x.kickbacks}, tilts ${x.tilts}`).join(' | '));
+      t.expect(r[0].ballAvg > r[1].ballAvg && r[1].ballAvg > r[2].ballAvg, 'ball time: ' + r.map((x) => x.ballAvg.toFixed(1)).join(' > '));
+      t.expect(r[0].scoreMedian > r[2].scoreMedian, 'and Easy scores more than Expert');
+      t.equal(r[2].kickbacks + r[2].saves, 0, 'Expert has no kickbacks and no ball saves');
+    },
+  },
+  {
+    name: 'S1-17 Settings has Table difficulty, it is saved with the other settings and shown on the title; a save from before has Standard, a bad value falls back',
+    async run(t) {
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:settings'));
+      await t.reload();
+      await t.game('scene', 'settings');
+      const sel = t.page.locator('#s-difficulty');
+      t.expect(await sel.count() === 1, 'Settings has a Table difficulty control');
+      t.equal(await sel.evaluate((n) => [...n.options].map((o) => o.value)), ['easy', 'standard', 'expert'], 'Easy, Standard, Expert');
+      t.equal(await sel.inputValue(), 'standard', 'Standard is the default');
+      const hint = () => t.page.locator('#s-diff-hint').textContent();
+      t.expect(/10 second/.test(await hint()), 'the hint says what Standard does');
+      await t.shot('S1-17-settings-standard');
+      await t.page.selectOption('#s-difficulty', 'expert');
+      t.expect(/no ball save/i.test(await hint()), 'and the hint follows the choice: ' + await hint());
+      await t.shot('S1-17-settings-expert');
+      await t.page.click('#b-back');
+      t.expect(/Expert table/.test(await t.page.locator('#t-diff').textContent()), 'the title shows the choice');
+      await t.shot('S1-17-title-expert');
+      await t.reload();
+      t.equal((await t.state()).settings.difficulty, 'expert', 'Expert survives a reload');
+      await t.game('newGame', { balls: 3, seed: 5 });
+      t.equal((await t.state()).difficulty, 'expert', 'and the next game is played on it');
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, sound: true, music: true, volume: 0.5, motion: 'auto', balls: 5, tier: 'auto', practice: false, textScale: 1 })));
+      await t.reload();
+      const s = await t.state();
+      t.equal(s.settings.difficulty, 'standard', 'a save from before the setting is Standard'); t.equal(s.settings.balls, 5, 'and the rest of it is untouched');
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, sound: true, music: true, difficulty: 'insane' })));
+      await t.reload();
+      t.equal((await t.state()).settings.difficulty, 'standard', 'a value the screen could not have written is Standard');
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:settings'));
+    },
+  },
+  {
+    name: 'S1-17 scores are stored with their table: old rows count as Standard, a new Expert score is tagged, in the saved table and on the High scores screen',
+    async run(t) {
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:scores', JSON.stringify({ v: 1, table: [{ initials: 'OLD', score: 3000000, date: '2026-11-02' }, { initials: 'ODD', score: 2000000, date: '2026-11-02', difficulty: 'bogus' }] })));
+      await t.reload();
+      const s = await t.state();
+      t.equal(s.scores.slice(0, 2).map((r) => r.difficulty), ['standard', 'standard'], 'rows without a table (or with a bad one) are Standard');
+      await t.game('newGame', { balls: 3, seed: 5, difficulty: 'expert' });
+      await t.game('setState', { player: { ball: 3, score: 9000000 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      await t.page.waitForSelector('#b-ok');
+      await t.page.click('#b-ok');
+      await t.page.waitForSelector('#b-back');
+      const saved = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:scores')).table);
+      t.expect(saved[0].score >= 9000000 && saved[0].difficulty === 'expert', 'the new score is saved with Expert: ' + JSON.stringify(saved[0]));
+      t.equal(saved.find((r) => r.initials === 'OLD').difficulty, 'standard', 'and the old row is saved as Standard');
+      const cells = await t.page.locator('.scores tr').evaluateAll((rows) => rows.map((r) => r.textContent.replace(/\s+/g, ' ').trim()));
+      t.expect(/Expert/.test(cells[0]) && !/Expert|Easy/.test(cells[1]), 'the High scores screen tags the Expert row and leaves Standard rows plain: ' + cells.slice(0, 3).join(' | '));
+      await t.shot('S1-17-high-scores-expert');
+      await t.checkLayout();
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:scores'));
+    },
+  },
+  {
+    name: 'S1-17 a game saved for Continue keeps its table, and a resume from before the setting continues on Standard',
+    async run(t) {
+      await t.page.evaluate(() => { localStorage.removeItem('hsg-pinball:resume'); localStorage.removeItem('hsg-pinball:settings'); });
+      await t.reload();
+      await t.game('newGame', { balls: 3, seed: 5, difficulty: 'easy' });
+      await t.game('step', 10);
+      await t.game('setState', { player: { ball: 2, score: 5000 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      const r = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:resume')));
+      t.equal(r && r.difficulty, 'easy', 'the resume record carries the table');
+      await t.page.evaluate(() => { const q = JSON.parse(localStorage.getItem('hsg-pinball:resume')); delete q.difficulty; localStorage.setItem('hsg-pinball:resume', JSON.stringify(q)); });
+      await t.reload();
+      await t.page.click('#b-continue');
+      await t.waitFrames(3);
+      t.equal((await t.state()).difficulty, 'standard', 'an old resume record plays on Standard');
+      await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:resume'));
     },
   },
 ];

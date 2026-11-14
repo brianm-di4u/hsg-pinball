@@ -6,6 +6,13 @@ import { FACTS } from '../sim/facts.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (n) => Number(n).toLocaleString('en-US');
+const DIFF_OPTS = [['easy', 'Easy'], ['standard', 'Standard'], ['expert', 'Expert']];
+const DIFF_HINT = {
+  easy: 'Easy: a 20 second ball save, five kickbacks a side, a forgiving tilt.',
+  standard: 'Standard: a 10 second ball save, three kickbacks a side.',
+  expert: 'Expert: no ball save, no kickbacks, a strict tilt and a stronger nudge.',
+};
+const DIFF_NAME = { easy: 'Easy', standard: 'Standard', expert: 'Expert' };
 
 export function createScreens(root, app) {
   let current = null;
@@ -40,6 +47,7 @@ export function createScreens(root, app) {
           <button type="button" id="b-settings" class="btn">Settings</button>
         </div>
         <p class="hint">${app.touch ? 'Tap the left or right side to flip' : 'Z and / (or Shift) to flip · Space to plunge'}</p>
+        <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
       </section>`);
       on('#b-continue', () => app.continueGame());
       on('#b-play', () => app.start());
@@ -77,6 +85,8 @@ export function createScreens(root, app) {
           ${opt('s-ambience', 'Ambience', [[1, 'On'], [0, 'Off']], +s.ambience)}
           <label class="row"><span>Volume</span><input id="s-vol" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
           ${opt('s-motion', 'Motion', [['auto', 'Follow system'], ['full', 'Full'], ['reduced', 'Reduced']], s.motion)}
+          ${opt('s-difficulty', 'Table difficulty', DIFF_OPTS, s.difficulty)}
+          <p class="hint" id="s-diff-hint">${DIFF_HINT[s.difficulty]}${back === 'pause' ? ' Applies to the next game.' : ''}</p>
           ${opt('s-balls', 'Balls per game', [[3, '3'], [5, '5']], s.balls)}
           ${opt('s-practice', 'Practice (endless ball save)', [[0, 'Off'], [1, 'On']], +s.practice)}
           ${opt('s-tier', 'Graphics quality', [['auto', 'Automatic'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['2d', 'Flat 2D']], s.tier)}
@@ -87,9 +97,10 @@ export function createScreens(root, app) {
       const read = () => {
         const v = (id) => root.querySelector(id).value;
         app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), motion: v('#s-motion'),
-          balls: +v('#s-balls'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text') });
+          balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text') });
       };
       root.querySelectorAll('select, input').forEach((n) => n.addEventListener('change', read));
+      root.querySelector('#s-difficulty').addEventListener('change', (e) => { root.querySelector('#s-diff-hint').textContent = DIFF_HINT[e.target.value] + (back === 'pause' ? ' Applies to the next game.' : ''); });
       on('#b-back', () => { read(); back === 'pause' ? S.pause() : S.title(); });
     },
     help(back) {
@@ -120,6 +131,7 @@ export function createScreens(root, app) {
               <li><b>Mountain Tower ramp:</b> every 3 ramps raise the tower and light the lock.</li>
               <li><b>The Arlington:</b> lock 3 balls for <b>Arlington Multiball</b>. Jackpots on the ramp.</li>
               <li><b>Central Avenue orbit:</b> the spinner fills the Fifth Season meter for an extra ball.</li>
+              <li><b>Kickbacks:</b> a ball that rolls down an outlane after the ball save has run out is sent back to the shooter lane, a few times a side each ball. Table difficulty in Settings changes how many.</li>
               <li><b>The Vapors</b> scoop starts modes, collects what's lit, or pays a mystery award.</li>
             </ul>
           </div>
@@ -137,7 +149,7 @@ export function createScreens(root, app) {
     },
     scores(back, highlight = -1) {
       current = 'scores';
-      const rows = app.scores().map((r, i) => `<tr class="${i === highlight ? 'hl' : ''}"><td>${i + 1}</td><td>${esc(r.initials)}</td><td class="num">${fmt(r.score)}</td></tr>`).join('');
+      const rows = app.scores().map((r, i) => `<tr class="${i === highlight ? 'hl' : ''}"><td>${i + 1}</td><td>${esc(r.initials)}</td><td class="num">${fmt(r.score)}</td><td class="diff">${r.difficulty && r.difficulty !== 'standard' ? DIFF_NAME[r.difficulty] : ''}</td></tr>`).join('');
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="hs-h">
         <h2 id="hs-h">High scores</h2>
         <table class="scores"><tbody>${rows}</tbody></table>
