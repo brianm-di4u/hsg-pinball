@@ -328,13 +328,17 @@ export const tests = [
     viewports: ['desktop'],
     async run(t) {
       for (const name of ['flip', 'flipDown', 'flipHit', 'bumper', 'sling', 'wall', 'clack']) {
+        // The level is measured to a tenth of a decibel and the repeats spread over about 1.5 dB, so there are only
+        // some fifteen values to land on. Asking six different ones of eight repeats failed by luck in about one run in
+        // two across the seven cues; four of twelve does not (under one run in a hundred thousand). A cue with no
+        // variation still fails: its repeats sit within 0.3 dB of each other, which the second check refuses.
         const rs = [];
-        for (let i = 0; i < 8; i++) rs.push(await render(t, name, { seconds: 1.2 }));
+        for (let i = 0; i < 12; i++) rs.push(await render(t, name, { seconds: 1.2 }));
         const peaks = rs.map((r) => r.peak), rms = rs.map((r) => r.rmsDb);
         const distinct = new Set(rms.map((x) => x.toFixed(2))).size;
         const spreadDb = Math.max(...rms) - Math.min(...rms);
-        t.log(`${name}: peaks ${Math.min(...peaks)} to ${Math.max(...peaks)}, rms spread ${spreadDb.toFixed(2)} dB, ${distinct} distinct of 8`);
-        t.expect(distinct >= 6, `${name}: eight repeats give at least six different levels (${distinct})`);
+        t.log(`${name}: peaks ${Math.min(...peaks)} to ${Math.max(...peaks)}, rms spread ${spreadDb.toFixed(2)} dB, ${distinct} distinct of 12`);
+        t.expect(distinct >= 4, `${name}: twelve repeats give at least four different levels (${distinct})`);
         t.expect(spreadDb >= 0.3, `${name}: the level moves by at least 0.3 dB across repeats (${spreadDb.toFixed(2)})`);
       }
     },
