@@ -415,4 +415,32 @@ export const tests = [
       try { ROUND.value = 0.5; ROUND.goal = 2; ROUND.time = 9; ROUND.rivals = 0.4; t.equal(play(), a, 'with the escalation turned up the game before the first wizard is the same game (round 0)'); } finally { Object.assign(ROUND, was); }
     },
   },
+  {
+    name: 'S3-04 the display shows the round: the new goal on the mode start line and a ROUND callout after the wizard',
+    async run(t) {
+      await t.game('newGame', { balls: 3, seed: 6 });
+      await t.game('setState', { features: { round: 1 } });
+      await t.game('act', 'mode', 0);
+      await t.game('step', 30);
+      t.equal((await t.state()).mode.need, 7, 'round 1 Soak asks for 7 baths');
+      t.expect((await t.state()).callouts.includes('BATHHOUSE SOAK'), 'the mode start callout is on the display');
+      await t.shot('S3-04-mode-start-round-2');
+      await t.game('newGame', { balls: 3, seed: 6 });
+      await t.game('act', 'multiball', 'valley');
+      await t.game('step', 700);
+      for (let i = 0; i < 12; i++) {
+        const s = await t.state();
+        if (!s.mb) break;
+        await t.game('setState', { ball: { saveUntil: 0 } });
+        await t.game('act', 'placeBall', 242, 60, 0, -1500);
+        await t.game('step', 60);
+      }
+      let s = await t.state();
+      t.equal(s.mb, null, 'the wizard mode is over');
+      await t.game('step', 200);
+      s = await t.state();
+      t.equal(s.features.round, 1, 'the round is 1');
+      t.expect(s.callouts.includes('ROUND 2'), 'ROUND 2 is on the display: ' + s.callouts.join(' | '));
+    },
+  },
 ];
