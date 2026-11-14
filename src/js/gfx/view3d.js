@@ -30,6 +30,19 @@ export const HIGHLIGHT = {
 // phone, so the hit says which house it was in type that can be read. Seconds in, held and out; the type's height on screen.
 export const NAME_FLASH = { inS: 0.08, holdS: 0.9, outS: 0.4, px: 15, lift: 105, rise: 14 };
 
+// Mode art (S4-02): the game's own paintings fade into the lower playfield for the length of a mode (a feathered square,
+// drawn under the lettering and the lamps), the Mountain Tower grows with its level and the Arlington's windows light one
+// by one with each lock. The paintings and the models are the ones the game already ships. Reverse any of it here.
+export const MODE_ART = {
+  map: { derby: 'pf-derby', raid: 'pf-raid', tub: 'pf-tub', coaster: 'pf-coaster', valley: 'pf-vapors' },   // mode id (or 'valley', the wizard) to painting
+  at: [254, 345], size: 300,   // where it lies on the table (mm) and how wide
+  opacity: 0.5, fadeS: 0.9,    // how strong it gets, and how long a fade takes
+  towerY: [0.55, 0.7, 0.85, 1], towerXZ: [0.82, 0.88, 0.94, 1],   // the tower's height and width as a share of its full size, by level 0 to 3
+  towerGlass: [0.45, 0.65, 0.85, 1.05],                           // its windows' glow by level
+  arlGlass: [0.1, 0.4, 0.7], arlMulti: 1.6, arlLockLit: 0.14,     // the Arlington's windows by locks held (0 to 2), in multiball, and the pulse added while the lock is lit
+  easeS: 0.5,                  // seconds the tower and windows take to settle
+};
+
 export function probeGL() {
   if (!window.THREE) return false;
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
@@ -142,6 +155,19 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const lblMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: lblTex, transparent: true, depthWrite: false }));
   lblMesh.rotation.x = -Math.PI / 2; lblMesh.position.y = 0.22; lblMesh.renderOrder = 0.5; lblMesh.visible = false;
   scene.add(lblMesh);
+  // the mode paintings: one feathered plane each, all fading toward their own target
+  const artPlanes = {};
+  for (const [id, key] of Object.entries(MODE_ART.map)) {
+    const img = packs.art[key]; if (!img) continue;
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    g.drawImage(img, 0, 0, 256, 256); g.globalCompositeOperation = 'destination-in';
+    const m = g.createRadialGradient(128, 128, 40, 128, 128, 136); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.55, 'rgba(0,0,0,0.9)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = m; g.fillRect(0, 0, 256, 256);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(MODE_ART.size, MODE_ART.size), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+    plane.rotation.x = -Math.PI / 2; plane.position.copy(P(MODE_ART.at[0], MODE_ART.at[1], 0.2)); plane.renderOrder = -0.5; plane.visible = false;
+    scene.add(plane); artPlanes[id] = { plane, a: 0 };
+  }
   const labelList = allLabels(lamps);
   let lblKey = '', lblScales = [];
   // cabinet body around the playfield
@@ -368,6 +394,10 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   // the Arlington's twin towers rise twice as tall behind the lock, the Vapors sign is enlarged over its scoop
   const tw = place('tower', 458, 487, 0, 0, 1000); if (tw) tw.scale.set(1350, 2700, 1350);
   const ar = place('arlington', CX, 766, 0, 0, 820); if (ar) ar.scale.set(820, 1640, 900);
+  // their lit windows follow the game (below), not the shared shimmer
+  const glassOf = (o) => { const out = []; if (o) o.traverse((n) => { if (n.isMesh) for (const m of (Array.isArray(n.material) ? n.material : [n.material])) if (/glass_lit/.test(m.name)) { out.push(m); const i = glowMats.indexOf(m); if (i >= 0) glowMats.splice(i, 1); } }); return out; };
+  const towerGlass = glassOf(tw), arlGlass = glassOf(ar);
+  const prog = { tower: 0, arl: 0, towerLevel: -1, arlLevel: -1 };   // eased values: the tower's level (0 to 3) and the windows' glow
   { const fx = 2 * CX - 177.5 - VAP.x, fy = 110 - VAP.y, L = Math.hypot(fx, fy);
     place('vapors', VAP.x - (fx / L) * 8, VAP.y - (fy / L) * 8, 0, face(fx / L, fy / L), 1250); }
   const bumperObjs = bumpers.map((c) => {
@@ -658,6 +688,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     toScreen(x, y, h = 0) { const v = P(x, y, h).project(camera), r = canvas.getBoundingClientRect(); return [(v.x + 1) / 2 * r.width, (1 - v.y) / 2 * r.height]; },
     /** For tests: the lettering's current scale factors, label by label, and its CSS size on this screen. */
     labelInfo() { return labelList.map((l, i) => ({ text: l.text, size: l.size, scale: lblScales[i] || 1, px: l.size * (lblScales[i] || 1) * cssPerMm(l.x, l.y, canvas.getBoundingClientRect().width) })); },
+    /** For tests: how much of each mode painting shows, the tower's height factor and the Arlington's window glow. */
+    modeInfo() { return { art: Object.fromEntries(Object.entries(artPlanes).map(([id, e]) => [id, +e.a.toFixed(3)])), tower: tw ? { level: +prog.tower.toFixed(3), scaleY: +tw.scale.y.toFixed(1) } : null, arlington: { glow: +prog.arl.toFixed(3), windows: arlGlass.length } }; },
     nameInfo() { return { visible: nameSprite.visible, name: nameShown, opacity: nameSprite.material.opacity, height: nameSprite.scale.y }; },
     highlightInfo() { return { rims: ballPool.filter((B) => B.rim.visible).length, ghosts: ballPool.reduce((n, B) => n + B.ghosts.filter((g) => g.visible).length, 0), floorDark: pfDark.value }; },
     /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */
@@ -790,6 +822,16 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       for (const l of giLights) l.intensity = l.userData.base * moodScale * pulse;
       scene.environmentIntensity = 0.32 * moodScale;   // the room reflections dim with the lights
       // camera shake (nudge, tilt, a small kick on bumper hits); none with reduced motion
+      // mode art, the tower and the Arlington's windows
+      { const want = G.mb && G.mb.kind === 'valley' ? 'valley' : G.mode ? G.mode.id : '', k = o.reduced ? 1 : Math.min(1, dt / MODE_ART.fadeS), ke = o.reduced ? 1 : Math.min(1, dt / MODE_ART.easeS);
+        for (const [id, e] of Object.entries(artPlanes)) { const goal = id === want && !o.demo ? 1 : 0; e.a += Math.max(-k, Math.min(k, goal - e.a)); e.plane.visible = e.a > 0.004; e.plane.material.opacity = e.a * MODE_ART.opacity; }
+        const lvl = Math.max(0, Math.min(3, (G.f && G.f.towerLevel) || 0)), f = G.f || {};
+        prog.tower += (lvl - prog.tower) * ke;
+        if (tw) { const i = Math.floor(prog.tower), j = Math.min(3, i + 1), u = prog.tower - i, mix = (arr) => arr[i] + (arr[j] - arr[i]) * u; tw.scale.set(1350 * mix(MODE_ART.towerXZ), 2700 * mix(MODE_ART.towerY), 1350 * mix(MODE_ART.towerXZ)); prog.towerGlow = mix(MODE_ART.towerGlass); }
+        for (const m of towerGlass) m.emissiveIntensity = (prog.towerGlow || 0.9) * (0.92 + 0.08 * Math.sin(t * 3 + m.id));
+        const locks = Math.max(0, Math.min(2, f.locks || 0)), arlGoal = G.mb && G.mb.kind === 'arlington' ? MODE_ART.arlMulti : MODE_ART.arlGlass[locks] + (f.lockLit && !o.reduced ? MODE_ART.arlLockLit * (0.5 + 0.5 * Math.sin(t * 4)) : 0);
+        prog.arl += (arlGoal - prog.arl) * ke;
+        for (const m of arlGlass) m.emissiveIntensity = prog.arl * (0.94 + 0.06 * Math.sin(t * 3 + m.id)); }
       // follow camera: track the lowest ball (the one the player must deal with), eased
       if (follow && camMode === 'full' && interp.balls.length) {
         const low = interp.balls.reduce((a, b) => (b.y < a.y ? b : a));

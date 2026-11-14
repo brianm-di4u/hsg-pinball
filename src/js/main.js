@@ -439,6 +439,7 @@ window.__game = {
   setState(s) { setGameState(G, s); return true; },
   progress() { return app.progress(); },
   applySettings(o) { app.applySettings(o); return { ...app.settings }; },
+  modeInfo() { return view && view.modeInfo ? view.modeInfo() : null; },
   nameInfo() { return view && view.nameInfo ? view.nameInfo() : null; },
   labelInfo() { return view && view.labelInfo ? view.labelInfo() : null; },
   labelLayer() { return !!(view && view.labelInfo && view.labelInfo().length); },
@@ -481,6 +482,7 @@ window.__game = {
       case 'clock': renderClock = a[0] == null ? null : a[0] / 1000; return true;
       case 'tier': app.applySettings({ tier: a[0] }); return view ? view.kind + ':' + (view.tier || '') : null;
       case 'mode': api.startMode(G, a[0]); return G.mode && G.mode.id;
+      case 'endMode': api.endMode(G, !!a[0]); return !G.mode;
       case 'award': return mystery(G, a[0]);
       case 'lamps': G.lampShow = { name: a[0], until: G.t + (a[1] || 3) }; return true;
       case 'camera': if (view && view.setCamera) view.setCamera(a[0]); return true;

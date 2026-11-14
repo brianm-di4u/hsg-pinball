@@ -359,3 +359,81 @@ export const nameTests = [
   },
 ];
 tests.push(...nameTests);
+
+// ------------------------------------------------------------------------------------------------- S4-02: mode art, the tower, the Arlington's windows
+// mean colour of the lower playfield (the zone the paintings fade into) from the canvas
+const zoneMean = (t) => t.page.evaluate(() => {
+  const gl = document.getElementById('gl'), r = gl.getBoundingClientRect(), k = gl.width / r.width;
+  const a = window.__game.viewScreen(150, 220), b = window.__game.viewScreen(360, 470);
+  const x0 = Math.floor(Math.min(a[0], b[0]) * k), x1 = Math.floor(Math.max(a[0], b[0]) * k), y0 = Math.floor(Math.min(a[1], b[1]) * k), y1 = Math.floor(Math.max(a[1], b[1]) * k);
+  const tmp = document.createElement('canvas'); tmp.width = gl.width; tmp.height = gl.height; const g = tmp.getContext('2d'); g.drawImage(gl, 0, 0);
+  const d = g.getImageData(x0, y0, x1 - x0, y1 - y0).data; const out = [0, 0, 0]; let n = 0;
+  for (let i = 0; i < d.length; i += 16) { out[0] += d[i]; out[1] += d[i + 1]; out[2] += d[i + 2]; n++; }
+  return out.map((v) => v / n);
+});
+const settleArt = (t, id, up) => t.page.waitForFunction(([i, u]) => { const m = window.__game.modeInfo(); return u ? m.art[i] > 0.97 : m.art[i] < 0.02; }, [id, up], { timeout: 8000 });
+
+export const artTests = [
+  {
+    name: 'S4-02 a mode fades its painting into the lower playfield, one painting per mode, and the paintings leave when the mode ends',
+    async run(t) {
+      await clear(t);
+      await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      await skipTips(t);
+      const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
+      let m = await t.game('modeInfo');
+      t.equal(Object.keys(m.art).sort(), ['coaster', 'derby', 'raid', 'tub', 'valley'], 'five paintings are in: derby, raid, tubs, coaster and the Vapors');
+      t.expect(Object.values(m.art).every((a) => a === 0), 'none shows before a mode');
+      await t.game('act', 'placeBall', 254, 120, 0, 0);
+      await t.waitFrames(6);
+      const before = await zoneMean(t);
+      const MODE = { derby: 1, raid: 2, tub: 4, coaster: 5 };
+      for (const [id, idx] of Object.entries(MODE)) {
+        await t.game('act', 'mode', idx);
+        await settleArt(t, id, true);
+        m = await t.game('modeInfo');
+        t.expect(m.art[id] > 0.97 && Object.entries(m.art).every(([k, a]) => k === id || a < 0.02), id + ' is the only painting showing: ' + JSON.stringify(m.art));
+        const during = await zoneMean(t);
+        const diff = Math.abs(during[0] - before[0]) + Math.abs(during[1] - before[1]) + Math.abs(during[2] - before[2]);
+        t.expect(diff > 12, id + ' changes the lower playfield: colour moved by ' + diff.toFixed(1) + ' (before ' + before.map((v) => v.toFixed(0)).join('/') + ', during ' + during.map((v) => v.toFixed(0)).join('/') + ')');
+        if (id === 'derby') await t.shot('S4-02-mode-derby');
+        if (id === 'tub') await t.shot('S4-02-mode-tubs');
+        await t.game('act', 'endMode', false);
+        await settleArt(t, id, false);
+      }
+      await t.game('act', 'mode', 0); await t.waitFrames(30);
+      m = await t.game('modeInfo'); t.expect(Object.values(m.art).every((a) => a < 0.02), 'the Soak mode has no painting of its own (the bathhouse lamps carry it)');
+      await t.game('act', 'endMode', false);
+      await t.game('act', 'multiball', 'valley'); await settleArt(t, 'valley', true);
+      await t.shot('S4-02-wizard-vapors');
+      m = await t.game('modeInfo'); t.expect(m.art.valley > 0.97, 'the wizard mode brings in the Vapors painting');
+    },
+  },
+  {
+    name: 'S4-02 the tower grows with its level, the Arlington\'s windows light with each lock, and reduced motion snaps instead of easing',
+    async run(t) {
+      await clear(t);
+      await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      await skipTips(t);
+      const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
+      const settle = (pred) => t.page.waitForFunction((p) => { const m = window.__game.modeInfo(); return new Function('m', 'return ' + p)(m); }, pred, { timeout: 8000 });
+      await settle('m.tower.level < 0.02');
+      const heights = [(await t.game('modeInfo')).tower.scaleY];
+      for (const lvl of [1, 2, 3]) { await t.game('setState', { features: { towerLevel: lvl } }); await settle('Math.abs(m.tower.level - ' + lvl + ') < 0.02'); heights.push((await t.game('modeInfo')).tower.scaleY); }
+      t.expect(heights.every((h, i) => i === 0 || h > heights[i - 1]) && heights[3] > heights[0] * 1.5, 'the tower stands taller at each level: ' + heights.join(' < '));
+      t.expect(Math.abs(heights[3] - 2700) < 30, 'and at level 3 it is the size it always was: ' + heights[3]);
+      await t.shot('S4-02-tower-level-3');
+      await t.game('setState', { features: { towerLevel: 0 } }); await settle('m.tower.level < 0.02'); await t.shot('S4-02-tower-level-0');
+      const glow = [];
+      for (const locks of [0, 1, 2]) { await t.game('setState', { features: { locks, lockLit: false } }); await settle('true'); await t.waitFrames(40); glow.push((await t.game('modeInfo')).arlington.glow); }
+      t.expect(glow[0] < glow[1] && glow[1] < glow[2], 'the Arlington\'s windows glow more with each lock: ' + glow.join(' < '));
+      t.expect((await t.game('modeInfo')).arlington.windows >= 1, 'the model has windows to light');
+      await t.game('act', 'multiball', 'arlington'); await t.waitFrames(60);
+      t.expect((await t.game('modeInfo')).arlington.glow > glow[2] * 1.5, 'in Arlington Multiball every window is lit');
+      await t.shot('S4-02-arlington-multiball');
+      await t.game('applySettings', { motion: 'reduced' }); await t.game('setState', { features: { towerLevel: 2 } }); await t.waitFrames(4);
+      t.expect(Math.abs((await t.game('modeInfo')).tower.level - 2) < 0.05, 'under reduced motion the tower is at its level at once, not easing to it');
+    },
+  },
+];
+tests.push(...artTests);
