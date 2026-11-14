@@ -129,7 +129,7 @@ export const tests = [
         put('settings', { v: 1, volume: -2 });
         t.equal(loadSettings().volume, 0, 'volume clamps to 0');
         put('settings', { v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3 });
-        t.equal(JSON.stringify(loadSettings()), JSON.stringify({ v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3, ambience: true }), 'valid settings (from before the Ambience switch) load untouched, Ambience on');
+        t.equal(JSON.stringify(loadSettings()), JSON.stringify({ v: 1, sound: false, music: false, volume: 0.35, motion: 'reduced', balls: 5, tier: '2d', practice: true, textScale: 1.3, ambience: true, difficulty: 'standard' }), 'valid settings (from before the Ambience switch and the table difficulty) load untouched, Ambience on and the table Standard');
         put('settings', [1, 2]); t.equal(loadSettings().balls, 3, 'an array is not settings');
 
         const ok = (r) => r && typeof r.initials === 'string' && Number.isFinite(r.score);
