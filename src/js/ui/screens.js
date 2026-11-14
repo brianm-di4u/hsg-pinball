@@ -3,6 +3,7 @@
 import { MODES } from '../sim/rules.js';
 import { BATHHOUSES } from '../sim/table-spa-city.js';
 import { FACTS } from '../sim/facts.js';
+import { GOALS, RANKS, MODE_NAMES, shiftDay } from '../progress.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -13,6 +14,21 @@ const DIFF_HINT = {
   expert: 'Expert: no ball save, no kickbacks, a strict tilt and a stronger nudge.',
 };
 const DIFF_NAME = { easy: 'Easy', standard: 'Standard', expert: 'Expert' };
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const niceDate = (k) => MONTHS[+k.slice(5, 7) - 1] + ' ' + +k.slice(8, 10);
+// the lines a finished game adds to the game-over and initials screens: a personal best, the rank, the daily table, the goals earned
+function summary(res, compact) {
+  if (!res) return '';
+  const names = res.earned.map((id) => (GOALS.find((g) => g.id === id) || {}).name).filter(Boolean);
+  const lines = [];
+  if (res.newBest) lines.push('<p class="pb"><b>New personal best</b> on the ' + DIFF_NAME[res.diff] + ' table</p>');
+  else if (!compact && res.best) lines.push('<p class="small">Your best on the ' + DIFF_NAME[res.diff] + ' table: ' + fmt(res.best) + '</p>');
+  if (res.rankUp) lines.push('<p class="pb"><b>Rank up!</b> You are now a ' + esc(res.rank.name) + '</p>');
+  else if (!compact) lines.push('<p class="small">Rank: ' + esc(res.rank.name) + (res.rank.next ? ' · ' + fmt(res.rank.toNext) + ' points to ' + esc(res.rank.next) : '') + '</p>');
+  if (res.daily) lines.push('<p class="small">Daily table: best ' + fmt(res.daily.best) + (res.daily.newBest ? ' (new)' : '') + ' · ' + res.daily.streak + (res.daily.streak === 1 ? ' day' : ' days') + ' running</p>');
+  if (names.length) lines.push('<p class="small goals-now">' + (names.length === 1 ? 'Goal reached: ' : 'Goals reached: ') + esc(names.join(', ')) + '</p>');
+  return '<div class="summary">' + lines.join('') + '</div>';
+}
 
 export function createScreens(root, app) {
   let current = null;
@@ -35,6 +51,7 @@ export function createScreens(root, app) {
     close() { current = null; el(''); },
     title() {
       current = 'title';
+      const P = app.progress();
       el(`<section class="screen title" role="dialog" aria-modal="true" aria-labelledby="t-h">
         <div class="title-art" aria-hidden="true"></div>
         <h1 id="t-h"><span class="t-small">Spa City</span><span class="t-big">Pinball</span></h1>
@@ -42,15 +59,18 @@ export function createScreens(root, app) {
         <div class="menu">
           ${app.canContinue() ? '<button type="button" id="b-continue" class="btn primary" autofocus>Continue game</button>' : ''}
           <button type="button" id="b-play" class="btn${app.canContinue() ? '' : ' primary'}"${app.canContinue() ? '' : ' autofocus'}>Play</button>
-          <button type="button" id="b-help" class="btn">How to play</button>
-          <button type="button" id="b-scores" class="btn">High scores</button>
-          <button type="button" id="b-settings" class="btn">Settings</button>
+          <button type="button" id="b-daily" class="btn">Daily table</button>
+          <div class="pair"><button type="button" id="b-scores" class="btn">High scores</button><button type="button" id="b-records" class="btn">Records</button></div>
+          <div class="pair"><button type="button" id="b-help" class="btn">How to play</button><button type="button" id="b-settings" class="btn">Settings</button></div>
         </div>
         <p class="hint">${app.touch ? 'Tap the left or right side to flip' : 'Z and / (or Shift) to flip · Space to plunge'}</p>
         <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
+        <p class="hint" id="t-rank">Rank: ${esc(P.rank.name)}${P.daily.days[P.today] ? ' · daily played today' : ' · today\'s daily table is waiting'}</p>
       </section>`);
       on('#b-continue', () => app.continueGame());
       on('#b-play', () => app.start());
+      on('#b-daily', () => app.startDaily());
+      on('#b-records', () => S.records('title'));
       on('#b-help', () => S.help('title'));
       on('#b-scores', () => S.scores('title'));
       on('#b-settings', () => S.settings('title'));
@@ -70,7 +90,7 @@ export function createScreens(root, app) {
       on('#b-resume', () => app.resume());
       on('#b-help', () => S.help('pause'));
       on('#b-settings', () => S.settings('pause'));
-      confirmOn('#b-restart', () => app.start());
+      confirmOn('#b-restart', () => app.restart());
       confirmOn('#b-quit', () => app.quit());
     },
     settings(back) {
@@ -157,12 +177,52 @@ export function createScreens(root, app) {
       </section>`);
       on('#b-back', () => (back === 'over' ? app.quit() : S.title()));
     },
-    over(score, match, won) {
+    records(back) {
+      current = 'records';
+      const P = app.progress(), st = P.stats, r = P.rank, d = P.daily;
+      const have = (id) => st.earned[id];
+      const nGoals = GOALS.filter((g) => have(g.id)).length;
+      const best = (k) => (st.best[k] ? fmt(st.best[k]) : '·');
+      const stat = (k, v) => `<tr><th>${k}</th><td>${fmt(v)}</td></tr>`;
+      const wins = st.modeWins.reduce((a, b) => a + b, 0);
+      const cells = [];
+      for (let i = 27; i >= 0; i--) { const k = shiftDay(P.today, -i), played = d.days[k] && d.days[k].plays > 0; cells.push(`<li class="${played ? 'on' : ''}${i === 0 ? ' today' : ''}" aria-label="${niceDate(k)}${played ? ': played, best ' + fmt(d.days[k].best) : ': not played'}"><span aria-hidden="true">${+k.slice(8, 10)}</span></li>`); }
+      const todayRec = d.days[P.today];
+      el(`<section class="screen dialog wide" role="dialog" aria-modal="true" aria-labelledby="r-h">
+        <h2 id="r-h">Records</h2>
+        <div class="cols">
+          <div>
+            <h3>Rank</h3>
+            <p class="rank-name"><b id="r-rank">${esc(r.name)}</b> <span class="small">(${r.i + 1} of ${RANKS.length})</span></p>
+            <div class="bar" role="img" aria-label="${Math.round(r.frac * 100)} percent of the way to ${esc(r.next || r.name)}"><i style="width:${Math.round(r.frac * 100)}%"></i></div>
+            <p class="small">${fmt(st.score)} points in all${r.next ? ' · ' + fmt(r.toNext) + ' to ' + esc(r.next) : ' · the top of the Row'}</p>
+            <h3>Best scores</h3>
+            <table class="keys"><tbody><tr><th>Easy</th><td>${best('easy')}</td></tr><tr><th>Standard</th><td>${best('standard')}</td></tr><tr><th>Expert</th><td>${best('expert')}</td></tr></tbody></table>
+            <h3>Lifetime</h3>
+            <table class="keys"><tbody>${stat('Games finished', st.games)}${stat('Modes won', wins)}${stat('Wizard rounds finished', st.wizards)}${stat('Valley of the Vapors reached', st.mbs[2])}${stat('Arlington Multiballs', st.mbs[0])}${stat('Grand Soaks', st.mbs[1])}${stat('Jackpots', st.jackpots)}${stat('Skill shots', st.skillShots)}${stat('Bathhouse hits', st.baths)}${stat('Bathhouse Rows completed', st.rows)}${stat('Springs boiled', st.boils)}${stat('Extra balls', st.extraBalls)}</tbody></table>
+            <h3>Wins by mode</h3>
+            <ul class="chips">${MODE_NAMES.map((n, i) => `<li>${n} <b>${st.modeWins[i]}</b></li>`).join('')}</ul>
+            <h3>Daily table</h3>
+            <p class="small">${todayRec ? 'Today: best ' + fmt(todayRec.best) + ' in ' + todayRec.plays + (todayRec.plays === 1 ? ' game' : ' games') : 'Not played today.'} · ${P.streak} ${P.streak === 1 ? 'day' : 'days'} running · longest ${d.longest}</p>
+            <ol class="cal" aria-label="The last 28 days of the daily table">${cells.join('')}</ol>
+          </div>
+          <div>
+            <h3>Goals (${nGoals} of ${GOALS.length})</h3>
+            <ul class="goals">${GOALS.map((g) => `<li class="${have(g.id) ? 'got' : 'todo'}"><b>${esc(g.name)}</b> <span class="small">${have(g.id) ? 'earned ' + niceDate(have(g.id)) : 'not yet'}</span><br><span class="small">${esc(g.text)}</span></li>`).join('')}</ul>
+            <p class="small">Practice games are not recorded. Records stay in this browser.</p>
+          </div>
+        </div>
+        <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>Back</button></div>
+      </section>`);
+      on('#b-back', () => S.title());
+    },
+    over(score, match, won, res) {
       current = 'over';
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="o-h">
         <h2 id="o-h">Game over</h2>
         <p class="big-score">${fmt(score)}</p>
         <p>Match <b>${String(match).padStart(2, '0')}</b>${won ? ' · <b class="won">Match! Free game</b>' : ''}</p>
+        ${summary(res, false)}
         <div class="menu">
           <button type="button" id="b-again" class="btn primary" autofocus>Play again</button>
           <button type="button" id="b-title" class="btn">Title</button>
@@ -171,7 +231,7 @@ export function createScreens(root, app) {
       on('#b-again', () => app.start());
       on('#b-title', () => app.quit());
     },
-    entry(score, done) {
+    entry(score, done, res) {
       current = 'entry';
       const letters = ['A', 'A', 'A'];
       let pos = 0;
@@ -180,6 +240,7 @@ export function createScreens(root, app) {
         el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="e-h">
           <h2 id="e-h">High score!</h2>
           <p class="big-score">${fmt(score)}</p>
+          ${summary(res, true)}
           <p>Enter your initials</p>
           <div class="initials" role="group" aria-label="Initials">${letters.map((l, i) => `<div class="ini ${i === pos ? 'on' : ''}"><button type="button" class="btn sm" data-up="${i}" aria-label="Letter ${i + 1} next">▲</button><span aria-live="polite">${l === ' ' ? '_' : l}</span><button type="button" class="btn sm" data-down="${i}" aria-label="Letter ${i + 1} previous">▼</button></div>`).join('')}</div>
           <p class="hint">Flippers change the letter · plunger confirms</p>

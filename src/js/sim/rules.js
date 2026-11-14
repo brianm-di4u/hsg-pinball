@@ -75,7 +75,8 @@ function resetPlayer(G) {
     bob: 0, match: null, skillShots: 0, eb: 0 };
   G.f = { spa: [0, 0, 0], springTemp: 100, boilUntil: 0, row: new Array(8).fill(0), rowsDone: 0, grandSoakLit: false,
     ramps: 0, towerLevel: 0, lockLit: false, locks: 0, fifth: 0, spins: 0, ebLit: false, modesPlayed: [0, 0, 0, 0, 0, 0],
-    modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0, round: 0 };
+    modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0, round: 0,
+    boils: 0, bathHits: 0, jackpots: 0, wizards: 0, mbs: [0, 0, 0], modeWins: [0, 0, 0, 0, 0, 0] };   // this game's tallies, for the records and goals (progress.js)
   G.ball = { saveUntil: 0, saving: false, saveWarned: 0, launched: false, skillLane: -1, skillUntil: 0, inLane: false, kicks: [],
     lastMajor: { t: -10, side: '' }, combo: 0, switches: 0, searchAt: 0, kb: { outL: 0, outR: 0 } };
   G.mode = null;
@@ -358,7 +359,7 @@ function bumper(G, i, e) {
   score(G, (500 + 10 * f.springTemp) * (boil ? 2 : 1));
   sound(G, 'bumper', 1); cue(G, { k: 'flash', name: 'bumper' + (i + 1) }); cue(G, { k: 'steam', i });
   if (f.springTemp >= 143 && !boil) {
-    f.boilUntil = G.t + 30;
+    f.boilUntil = G.t + 30; f.boils++;
     dmd(G, 'THE SPRINGS BOIL', fact('temp'), 2200, 2, 'boil'); sound(G, 'boil'); show(G, 'boil', 1500);
   } else if (f.springTemp % 10 === 0 && f.springTemp < 143) {
     dmd(G, SPRINGS[i], f.springTemp + '°F', 700, 0);
@@ -367,10 +368,11 @@ function bumper(G, i, e) {
 
 function bathhouse(G, i, e) {
   const f = G.f, name = BATHHOUSES[i];
+  f.bathHits++;
   sound(G, 'target'); cue(G, { k: 'flash', name: 'bh' + name });
   if (G.mb && G.mb.kind === 'soak') {
     const v = score(G, 20000 * Math.max(1, ballsInPlay(G)));
-    G.mb.hit[i] = 1;
+    G.mb.hit[i] = 1; f.jackpots++;
     dmd(G, 'JACKPOT: ' + name.toUpperCase(), fmt(v), 1200, 2); sound(G, 'jackpot');
     if (G.mb.hit.every(Boolean) && !G.mb.superLit) { G.mb.superLit = true; dmd(G, 'SUPER JACKPOT LIT', 'SHOOT THE VAPORS', 1800, 3); }
     return;
@@ -415,7 +417,7 @@ function major(G, name) {
     score(G, 10000 + 5000 * f.towerLevel);
     sound(G, 'rampMade');
     if (G.mb && G.mb.kind === 'arlington' && G.mb.jackpotLit) {
-      const v = score(G, G.mb.jackpot); G.mb.jackpot += 25000; G.mb.jackpotLit = false;
+      const v = score(G, G.mb.jackpot); G.mb.jackpot += 25000; G.mb.jackpotLit = false; G.f.jackpots++;
       dmd(G, 'JACKPOT', fmt(v), 1800, 3, 'jackpot'); sound(G, 'jackpot'); show(G, 'jackpot', 1000);
     } else if (f.ramps % 3 === 0) {
       f.towerLevel = Math.min(3, f.towerLevel + 1);
@@ -454,7 +456,7 @@ function vapors(G, e) {
   const kick = (secs) => holdThen(G, e.ball, secs, h.kickAngle, h.kickSpeed);
   // priorities: super jackpot, raid hurry-up, wizard, grand soak, extra ball, mode start, mystery
   if (G.mb && G.mb.kind === 'soak' && G.mb.superLit) {
-    const v = score(G, 250000); G.mb.superLit = false; G.mb.hit = new Array(8).fill(0);
+    const v = score(G, 250000); G.mb.superLit = false; f.jackpots++; G.mb.hit = new Array(8).fill(0);
     dmd(G, 'SUPER JACKPOT', fmt(v), 2500, 3, 'jackpot'); sound(G, 'superJackpot'); show(G, 'jackpot', 2000); return kick(1.6);
   }
   if (G.mb && G.mb.kind === 'valley') { valleyShot(G, 'vapors'); return kick(1.0); }
@@ -625,7 +627,7 @@ function endMode(G, won) {
   const m = G.mode, f = G.f;
   if (!m) return;
   f.modesPlayed[m.i] = 1;
-  if (won) f.modesWon[m.i] = 1;
+  if (won) { f.modesWon[m.i] = 1; f.modeWins[m.i]++; }
   G.mode = null;
   cue(G, { k: 'mode', id: m.id, on: false, won });
   sound(G, won ? 'modeWon' : 'modeEnd');
@@ -641,7 +643,7 @@ function addMultiballs(G, n) {
 
 function startArlington(G, heldBallId) {
   const h = G.T.holes.find((q) => q.name === 'lock');
-  G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t };
+  G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t }; G.f.mbs[0]++;
   dmd(G, 'ARLINGTON MULTIBALL', 'RAMP JACKPOTS', 2600, 3, 'multiball');
   after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact('arlington'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
   startBallSave(G, tune(G).saveSecsMulti, 1.4);
@@ -652,7 +654,7 @@ function startArlington(G, heldBallId) {
 
 function startGrandSoak(G) {
   G.f.grandSoakLit = false;
-  G.mb = { kind: 'soak', hit: new Array(8).fill(0), superLit: false, t0: G.t };
+  G.mb = { kind: 'soak', hit: new Array(8).fill(0), superLit: false, t0: G.t }; G.f.mbs[1]++;
   dmd(G, 'GRAND SOAK', 'HIT BATHHOUSES', 2400, 3, { kind: 'multiball', id: 'soak' }); sound(G, 'multiball'); show(G, 'multiball', 2400);
   startBallSave(G, tune(G).saveSecsMulti, 1.4);
   addMultiballs(G, 1);
@@ -663,7 +665,7 @@ function startValley(G) {
   const f = G.f;
   f.wizardLit = false;
   if (G.mode) endMode(G, false);
-  G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 };
+  G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 }; f.mbs[2]++;
   dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
   startBallSave(G, tune(G).saveSecsMulti && tune(G).saveSecsMulti + 5, 1.6);   // the wizard's is 5 s longer
   addMultiballs(G, 2);
@@ -673,7 +675,7 @@ function startValley(G) {
 function valleyShot(G, name) {
   const mb = G.mb;
   if (name === 'vapors' && mb.shots >= 6) {
-    const v = score(G, mb.total);
+    const v = score(G, mb.total); G.f.jackpots++;
     dmd(G, 'VALLEY COLLECTED', fmt(v), 3000, 3, 'jackpot'); sound(G, 'superJackpot'); show(G, 'wizard', 2500);
     mb.total = 0; mb.shots = 0;
     return;
@@ -701,7 +703,7 @@ function endMultiball(G) {
   cue(G, { k: 'mb', kind: mb.kind, on: false });
   dmd(G, mb.kind === 'valley' ? 'WIZARD MODE OVER' : 'MULTIBALL OVER', '', 1400, 2); sound(G, 'mbEnd', 1, null);
   if (mb.kind === 'valley') {
-    G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0;
+    G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0; G.f.wizards++;
     if (roundOf(G) < ROUND.max) { G.f.round = roundOf(G) + 1; after(G, 1.6, () => { dmd(G, 'ROUND ' + (G.f.round + 1), 'GOALS AND VALUES UP', 2000, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
   }
 }
@@ -756,7 +758,7 @@ export function gameState(G) {
   return {
     scene: G.scene, t: +G.t.toFixed(3), seed: G.seedValue, difficulty: G.difficulty,
     player: { ...G.player },
-    features: { ...G.f, spa: [...G.f.spa], row: [...G.f.row], modesPlayed: [...G.f.modesPlayed], modesWon: [...G.f.modesWon] },
+    features: { ...G.f, spa: [...G.f.spa], row: [...G.f.row], modesPlayed: [...G.f.modesPlayed], modesWon: [...G.f.modesWon], mbs: [...G.f.mbs], modeWins: [...G.f.modeWins] },
     ball: { ...G.ball, lastMajor: { ...G.ball.lastMajor } },
     mode: G.mode ? { id: G.mode.id, progress: G.mode.progress, need: G.mode.need, phase: G.mode.phase, lit: [...G.mode.lit], left: Math.max(0, +(G.mode.end - G.t).toFixed(1)), data: JSON.parse(JSON.stringify(G.mode.data)) } : null,
     mb: G.mb ? { ...G.mb, hit: G.mb.hit ? [...G.mb.hit] : undefined } : null,

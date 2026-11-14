@@ -11,7 +11,8 @@ import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, suspendAudio, resumeAudio } from './ui/audio.js';
-import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume } from './save.js';
+import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
+import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
 
@@ -28,6 +29,7 @@ const app = {
   touch: matchMedia('(pointer: coarse)').matches,
   sfx: (n) => sfx(n),
   scores: () => loadScores(),
+  stats: loadStats(),
 };
 
 let G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffff) });
@@ -98,11 +100,14 @@ function mergeKnown(dst, src) {
 }
 
 app.canContinue = () => !!loadResume();
-app.start = (resume = null) => {
+app.start = (resume = null, o = {}) => {
   unlock(); resumeAudio();
   demo = false; bot = null; paused = false;
-  G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffffff) });
-  newGame(G, { balls: resume ? resume.player.ballsPerGame : app.settings.balls, practice: resume ? resume.practice : app.settings.practice, difficulty: resume ? resume.difficulty : app.settings.difficulty });
+  const daily = resume ? resume.daily : o.daily ? todayKey() : null;   // the daily table: dealt from the date, fixed rules
+  G = createGame(T, { seed: daily ? dailySeed(daily) : TEST ? 1 : (Date.now() & 0xffffff) });
+  G.daily = daily; G.earnedNow = [];
+  const fixed = daily && !resume ? DAILY_OPTS : null;
+  newGame(G, { balls: fixed ? fixed.balls : resume ? resume.player.ballsPerGame : app.settings.balls, practice: fixed ? fixed.practice : resume ? resume.practice : app.settings.practice, difficulty: fixed ? fixed.difficulty : resume ? resume.difficulty : app.settings.difficulty });
   if (resume) {
     mergeKnown(G.player, resume.player); mergeKnown(G.f, resume.features);
     G.f.boilUntil = 0;   // a sim-clock time from the saved game: the clock starts again at 0
@@ -117,6 +122,10 @@ app.start = (resume = null) => {
   tableEl.focus({ preventScroll: true });
 };
 app.continueGame = () => { const r = loadResume(); if (r) app.start(r); };
+app.restart = () => app.start(null, { daily: !!G.daily });
+app.startDaily = () => app.start(null, { daily: true });
+// what the Records screen and the title show, read fresh from the saves
+app.progress = () => { const today = todayKey(), daily = loadDaily(today); return { stats: app.stats, rank: rankOf(app.stats.score), daily, today, streak: streakOf(daily.days, today) }; };
 app.resume = () => { resumeAudio(); paused = false; screens.close(); document.body.dataset.scene = demo ? 'title' : 'game'; lastNow = performance.now(); };
 app.quit = () => { resumeAudio(); paused = false; screens.title(); startDemo(); };
 app.applySettings = (s) => {
@@ -197,7 +206,7 @@ function routeCues() {
       case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
       case 'mb': if (!demo) { startMusic(c.on ? mbScene(c.kind) : (G.mode ? 'mode' : 'main'), !c.on && G.mode ? G.mode.id : null); mixState(); } break;
-      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty); } break;
+      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty, G.daily); } break;
       case 'bonus': if (!demo) announce('Ball ' + G.player.ball + ' over. Bonus ' + fmt(c.total) + '. Score ' + fmt(G.player.score)); break;
       case 'over': if (!demo) { announce('Game over. Final score ' + fmt(c.score)); gameOverFlow(c); } else setTimeout(() => demo && startDemo(), 1500); break;
       case 'tilt': effects.push({ k: 'tilt', t: now() }); break;
@@ -218,16 +227,62 @@ function mixState() {
   else if (m) x = (m.id === 'raid' && m.phase === 2) || m.end - G.t < 10 ? 1 : 0.6;
   else x = Math.min(0.9, 0.2 + 0.12 * f.modesPlayed.reduce((a, b) => a + b, 0));
   musicIntensity(x);
+  checkGoals();
   ambienceParam('steam', f.boilUntil > G.t ? 1 : (f.springTemp - 100) / 43);
   ambienceParam('crowd', m && m.id === 'derby' ? m.progress / 100 : 0);
+}
+
+// ------------------------------------------------------------------------------------------------- records and goals
+const toastQ = []; let toastTimer = 0;
+function pumpToast() {
+  const el = $('#toast'), id = toastQ.shift();
+  if (!id) { el.hidden = true; toastTimer = 0; return; }
+  const g = goalById(id);
+  el.innerHTML = '<b>Goal reached</b><span></span>'; el.lastChild.textContent = g.name; el.hidden = false;
+  sfx('achieve'); announce('Goal reached: ' + g.name + '. ' + g.text);
+  toastTimer = setTimeout(pumpToast, 3400);
+}
+function earn(ids) {
+  const st = app.stats, when = todayKey();
+  for (const id of ids) { st.earned[id] = when; (G.earnedNow ||= []).push(id); toastQ.push(id); }
+  saveStats(st);
+  if (!toastTimer) pumpToast();
+}
+// goals the game in progress has just earned (the totals so far are the saved ones plus this game's tally); not in practice
+function checkGoals() {
+  if (demo || G.scene === 'over' || G.settings.practice) return;
+  const L = gameTally(G), ids = newlyEarned(app.stats.earned, addTally(app.stats, L), L, { difficulty: G.difficulty, streak: 0, daily: !!G.daily, finished: false });
+  if (ids.length) earn(ids);
+}
+// a finished game goes on the books: totals, the best score on its difficulty, the daily table, the rank and the goals that need a finished game
+function recordGame(c) {
+  if (G.settings.practice) return null;   // practice (an endless ball save) is not recorded
+  const st = app.stats, L = gameTally(G), diff = c.difficulty || 'standard', prevBest = st.best[diff] || 0, before = rankOf(st.score);
+  Object.assign(st, addTally(st, { ...L, games: 1 }));
+  st.best[diff] = Math.max(prevBest, c.score);
+  let daily = null;
+  if (G.daily) {
+    const d = loadDaily(G.daily), r = d.days[G.daily] || { best: 0, plays: 0 }, prev = r.best;
+    r.plays++; r.best = Math.max(prev, c.score); d.days[G.daily] = r; d.days = pruneDays(d.days, G.daily);
+    const streak = streakOf(d.days, G.daily); d.longest = Math.max(d.longest, streak); saveDaily(d);
+    daily = { key: G.daily, best: r.best, newBest: prev > 0 && c.score > prev, plays: r.plays, streak };
+  }
+  const ids = newlyEarned(st.earned, st, L, { difficulty: diff, streak: daily ? daily.streak : 0, daily: !!G.daily, finished: true });
+  for (const id of ids) { st.earned[id] = todayKey(); toastQ.push(id); }
+  saveStats(st);
+  const rank = rankOf(st.score);
+  const res = { score: c.score, diff, newBest: prevBest > 0 && c.score > prevBest, best: st.best[diff], rank, rankUp: rank.i > before.i, daily, earned: [...(G.earnedNow || []), ...ids] };
+  if (ids.length && !toastTimer) pumpToast();
+  return res;
 }
 
 function gameOverFlow(c) {
   clearResume();
   startMusic('results'); musicIntensity(0);
+  const res = recordGame(c);
   overTimer = setTimeout(() => {
-    if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty); screens.scores('over', i); });
-    else screens.over(c.score, c.match, c.won);
+    if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty); screens.scores('over', i); }, res);
+    else screens.over(c.score, c.match, c.won, res);
   }, TEST ? 50 : 2600);
 }
 
@@ -355,6 +410,9 @@ window.__game = {
     return s;
   },
   setState(s) { setGameState(G, s); return true; },
+  progress() { return app.progress(); },
+  setToday(d) { setToday(d); return todayKey(); },
+  startDaily() { app.startDaily(); return G.daily; },
   audioList() { return audioList(); },
   audioRender(name, seconds, wantWav, intensity) { return audioRender(name, seconds, wantWav, intensity); },
   cueRender(name, opts) { return cueRender(name, opts); },
@@ -369,6 +427,7 @@ window.__game = {
     else if (name === 'settings') screens.settings('title');
     else if (name === 'help') screens.help('title');
     else if (name === 'scores') screens.scores('title');
+    else if (name === 'records') screens.records('title');
     else if (name === 'pause') { if (demo) app.start(); pause(); }
     else if (name === 'over') { if (demo) app.start(); api.endMode(G, false); G.scene = 'over'; screens.over(G.player.score, 0, false); }
     return screens.current || G.scene;

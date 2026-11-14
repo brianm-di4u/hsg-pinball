@@ -1,6 +1,7 @@
 // localStorage wrapper (pattern from hsg-property-game main.js `store`): every access in try/catch so the game runs
 // with storage blocked, in private windows and in previews.
 import { DIFFICULTIES } from './sim/rules.js';
+import { emptyTally, GOALS, pruneDays, streakOf, todayKey } from './progress.js';
 
 const PREFIX = 'hsg-pinball:';
 
@@ -72,7 +73,39 @@ export function loadResume() {
   const p = r.player;
   if (![3, 5].includes(p.ballsPerGame) || !Number.isInteger(p.ball) || p.ball < 1 || p.ball > p.ballsPerGame) return null;
   if (typeof p.score !== 'number' || !Number.isFinite(p.score) || p.score < 0) return null;
-  return { v: 1, practice: r.practice === true, difficulty: pick(r.difficulty, DIFFICULTIES, 'standard'), player: p, features: r.features };
+  return { v: 1, practice: r.practice === true, difficulty: pick(r.difficulty, DIFFICULTIES, 'standard'), daily: typeof r.daily === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.daily) ? r.daily : null, player: p, features: r.features };
 }
-export function saveResume(player, features, practice, difficulty = 'standard') { return store.set('resume', { v: 1, practice: !!practice, difficulty, player, features }); }
+export function saveResume(player, features, practice, difficulty = 'standard', daily = null) { return store.set('resume', { v: 1, practice: !!practice, difficulty, daily, player, features }); }
 export function clearResume() { return store.set('resume', null); }
+
+// ------------------------------------------------------------------------------------------------- records (S3-01)
+// `stats`: lifetime tallies, the best score on each table difficulty and the goals earned (id -> the date). `daily`: the
+// daily table's scores by date, the last DAYS_KEPT days only. Both read what anyone could have edited: every number is
+// forced to a whole, finite, non-negative value and a damaged key falls back to nothing earned, never to an error. A save
+// from before this version has neither key and starts at zero; nothing else in it is touched.
+const MAXN = 1e12;
+const cnt = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(MAXN, Math.max(0, Math.floor(v))) : 0);
+const cntArr = (v, len) => Array.from({ length: len }, (_, i) => (Array.isArray(v) ? cnt(v[i]) : 0));
+const dateKey = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+export function loadStats() {
+  const s = store.get('stats', null), d = emptyTally();
+  if (!isObj(s) || s.v !== 1) return { v: 1, ...d, best: { easy: 0, standard: 0, expert: 0 }, earned: {} };
+  const earned = {};
+  if (isObj(s.earned)) for (const g of GOALS) { const when = dateKey(s.earned[g.id]); if (when) earned[g.id] = when; }
+  const b = isObj(s.best) ? s.best : {};
+  return { v: 1, games: cnt(s.games), score: cnt(s.score), skillShots: cnt(s.skillShots), baths: cnt(s.baths), rows: cnt(s.rows), boils: cnt(s.boils), jackpots: cnt(s.jackpots), wizards: cnt(s.wizards),
+    extraBalls: cnt(s.extraBalls), mbs: cntArr(s.mbs, 3), modeWins: cntArr(s.modeWins, 6), best: { easy: cnt(b.easy), standard: cnt(b.standard), expert: cnt(b.expert) }, earned };
+}
+export function saveStats(s) { return store.set('stats', s); }
+
+export function loadDaily(today = todayKey()) {
+  const s = store.get('daily', null), days = {};
+  let longest = 0;
+  if (isObj(s) && s.v === 1) {
+    if (isObj(s.days)) for (const k of Object.keys(s.days)) { const r = s.days[k]; if (dateKey(k) && isObj(r) && cnt(r.plays) > 0) days[k] = { best: cnt(r.best), plays: cnt(r.plays) }; }
+    longest = cnt(s.longest);
+  }
+  const kept = pruneDays(days, today);
+  return { v: 1, days: kept, longest: Math.max(longest, streakOf(kept, today)) };
+}
+export function saveDaily(d) { return store.set('daily', { v: 1, days: d.days, longest: d.longest }); }

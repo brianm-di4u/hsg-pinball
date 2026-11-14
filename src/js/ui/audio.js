@@ -111,7 +111,7 @@ const RAMP_SWEEP = 0.55;   // seconds: about the time a shot takes from the ramp
 const MODE_VOICE = [{ root: 72, wave: 'sine' }, { root: 67, wave: 'square' }, { root: 76, wave: 'triangle' }, { root: 69, wave: 'triangle' }, { root: 64, wave: 'sawtooth' }, { root: 71, wave: 'square' }];   // by mode: soak, derby, raid, tower, tub, coaster
 const LADDER = [0, 2, 4, 7, 9, 12, 14, 16];   // major pentatonic, two octaves, by progress
 const LIT = [[523, 659, 784], [784, 988, 1319, 1568], [392, 523, 659, 784, 1047]];   // lock, extra ball, wizard
-const BIG = new Set(['jackpot', 'superJackpot', 'skill', 'complete', 'modeWon', 'extraBall', 'multiball', 'wizard', 'boil', 'gameOver', 'start']);
+const BIG = new Set(['jackpot', 'superJackpot', 'skill', 'complete', 'modeWon', 'extraBall', 'multiball', 'wizard', 'boil', 'gameOver', 'start', 'achieve']);
 const LIMIT = { bumper: 0.045, wall: 0.03, spinner: 0.025, switch: 0.03, rollover: 0.04, target: 0.04, clack: 0.04, flipHit: 0.03 };
 
 // pan: -0.7 (left) to 0.7 (right), from where the thing happened on the table; o: { n, m } the step of a ladder or a
@@ -196,6 +196,8 @@ function synth(name, v, t, o) {
     case 'tilt': tone(110, t, 1.2, 'sawtooth', 0.12, -50); break;
     case 'start': [262, 330, 392, 523, 392, 523].forEach((f, k) => tone(f, t + k * 0.09, 0.2, 'triangle', 0.13, 0, sfxBus, 1)); break;
     case 'gameOver': [392, 349, 330, 262].forEach((f, k) => tone(f, t + k * 0.22, 0.4, 'triangle', 0.12, 0, sfxBus, 1)); break;
+    // a goal reached: a bright three-note rise with a bell body underneath, a little different each time
+    case 'achieve': [784, 988, 1319].forEach((f, k) => { tone(f * J(10), t + k * 0.1, 0.34, 'triangle', LV.cue * 0.8, 0, sfxBus, 1); tone(f * 2 * J(10), t + k * 0.1, 0.2, 'sine', LV.cue * 0.3, 0, sfxBus, 1); }); tone(392 * J(10), t, 0.5, 'sine', LV.cue * 0.5); break;
     case 'ui': tone(880, t, 0.04, 'triangle', 0.08); break;
     case 'uiBack': tone(520, t, 0.05, 'triangle', 0.08); break;
   }
