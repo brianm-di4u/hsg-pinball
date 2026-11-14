@@ -323,4 +323,20 @@ export const tests = [
       t.equal(sounds(D, 'rivalPass').length, 1, 'and only the one');
     },
   },
+  {
+    name: 'S5-04 the cues heard most (flip, flipHit, bumper, sling, wall, clack) differ on every repeat in level and tone',
+    viewports: ['desktop'],
+    async run(t) {
+      for (const name of ['flip', 'flipDown', 'flipHit', 'bumper', 'sling', 'wall', 'clack']) {
+        const rs = [];
+        for (let i = 0; i < 8; i++) rs.push(await render(t, name, { seconds: 1.2 }));
+        const peaks = rs.map((r) => r.peak), rms = rs.map((r) => r.rmsDb);
+        const distinct = new Set(rms.map((x) => x.toFixed(2))).size;
+        const spreadDb = Math.max(...rms) - Math.min(...rms);
+        t.log(`${name}: peaks ${Math.min(...peaks)} to ${Math.max(...peaks)}, rms spread ${spreadDb.toFixed(2)} dB, ${distinct} distinct of 8`);
+        t.expect(distinct >= 6, `${name}: eight repeats give at least six different levels (${distinct})`);
+        t.expect(spreadDb >= 0.3, `${name}: the level moves by at least 0.3 dB across repeats (${spreadDb.toFixed(2)})`);
+      }
+    },
+  },
 ];
