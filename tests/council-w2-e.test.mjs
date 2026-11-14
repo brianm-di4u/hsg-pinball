@@ -365,16 +365,21 @@ export const nameTests = [
 tests.push(...nameTests);
 
 // ------------------------------------------------------------------------------------------------- S4-02: mode art, the tower, the Arlington's windows
-// mean colour of the lower playfield (the zone the paintings fade into) from the canvas
-const zoneMean = (t) => t.page.evaluate(() => {
+// Every fourth pixel of the lower-playfield zone, and the share of them that differ visibly between two frames. The mode light
+// shows wash this zone with colour for a few frames at a time, so one frame's mean colour says little: a painting is
+// there when most of the zone stays changed in every one of several frames, between the flashes as well as in them.
+const zonePixels = (t) => t.page.evaluate(() => {
   const gl = document.getElementById('gl'), r = gl.getBoundingClientRect(), k = gl.width / r.width;
   const a = window.__game.viewScreen(150, 220), b = window.__game.viewScreen(360, 470);
   const x0 = Math.floor(Math.min(a[0], b[0]) * k), x1 = Math.floor(Math.max(a[0], b[0]) * k), y0 = Math.floor(Math.min(a[1], b[1]) * k), y1 = Math.floor(Math.max(a[1], b[1]) * k);
   const tmp = document.createElement('canvas'); tmp.width = gl.width; tmp.height = gl.height; const g = tmp.getContext('2d'); g.drawImage(gl, 0, 0);
-  const d = g.getImageData(x0, y0, x1 - x0, y1 - y0).data; const out = [0, 0, 0]; let n = 0;
-  for (let i = 0; i < d.length; i += 16) { out[0] += d[i]; out[1] += d[i + 1]; out[2] += d[i + 2]; n++; }
-  return out.map((v) => v / n);
+  const d = g.getImageData(x0, y0, x1 - x0, y1 - y0).data; const out = [];
+  for (let i = 0; i < d.length; i += 16) out.push(d[i], d[i + 1], d[i + 2]);
+  return out;
 });
+const changedShare = (A, B) => { let c = 0; const n = Math.min(A.length, B.length) / 3; for (let i = 0; i < n; i++) if (Math.abs(A[3 * i] - B[3 * i]) + Math.abs(A[3 * i + 1] - B[3 * i + 1]) + Math.abs(A[3 * i + 2] - B[3 * i + 2]) > 24) c++; return c / n; };
+// the smallest share of the zone that differs from `before` over five frames about half a second apart
+async function leastChanged(t, before) { let least = 1; for (let i = 0; i < 5; i++) { if (i) await t.page.waitForTimeout(500); least = Math.min(least, changedShare(before, await zonePixels(t))); } return least; }
 const settleArt = (t, id, up) => t.page.waitForFunction(([i, u]) => { const m = window.__game.modeInfo(); return u ? m.art[i] > 0.97 : m.art[i] < 0.02; }, [id, up], { timeout: 8000 });
 
 export const artTests = [
@@ -391,16 +396,15 @@ export const artTests = [
       t.expect(Object.values(m.art).every((a) => a === 0), 'none shows before a mode');
       await t.game('act', 'placeBall', 254, 120, 0, 0);
       await t.waitFrames(6);
-      const before = await zoneMean(t);
+      const before = await zonePixels(t);
       const MODE = { derby: 1, raid: 2, tub: 4, coaster: 5 };
       for (const [id, idx] of Object.entries(MODE)) {
         await t.game('act', 'mode', idx);
         await settleArt(t, id, true);
         m = await t.game('modeInfo');
         t.expect(m.art[id] > 0.97 && Object.entries(m.art).every(([k, a]) => k === id || a < 0.02), id + ' is the only painting showing: ' + JSON.stringify(m.art));
-        const during = await zoneMean(t);
-        const diff = Math.abs(during[0] - before[0]) + Math.abs(during[1] - before[1]) + Math.abs(during[2] - before[2]);
-        t.expect(diff > 12, id + ' changes the lower playfield: colour moved by ' + diff.toFixed(1) + ' (before ' + before.map((v) => v.toFixed(0)).join('/') + ', during ' + during.map((v) => v.toFixed(0)).join('/') + ')');
+        const least = await leastChanged(t, before);
+        t.expect(least > 0.4, id + ' changes the lower playfield: over five frames at least ' + (100 * least).toFixed(0) + '% of it differs from the table before the mode');
         if (id === 'derby') await t.shot('S4-02-mode-derby');
         if (id === 'tub') await t.shot('S4-02-mode-tubs');
         await t.game('act', 'endMode', false);
@@ -408,6 +412,8 @@ export const artTests = [
       }
       await t.game('act', 'mode', 0); await t.waitFrames(30);
       m = await t.game('modeInfo'); t.expect(Object.values(m.art).every((a) => a < 0.02), 'the Soak mode has no painting of its own (the bathhouse lamps carry it)');
+      const soak = await leastChanged(t, before);
+      t.expect(soak < 0.15, 'and with no painting the playfield is itself again between the flashes of the light show (least changed ' + (100 * soak).toFixed(0) + '%), so the check above is the painting and not the lamps');
       await t.game('act', 'endMode', false);
       await t.game('act', 'multiball', 'valley'); await settleArt(t, 'valley', true);
       await t.shot('S4-02-wizard-vapors');
