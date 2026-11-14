@@ -11,7 +11,7 @@ export const store = {
   },
 };
 
-export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1 };
+export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true };
 
 // saved values come from storage anyone can edit: keep only what the settings screen could have written
 const pick = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt);
@@ -20,7 +20,7 @@ function cleanSettings(s) {
   const d = DEFAULT_SETTINGS;
   return {
     ...s, v: 1,
-    sound: bool(s.sound, d.sound), music: bool(s.music, d.music), practice: bool(s.practice, d.practice),
+    sound: bool(s.sound, d.sound), music: bool(s.music, d.music), ambience: bool(s.ambience, d.ambience), practice: bool(s.practice, d.practice),
     volume: typeof s.volume === 'number' && Number.isFinite(s.volume) ? Math.min(1, Math.max(0, s.volume)) : d.volume,
     motion: pick(s.motion, ['auto', 'full', 'reduced'], d.motion),
     balls: pick(s.balls, [3, 5], d.balls),

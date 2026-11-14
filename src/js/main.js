@@ -10,7 +10,7 @@ import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
 import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
-import { audio, unlock, sfx, setVolumes, startMusic, suspendAudio, resumeAudio } from './ui/audio.js';
+import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, suspendAudio, resumeAudio } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume } from './save.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
@@ -85,7 +85,7 @@ function startDemo() {
   bot = createBot(G, { skill: 0.9, seed: 11 });
   G.cues.length = 0;
   document.body.dataset.scene = 'title';
-  startMusic('title');
+  startMusic('title'); musicIntensity(0);
 }
 
 // copy back only the saved values that have the same shape as a fresh game's (storage anyone can edit)
@@ -112,7 +112,7 @@ app.start = (resume = null) => {
   dmd.queue.length = 0; dmd.cur = null;   // a new game starts with a clean display
   screens.close();
   document.body.dataset.scene = 'game';
-  startMusic('main');
+  startMusic('main'); mixState();
   clearTimeout(overTimer);
   tableEl.focus({ preventScroll: true });
 };
@@ -123,7 +123,7 @@ app.applySettings = (s) => {
   const tierChanged = s.tier && s.tier !== app.settings.tier;
   Object.assign(app.settings, s);
   saveSettings(app.settings);
-  setVolumes({ sound: app.settings.sound, music: app.settings.music, volume: app.settings.volume });
+  setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume });
   document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
   document.body.classList.toggle('reduced', reducedMotion());
   if (tierChanged && view && view.kind === '3d') { if (s.tier === '2d') { view.hide(); view = view2d; } else view.setTier(s.tier); }
@@ -195,8 +195,8 @@ function routeCues() {
       case 'sound': if (!demo) sfx(c.name, c.v); break;
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
       case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
-      case 'mode': if (!demo) startMusic(G.mb ? 'multiball' : c.on ? 'mode' : 'main'); break;
-      case 'mb': if (!demo) startMusic(c.on ? 'multiball' : (G.mode ? 'mode' : 'main')); break;
+      case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
+      case 'mb': if (!demo) { startMusic(c.on ? mbScene(c.kind) : (G.mode ? 'mode' : 'main'), !c.on && G.mode ? G.mode.id : null); mixState(); } break;
       case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice); } break;
       case 'bonus': if (!demo) announce('Ball ' + G.player.ball + ' over. Bonus ' + fmt(c.total) + '. Score ' + fmt(G.player.score)); break;
       case 'over': if (!demo) { announce('Game over. Final score ' + fmt(c.score)); gameOverFlow(c); } else setTimeout(() => demo && startDemo(), 1500); break;
@@ -206,9 +206,25 @@ function routeCues() {
   G.cues.length = 0;
 }
 
+// the piece for a multiball: the wizard mode has its own
+const mbScene = (kind) => (kind === 'valley' ? 'wizard' : 'multiball');
+// what the music and ambience follow in play: modes played, the Raid hurry-up, the last seconds of a mode, multiball,
+// the spring temperature and the Derby race. Called on mode and multiball changes and a few times a second.
+function mixState() {
+  if (demo || !G) return;
+  const f = G.f, m = G.mode;
+  let x;
+  if (G.mb) x = G.mb.kind === 'valley' ? 1 : 0.7;
+  else if (m) x = (m.id === 'raid' && m.phase === 2) || m.end - G.t < 10 ? 1 : 0.6;
+  else x = Math.min(0.9, 0.2 + 0.12 * f.modesPlayed.reduce((a, b) => a + b, 0));
+  musicIntensity(x);
+  ambienceParam('steam', f.boilUntil > G.t ? 1 : (f.springTemp - 100) / 43);
+  ambienceParam('crowd', m && m.id === 'derby' ? m.progress / 100 : 0);
+}
+
 function gameOverFlow(c) {
   clearResume();
-  startMusic('title');
+  startMusic('results'); musicIntensity(0);
   overTimer = setTimeout(() => {
     if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score); screens.scores('over', i); });
     else screens.over(c.score, c.match, c.won);
@@ -288,6 +304,7 @@ function frame(ts) {
     while (acc >= TICK && n < 24) { capturePrev(); if (bot) bot(); tick(G); routeCues(); acc -= TICK; n++; }
     if (n >= 24) acc = 0;
   }
+  if (frameNo % 20 === 0) mixState();
   try { render(Math.min(1, acc / TICK)); renderFails = 0; }
   catch (e) {
     // a throw mid-render leaves the HUD half updated: after 5 in a row say so instead of failing silently
@@ -331,12 +348,14 @@ window.__game = {
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
     s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(); s.frame = frameNo;
-    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played] };
+    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], ...audioNow() };
     return s;
   },
   setState(s) { setGameState(G, s); return true; },
+  audioList() { return audioList(); },
+  audioRender(name, seconds, wantWav, intensity) { return audioRender(name, seconds, wantWav, intensity); },
   isIdle() { return !loading && (!view || !view.busy || !view.busy()); },
-  step(n = 1) { for (let i = 0; i < n; i++) { capturePrev(); if (bot) bot(); tick(G); routeCues(); } render(1); return G.w.tick; },
+  step(n = 1) { for (let i = 0; i < n; i++) { capturePrev(); if (bot) bot(); tick(G); routeCues(); } mixState(); render(1); return G.w.tick; },
   pause() { this.paused = true; return true; },
   resume() { this.paused = false; lastNow = performance.now(); return true; },
   scene(name) {
@@ -381,7 +400,7 @@ window.__game = {
     clockBase = performance.now();
     document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
     document.body.classList.toggle('reduced', reducedMotion());
-    setVolumes({ sound: app.settings.sound, music: app.settings.music, volume: app.settings.volume });
+    setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume });
     const packs = typeof PB_ASSETS !== 'undefined' ? PB_ASSETS : [];
     await Promise.all(packs.map((f) => loadScript('assets/' + f)));
     if (window.__PB_ART && window.__PB_ART.backglass) $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`;

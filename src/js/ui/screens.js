@@ -74,6 +74,7 @@ export function createScreens(root, app) {
         <div class="form">
           ${opt('s-sound', 'Sound effects', [[1, 'On'], [0, 'Off']], +s.sound)}
           ${opt('s-music', 'Music', [[1, 'On'], [0, 'Off']], +s.music)}
+          ${opt('s-ambience', 'Ambience', [[1, 'On'], [0, 'Off']], +s.ambience)}
           <label class="row"><span>Volume</span><input id="s-vol" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
           ${opt('s-motion', 'Motion', [['auto', 'Follow system'], ['full', 'Full'], ['reduced', 'Reduced']], s.motion)}
           ${opt('s-balls', 'Balls per game', [[3, '3'], [5, '5']], s.balls)}
@@ -85,7 +86,7 @@ export function createScreens(root, app) {
       </section>`);
       const read = () => {
         const v = (id) => root.querySelector(id).value;
-        app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', volume: +v('#s-vol'), motion: v('#s-motion'),
+        app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), motion: v('#s-motion'),
           balls: +v('#s-balls'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text') });
       };
       root.querySelectorAll('select, input').forEach((n) => n.addEventListener('change', read));

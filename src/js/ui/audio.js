@@ -1,10 +1,17 @@
 // WebAudio synthesis for every sound and the music (collection rule: no sample files). Pattern from
 // hsg-property-game audio.js (tone, noise, unlock on the first gesture), grown into a small mixer: SFX and music
-// buses through a compressor, a generated room reverb, rate limiting so a bumper frenzy never clips, and a
-// step sequencer for four short jazz loops (title, main, mode, multiball/wizard).
-export const audio = { ctx: null, on: true, music: true, vol: 0.8, played: [], last: {}, scene: null, hold: false };
+// buses through a compressor, a generated room reverb, rate limiting so a bumper frenzy never clips. The music
+// (six jazz pieces of 24 to 32 bars) and the ambience beds are played by the collection's audio kit (audiokit.js)
+// from the scores and scenes in music.js, on their own buses under the same master and compressor.
+import { makeAudioKit, measureAudio } from './audiokit.js';
+import { SCORES, SCENES, AMBIENCE_FOR, MUSIC_LEVEL, AMBIENCE_LEVEL } from './music.js';
 
-let master, sfxBus, musBus, verb, noiseBuf;
+export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, played: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {} };
+
+let master, sfxBus, verb, noiseBuf;
+// music and ambience obey the sound switch as well as their own
+const musicOn = () => audio.on && audio.music;
+const ambOn = () => audio.on && audio.ambience;
 
 export function unlock() {
   if (audio.ctx) { if (audio.ctx.state === 'suspended' && !audio.hold) audio.ctx.resume(); return; }
@@ -17,7 +24,6 @@ export function unlock() {
     master = c.createGain(); master.gain.value = audio.vol;
     master.connect(comp).connect(c.destination);
     sfxBus = c.createGain(); sfxBus.gain.value = audio.on ? 0.9 : 0; sfxBus.connect(master);
-    musBus = c.createGain(); musBus.gain.value = audio.music ? 0.32 : 0; musBus.connect(master);
     // a short generated room impulse for a little space
     const len = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
@@ -25,8 +31,9 @@ export function unlock() {
     const wet = c.createGain(); wet.gain.value = 0.18; verb.connect(wet).connect(master);
     const n = c.sampleRate; noiseBuf = c.createBuffer(1, n, n);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    if (audio.scene) startMusic(audio.scene);
-    if (audio.hold) c.suspend();
+    audio.kit = makeAudioKit(c, master, { seed: (Math.random() * 0xffffff) | 0, music: musicOn() ? MUSIC_LEVEL : 0, ambience: ambOn() ? AMBIENCE_LEVEL : 0 });
+    if (audio.hold) { audio.kit.hold(); c.suspend(); }
+    if (audio.scene) startMusic(audio.scene, audio.mode);
   } catch { audio.ctx = null; }
 }
 
@@ -39,18 +46,27 @@ if (typeof window !== 'undefined' && window.addEventListener) {
   for (const e of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(e, first, true);
 }
 
-// silence while paused or hidden: a suspended context stops the clock the sequencer reads, so nothing is lost or queued
-export function suspendAudio() { audio.hold = true; if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend(); }
-export function resumeAudio() { audio.hold = false; if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume(); }
+// silence while paused or hidden: the kit fades its buses and a suspended context stops the clock it schedules
+// from, so nothing is lost or queued
+export function suspendAudio() {
+  audio.hold = true;
+  if (audio.kit) audio.kit.hold();
+  if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
+}
+export function resumeAudio() {
+  audio.hold = false;
+  if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+  if (audio.kit) audio.kit.release();
+}
 
-export function setVolumes({ sound = audio.on, music = audio.music, volume = audio.vol } = {}) {
-  audio.on = sound; audio.music = music; audio.vol = volume;
+export function setVolumes({ sound = audio.on, music = audio.music, ambience = audio.ambience, volume = audio.vol } = {}) {
+  audio.on = sound; audio.music = music; audio.ambience = ambience; audio.vol = volume;
   if (!audio.ctx) return;
   const t = audio.ctx.currentTime;
   master.gain.setTargetAtTime(volume, t, 0.05);
   sfxBus.gain.setTargetAtTime(sound ? 0.9 : 0, t, 0.05);
-  musBus.gain.setTargetAtTime(music ? 0.32 : 0, t, 0.05);
-  if (!music) stopMusic(); else if (audio.scene) startMusic(audio.scene);   // no oscillators are made for a muted bus
+  audio.kit.music.level(musicOn() ? MUSIC_LEVEL : 0); audio.kit.amb.level(ambOn() ? AMBIENCE_LEVEL : 0);
+  startMusic(audio.scene, audio.mode);   // plays or stops the pieces for the new switches: nothing is scheduled for a muted bus
 }
 
 function env(g, t0, a, peak, dur) {
@@ -75,6 +91,7 @@ function noise(t0, dur, g = 0.2, freq = 800, type = 'highpass', q = 0.7, bus = s
 }
 const thunk = (t, f = 90, g = 0.35) => { tone(f, t, 0.09, 'sine', g, -40); noise(t, 0.04, g * 0.5, 1200, 'bandpass', 1.2); };
 
+const BIG = new Set(['jackpot', 'superJackpot', 'skill', 'complete', 'modeWon', 'extraBall', 'multiball', 'wizard', 'boil', 'gameOver', 'start']);
 const LIMIT = { bumper: 0.045, wall: 0.03, spinner: 0.025, switch: 0.03, rollover: 0.04, target: 0.04, clack: 0.04, flipHit: 0.03 };
 
 export function sfx(name, v = 1) {
@@ -84,6 +101,7 @@ export function sfx(name, v = 1) {
   if (LIMIT[name] && t - (audio.last[name] || 0) < LIMIT[name]) return;
   audio.last[name] = t;
   v = Math.max(0.15, Math.min(1, v));
+  if (BIG.has(name) && audio.kit) audio.kit.music.duck(6, 400);
   try {
     switch (name) {
       case 'flip': thunk(t, 110, 0.32); noise(t, 0.03, 0.12, 3000); break;
@@ -138,44 +156,50 @@ export function sfx(name, v = 1) {
 }
 
 // ------------------------------------------------------------------------------------------------- music
-// Four loops in a swing-jazz idiom: walking bass, comped chords, brushed hi-hat. 16th-step sequencer.
-const N = (n) => 440 * Math.pow(2, (n - 69) / 12);
-const SONGS = {
-  title: { bpm: 96, chords: [[57, 60, 64, 67], [55, 59, 62, 65], [53, 57, 60, 64], [52, 56, 59, 62]], bass: [45, 43, 41, 40] },
-  main: { bpm: 126, chords: [[60, 64, 67, 70], [65, 69, 72, 75], [60, 64, 67, 70], [67, 71, 74, 77]], bass: [48, 53, 48, 43] },
-  mode: { bpm: 140, chords: [[62, 65, 69, 72], [67, 71, 74, 77], [60, 64, 67, 71], [57, 61, 64, 67]], bass: [50, 43, 48, 45] },
-  multiball: { bpm: 156, chords: [[64, 68, 71, 74], [69, 73, 76, 79], [64, 68, 71, 74], [71, 75, 78, 81]], bass: [52, 57, 52, 47] },
-};
-let seq = null;
-
-export function startMusic(name) {
-  audio.scene = name;
-  if (!audio.ctx) return;
-  if (!audio.music) return stopMusic();
-  if (seq && seq.name === name) return;
-  stopMusic();
-  const song = SONGS[name];
-  if (!song) return;
-  const c = audio.ctx, stepDur = 60 / song.bpm / 4;
-  seq = { name, next: c.currentTime + 0.1, step: 0, timer: 0 };
-  const s = seq;
-  const sched = () => {
-    if (seq !== s) return;
-    if (s.next < c.currentTime) s.next = c.currentTime + 0.05;   // a throttled timer must not start every missed step at once
-    while (s.next < c.currentTime + 0.25) {
-      const bar = Math.floor(s.step / 16) % 4, st = s.step % 16, t = s.next;
-      const swing = st % 2 ? stepDur * 0.18 : 0;
-      if (st % 4 === 0) { // walking bass on the beat
-        const root = song.bass[bar], walk = [0, 4, 7, 9][st / 4];
-        tone(N(root + walk), t + swing, stepDur * 3.2, 'triangle', 0.22, 0, musBus);
-      }
-      if (st === 2 || st === 10 || (st === 7 && bar % 2)) song.chords[bar].forEach((n) => tone(N(n), t + swing, stepDur * 1.6, 'sine', 0.05, 0, musBus, 1));
-      if (st % 2 === 0) noise(t + swing, 0.04, st % 4 === 2 ? 0.05 : 0.025, 7000, 'highpass', 0.7, musBus);
-      if (st === 4 || st === 12) noise(t, 0.08, 0.04, 1800, 'bandpass', 0.8, musBus);
-      s.step++; s.next += stepDur;
-    }
-    s.timer = setTimeout(sched, 60);
-  };
-  sched();
+// startMusic(name, mode): name is a piece in SCORES; the ambience follows it (a mode asks for its own bed).
+// A switch that is off plays nothing: no node is made for a muted bus.
+export function startMusic(name, mode = null) {
+  audio.scene = name; audio.mode = mode;
+  const k = audio.kit;
+  if (!k || !audio.ctx) return;
+  if (musicOn() && SCORES[name]) k.music.play(SCORES[name], { fade: 1.6 }); else k.music.stop(1);
+  const amb = AMBIENCE_FOR[mode && AMBIENCE_FOR['mode:' + mode] ? 'mode:' + mode : name];
+  if (ambOn() && SCENES[amb]) k.amb.play(SCENES[amb], { fade: 2.5 }); else k.amb.stop(1.5);
+  if (k.music.score || k.amb.scene) { k.scheduleUntil(audio.ctx.currentTime + 0.25); k.start(); } else k.stop();   // the first bar is scheduled now, not on the next timer tick
 }
-export function stopMusic() { if (seq) { clearTimeout(seq.timer); seq = null; } }
+export function stopMusic() { audio.scene = null; audio.mode = null; if (audio.kit) { audio.kit.music.stop(1); audio.kit.amb.stop(1.5); audio.kit.stop(); } }
+// state the music follows: 0 (a quiet table) to 1 (hurry-up, last seconds, the wizard): the rhythm section and lead lift
+export function musicIntensity(x) { audio.intensity = x; if (audio.kit) audio.kit.music.intensity(x); }
+// a quantity the ambience follows (steam from the spring temperature, the crowd from the race), 0..1
+export function ambienceParam(name, v) { v = Math.max(0, Math.min(1, v)); audio.params[name] = +v.toFixed(3); if (audio.kit) audio.kit.amb.set(name, v); }
+
+// ------------------------------------------------------------------------------------------------- test hooks
+// what is playing, for the tests: the piece and bed by name, the levels the buses were told, and the bars scheduled so far
+export function audioNow() {
+  const k = audio.kit, name = (table, v) => Object.keys(table).find((n) => table[n] === v) || null;
+  return {
+    scene: audio.scene, mode: audio.mode, intensity: audio.intensity, held: !!(k && k.held),
+    music: k ? name(SCORES, k.music.score) : null, ambience: k ? name(SCENES, k.amb.scene) : null,
+    musicLevel: musicOn() ? MUSIC_LEVEL : 0, ambienceLevel: ambOn() ? AMBIENCE_LEVEL : 0,
+    ambienceParams: { ...audio.params },
+    bars: k && k.music.info() ? k.music.info().bars : 0,
+  };
+}
+export function audioList() { return { music: Object.keys(SCORES), ambience: Object.keys(SCENES) }; }
+// Renders one piece or scene by itself at the level the game ships (default volume, the same compressor) on an
+// OfflineAudioContext and measures it. It never touches the live audio or the settings.
+export function audioRender(name, seconds = 60, wav = false, intensity = 0) {
+  const music = SCORES[name], scene = SCENES[name];
+  if (!music && !scene) return Promise.reject(new Error('unknown piece: ' + name));
+  return measureAudio((oc, dest) => {
+    const m = oc.createGain(); m.gain.value = 0.8;
+    const comp = oc.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+    m.connect(comp).connect(dest);
+    const kit = makeAudioKit(oc, m, { seed: 7, music: MUSIC_LEVEL, ambience: AMBIENCE_LEVEL });
+    if (music) { kit.music.intensity(intensity); kit.music.play(music, { at: 0, fade: 0.02 }); }
+    else { kit.amb.set('steam', intensity); kit.amb.set('crowd', intensity); kit.amb.play(scene, { at: 0, fade: 0.02 }); }
+    kit.scheduleUntil(seconds);
+    return () => (music ? { ...kit.music.info(), formSeconds: +(kit.music.info().formBars * 240 / music.bpm).toFixed(1) } : null);
+  }, seconds, { wav });
+}

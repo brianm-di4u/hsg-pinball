@@ -21,7 +21,7 @@ function fakeContext(starts) {
     resume() { this.state = 'running'; return Promise.resolve(); }
     createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
     createGain() { return stub(); } createOscillator() { return stub(); } createBiquadFilter() { return stub(); }
-    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createConvolver() { return stub(); }
+    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
   };
 }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -114,7 +114,7 @@ export const tests = [
       const starts = [];
       globalThis.window = { AudioContext: fakeContext(starts) };
       try {
-        audio.music = false;
+        audio.music = false; audio.ambience = false;
         unlock();
         startMusic('main');
         const c = fakeContext.last;
@@ -128,7 +128,7 @@ export const tests = [
         t.equal(starts.length, n, 'music off again: the running sequencer stops');
         setVolumes({ music: true });
         t.expect(starts.length > n, 'and starts again');
-      } finally { stopMusic(); audio.ctx = null; audio.music = true; audio.scene = null; delete globalThis.window; }
+      } finally { stopMusic(); audio.ctx = null; audio.music = true; audio.ambience = true; audio.scene = null; delete globalThis.window; }
     },
   },
 ];
