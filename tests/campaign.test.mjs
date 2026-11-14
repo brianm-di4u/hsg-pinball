@@ -50,6 +50,9 @@ export const tests = [
           if (r < 0.75) {
             const name = SWITCHES[Math.floor(rnd() * SWITCHES.length)];
             const want = shadowDelta(G, name);
+            // the free ball is parked in empty table first, so a sling or lane the physics happens to touch in the same tick
+            // cannot add its own points to the injected switch's (the kickbacks of S3-03 changed which ticks collide)
+            for (const b of G.w.balls) if (!b.held) { b.x = 240; b.y = 620; b.vx = 0; b.vy = 0; }
             const s0 = G.player.score, mode0 = G.mode, mb0 = G.mb;
             G.w.events.push({ t: KIND(name), sw: T.sw[name], speed: 400 + rnd() * 2000, dir: rnd() < 0.8 ? 1 : -1, ball: G.w.balls[0] && G.w.balls[0].id, x: 240, y: 400 });
             tick(G); events++;
