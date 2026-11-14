@@ -210,3 +210,18 @@ body.closeup .table { width: 100vw; }
 body:not(.reduced) .toast { animation: toast-in 0.35s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (max-aspect-ratio: 4 / 5) { .toast { top: 152px; } }   /* phone portrait: below the display, so a callout is never covered */
+
+/* ---------------------------------------------------------------- first-game tips (S2-01) */
+.goal-line { margin: 0 0 10px; color: var(--cream); }
+.coach { position: fixed; z-index: 12; top: 14px; left: 50%; transform: translateX(-50%); width: max-content; max-width: min(calc(100vw - 32px), 460px); display: flex; gap: 12px; align-items: center; padding: 8px 8px 8px 16px;
+  background: rgba(22, 19, 36, 0.94); border: 2px solid var(--neon-blue); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); pointer-events: none; }
+.coach[hidden] { display: none; }
+.coach .btn { pointer-events: auto; flex: none; font-size: 0.82em; }
+.coach-text { margin: 0; font-weight: 700; line-height: 1.3; }
+body:not(.reduced) .coach { animation: toast-in 0.35s ease-out; }
+/* the Launch button wears a ring while the first tip points at it (a static ring: it does not pulse under reduced motion) */
+.btn.launch.coached { border-color: var(--neon-blue); box-shadow: 0 0 0 3px rgba(79, 195, 255, 0.55), 0 0 18px rgba(79, 195, 255, 0.5); }
+body:not(.reduced) .btn.launch.coached { animation: coach-ring 1.1s ease-in-out infinite; }
+@keyframes coach-ring { 50% { box-shadow: 0 0 0 7px rgba(79, 195, 255, 0.2), 0 0 26px rgba(79, 195, 255, 0.7); } }
+@media (max-aspect-ratio: 4 / 5) { .coach { top: 148px; } }   /* phone portrait: under the display and its score plate, over the empty top of the arch, clear of the bumpers */
+@media (max-height: 520px) and (min-aspect-ratio: 4 / 5) { .coach { top: 6px; } }

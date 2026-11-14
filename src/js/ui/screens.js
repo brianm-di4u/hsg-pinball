@@ -4,6 +4,7 @@ import { MODES } from '../sim/rules.js';
 import { BATHHOUSES } from '../sim/table-spa-city.js';
 import { FACTS } from '../sim/facts.js';
 import { GOALS, RANKS, MODE_NAMES, shiftDay } from '../progress.js';
+import { GOAL_LINE } from './coach.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -63,7 +64,7 @@ export function createScreens(root, app) {
           <div class="pair"><button type="button" id="b-scores" class="btn">High scores</button><button type="button" id="b-records" class="btn">Records</button></div>
           <div class="pair"><button type="button" id="b-help" class="btn">How to play</button><button type="button" id="b-settings" class="btn">Settings</button></div>
         </div>
-        <p class="hint">${app.touch ? 'Tap the left or right side to flip' : 'Z and / (or Shift) to flip · Space to plunge'}</p>
+        <p class="hint">${app.touch ? 'Tap the left or right side to flip · hold Launch to plunge' : 'Z and / (or Shift) to flip · hold Space to plunge'}</p>
         <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
         <p class="hint" id="t-rank">Rank: ${esc(P.rank.name)}${P.daily.days[P.today] ? ' · daily played today' : ' · today\'s daily table is waiting'}</p>
       </section>`);
@@ -79,6 +80,7 @@ export function createScreens(root, app) {
       current = 'pause';
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="p-h">
         <h2 id="p-h">Paused</h2>
+        <p class="small goal-line">${GOAL_LINE}</p>
         <div class="menu">
           <button type="button" id="b-resume" class="btn primary" autofocus>Resume</button>
           <button type="button" id="b-help" class="btn">How to play</button>
@@ -111,6 +113,8 @@ export function createScreens(root, app) {
           ${opt('s-practice', 'Practice (endless ball save)', [[0, 'Off'], [1, 'On']], +s.practice)}
           ${opt('s-tier', 'Graphics quality', [['auto', 'Automatic'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['2d', 'Flat 2D']], s.tier)}
           ${opt('s-text', 'Text size', [[1, 'Normal'], [1.15, 'Large'], [1.3, 'Larger']], s.textScale)}
+          <div class="row"><span>First-game tips</span><button type="button" id="s-tips" class="btn sm">Show tips again</button></div>
+          <p class="hint" id="s-tips-hint" aria-live="polite">${s.tipsSeen ? '' : 'The tips will show on the next ball.'}</p>
         </div>
         <div class="menu"><button type="button" id="b-back" class="btn primary">Done</button></div>
       </section>`);
@@ -119,6 +123,7 @@ export function createScreens(root, app) {
         app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), motion: v('#s-motion'),
           balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text') });
       };
+      on('#s-tips', () => { app.showTipsAgain(); root.querySelector('#s-tips-hint').textContent = 'The tips will show on the next ball.'; });
       root.querySelectorAll('select, input').forEach((n) => n.addEventListener('change', read));
       root.querySelector('#s-difficulty').addEventListener('change', (e) => { root.querySelector('#s-diff-hint').textContent = DIFF_HINT[e.target.value] + (back === 'pause' ? ' Applies to the next game.' : ''); });
       on('#b-back', () => { read(); back === 'pause' ? S.pause() : S.title(); });
@@ -127,6 +132,7 @@ export function createScreens(root, app) {
       current = 'help';
       el(`<section class="screen dialog wide" role="dialog" aria-modal="true" aria-labelledby="h-h">
         <h2 id="h-h">How to play</h2>
+        <p class="goal-line"><b>Goal.</b> ${GOAL_LINE}</p>
         <div class="cols">
           <div>
             <h3>Controls</h3>

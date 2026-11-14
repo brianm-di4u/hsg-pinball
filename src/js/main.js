@@ -10,6 +10,7 @@ import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
 import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
+import { createCoach } from './ui/coach.js';
 import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, suspendAudio, resumeAudio } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
 import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
@@ -114,6 +115,7 @@ app.start = (resume = null, o = {}) => {
     G.cues = G.cues.filter((c) => c.k !== 'dmd');
     G.cues.push({ t: G.t, k: 'dmd', text: 'BALL ' + G.player.ball, sub: fmt(G.player.score), ms: 1600, prio: 2, anim: null });
   }
+  coach.stop();
   dmd.queue.length = 0; dmd.cur = null;   // a new game starts with a clean display
   screens.close();
   document.body.dataset.scene = 'game';
@@ -127,7 +129,7 @@ app.startDaily = () => app.start(null, { daily: true });
 // what the Records screen and the title show, read fresh from the saves
 app.progress = () => { const today = todayKey(), daily = loadDaily(today); return { stats: app.stats, rank: rankOf(app.stats.score), daily, today, streak: streakOf(daily.days, today) }; };
 app.resume = () => { resumeAudio(); paused = false; screens.close(); document.body.dataset.scene = demo ? 'title' : 'game'; lastNow = performance.now(); };
-app.quit = () => { resumeAudio(); paused = false; screens.title(); startDemo(); };
+app.quit = () => { resumeAudio(); paused = false; coach.stop(); screens.title(); startDemo(); };
 app.applySettings = (s) => {
   const tierChanged = s.tier && s.tier !== app.settings.tier;
   Object.assign(app.settings, s);
@@ -170,6 +172,8 @@ const input = createInput(tableEl, {
   touchActive() { return !screens.current && !paused; },
   action(a, down, ts, src) {
     unlock();
+    if (src === 'key' || src === 'touch' || src === 'pad') coach.setKind(src);
+    if (a === 'tips') { if (down) coach.skip(); return; }
     if (screens.current === 'entry') { if (down && screens.entryKey) screens.entryKey(a); return; }
     if (a === 'pause') {
       if (!down) return;
@@ -180,19 +184,41 @@ const input = createInput(tableEl, {
       return;
     }
     if (paused || demo || screens.current) return;
-    if (a === 'flipL' || a === 'flipR') flipper(G, a === 'flipL' ? 'L' : 'R', down, simTimeFor(ts));
+    if (a === 'flipL' || a === 'flipR') { flipper(G, a === 'flipL' ? 'L' : 'R', down, simTimeFor(ts)); if (down) coach.note('flip'); }
     else if (a === 'plunge') { if (!down && src === 'blur') plungerCancel(G); else plunger(G, down); }
     else if (down && a.startsWith('nudge')) { nudge(G, { nudgeL: 'left', nudgeR: 'right', nudgeU: 'up' }[a]); if (!reducedMotion()) effects.push({ k: 'shake', dir: a, t: now() }); }
   },
 });
 // on-screen buttons
-$('#b-launch').addEventListener('pointerdown', (e) => { unlock(); if (!demo && !paused) plunger(G, true); e.preventDefault(); });
+$('#b-launch').addEventListener('pointerdown', (e) => { unlock(); coach.setKind(e.pointerType === 'touch' || app.touch ? 'touch' : 'key'); if (!demo && !paused) plunger(G, true); e.preventDefault(); });
 const releaseLaunch = (e) => { if (!demo && !paused) plunger(G, false); };
 $('#b-launch').addEventListener('pointerup', releaseLaunch);
 $('#b-launch').addEventListener('pointerleave', releaseLaunch);
 $('#b-menu').addEventListener('click', () => { unlock(); if (demo) screens.title(); else pause(); });
 
 const screens = createScreens($('#screens'), app);
+
+// ------------------------------------------------------------------------------------------------- first-game tips (S2-01)
+// Shown on the first serve of a newcomer's first game (settings.tipsSeen is false); a settings record from before the tips
+// counts as seen. The line sits over the top of the table, never over the lane, the flippers or the HUD numbers.
+const coachEl = $('#coach'), coachSkip = $('#coach-skip');
+const coach = createCoach({
+  show(text, id) { $('#coach-text').textContent = text; coachEl.dataset.step = id; coachSkip.textContent = coach.kind === 'key' ? 'Skip tips (T)' : 'Skip tips'; $('#b-launch').classList.toggle('coached', id === 'plunge'); },
+  hide() { coachEl.hidden = true; uiCache.coach = false; $('#b-launch').classList.remove('coached'); },
+  say(text) { announce(text); },
+  done() { app.applySettings({ tipsSeen: true }); },
+});
+coach.kind = app.touch ? 'touch' : 'key';
+coachSkip.addEventListener('click', () => { coach.skip(); tableEl.focus({ preventScroll: true }); });
+app.showTipsAgain = () => { app.applySettings({ tipsSeen: false }); };
+function coachFrame() {
+  if (!coach.active && !app.settings.tipsSeen && !demo && !paused && G.scene === 'game' && !screens.current && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150)) coach.start(G.t);
+  if (!coach.active) return;
+  if (demo) { coach.stop(); return; }
+  coach.poll({ t: G.t, lane: G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150), balls: G.w.balls.length });
+  const show = coach.active && !paused && !screens.current;
+  if (show !== uiCache.coach) { uiCache.coach = show; coachEl.hidden = !show; }
+}
 
 // ------------------------------------------------------------------------------------------------- cues
 function now() { return renderClock != null ? renderClock : (performance.now() - clockBase) / 1000; }
@@ -363,6 +389,7 @@ function frame(ts) {
   // the ball's rolling, ramp and rail sound follows the fastest ball; on the low tier it is updated every fourth frame
   if (frameNo % (view && view.tier === 'low' ? 4 : 1) === 0) setRoll(G.w.balls, G.T.width, running && !demo && G.scene === 'game');
   if (frameNo % 20 === 0) mixState();
+  coachFrame();
   try { render(Math.min(1, acc / TICK)); renderFails = 0; }
   catch (e) {
     // a throw mid-render leaves the HUD half updated: after 5 in a row say so instead of failing silently
@@ -411,6 +438,7 @@ window.__game = {
   },
   setState(s) { setGameState(G, s); return true; },
   progress() { return app.progress(); },
+  coach() { return { active: coach.active, step: coach.step, text: coach.text, kind: coach.kind, shown: !coachEl.hidden, seen: app.settings.tipsSeen }; },
   setToday(d) { setToday(d); return todayKey(); },
   startDaily() { app.startDaily(); return G.daily; },
   audioList() { return audioList(); },

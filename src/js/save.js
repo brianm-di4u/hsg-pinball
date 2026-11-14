@@ -14,7 +14,7 @@ export const store = {
   },
 };
 
-export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard' };
+export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard', tipsSeen: false };
 
 // saved values come from storage anyone can edit: keep only what the settings screen could have written
 const pick = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt);
@@ -30,11 +30,15 @@ function cleanSettings(s) {
     tier: pick(s.tier, ['auto', 'high', 'medium', 'low', '2d'], d.tier),
     textScale: pick(s.textScale, [1, 1.15, 1.3], d.textScale),
     difficulty: pick(s.difficulty, DIFFICULTIES, d.difficulty),   // a save from before the setting has none: Standard
+    tipsSeen: bool(s.tipsSeen, true),   // a settings record from before the tips is a returning player's: no first-game tips unless asked
   };
 }
 export function loadSettings() {
   const s = store.get('settings', null);
-  return s && typeof s === 'object' && s.v === 1 ? cleanSettings(s) : { ...DEFAULT_SETTINGS };
+  if (s && typeof s === 'object' && s.v === 1) return cleanSettings(s);
+  // no settings yet: a newcomer, unless the browser already holds this game's scores, stats or a saved game (a returning player who never opened Settings)
+  const returning = ['scores', 'stats', 'daily', 'resume'].some((k) => store.get(k, null) != null);
+  return { ...DEFAULT_SETTINGS, tipsSeen: returning };
 }
 export function saveSettings(s) { store.set('settings', s); }
 

@@ -8,6 +8,7 @@ export const KEYS = {
   plunge: ['Space', 'Enter', 'ArrowDown', 'NumpadEnter'],
   nudgeL: ['KeyX'], nudgeR: ['Period'], nudgeU: ['ArrowUp'],
   pause: ['Escape', 'KeyP'],
+  tips: ['KeyT'],   // skips the first-game tips while they show
 };
 
 const SHIFTS = ['ShiftLeft', 'ShiftRight'];
