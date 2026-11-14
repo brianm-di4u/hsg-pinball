@@ -282,3 +282,80 @@ export const ballTests = [
   },
 ];
 tests.push(...ballTests);
+
+// ------------------------------------------------------------------------------------------------- S4-11: lettering that can be read
+export const labelTests = [
+  {
+    name: 'S4-11 labels grow for small screens by one rule, never past what their room allows, and the layout check passes',
+    node: true,
+    async run(t) {
+      const { labelScale, allLabels, LABEL_MIN_PX, LABEL_CAPS, labelBox } = await import('../src/js/sim/labels.js');
+      const { buildLamps } = await import('../src/js/sim/lamps.js');
+      t.equal([labelScale(0.7, 7.5), labelScale(0.7, 7.5, 1.3), labelScale(1.6, 7.5), labelScale(0, 7.5)], [1.7, 1.3, 1, 1], 'a 7.5 mm label grows on a phone, stops at its cap, is left alone on a big screen, and a bad scale changes nothing');
+      t.expect(Math.abs(labelScale(1, 6) - LABEL_MIN_PX / 6) < 1e-9, 'in between it grows to exactly the minimum type height: ' + labelScale(1, 6));
+      const labs = allLabels(buildLamps());
+      t.expect(labs.length >= 30, 'every label is in the one list: ' + labs.length);
+      for (const l of labs) t.expect(l.cap >= 1 && l.cap <= 1.7, l.text + ' has a sane cap: ' + l.cap);
+      t.expect(labs.filter((l) => l.size * l.cap * 0.7 >= 8.5).length >= 5, 'at least five labels reach about 9 px on a phone');
+      t.expect(labelBox(labs[0], 2).hw > labelBox(labs[0], 1).hw, 'the layout box follows the scale');
+      const { execFileSync } = await import('node:child_process');
+      let out = ''; try { out = execFileSync(process.execPath, ['tools/check-layout.mjs'], { encoding: 'utf8' }); } catch (e) { out = 'FAILED ' + (e.stdout || '') + (e.stderr || ''); }
+      t.expect(/clear of inserts, walls, posts and holes/.test(out), 'tools/check-layout.mjs: ' + out.trim().split('\n').slice(0, 4).join(' | '));
+    },
+  },
+  {
+    name: 'S4-11 on screen: the lettering is enlarged where the room allows, a layer of its own, and sharp on both sizes',
+    async run(t) {
+      await clear(t);
+      await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      await skipTips(t);
+      const s0 = await t.state(); if (s0.view !== '3d') { t.log('3D view not active here'); return; }
+      const info = await t.page.evaluate(() => window.__game.labelInfo());
+      const by = Object.fromEntries(info.map((l) => [l.text, l]));
+      t.log(info.map((l) => `${l.text} ${l.px.toFixed(1)}px x${l.scale}`).join(' · '));
+      for (const l of info) t.expect(l.scale >= 1 && l.scale <= 1.7, l.text + ' scale in range: ' + l.scale);
+      t.expect(info.every((l) => l.px >= l.size * 0.4), 'no label is smaller than it was printed');
+      if (t.viewport === 'mobile') {
+        for (const n of ['CENTRAL AVENUE', 'RESERVE ST', 'THERMAL SPRINGS', 'SHOOT AGAIN', 'LOCK']) t.expect(by[n].px >= 7 && by[n].scale > 1.2, n + ' reads at ' + by[n].px.toFixed(1) + ' CSS px (x' + by[n].scale + ')');
+        t.expect(by['HALE'].scale > 1 && by['LAMAR'].scale > 1, 'the bathhouse names are enlarged too: x' + by['HALE'].scale);
+      } else t.expect(by['SPA CITY'].scale === 1, 'the big logo is not touched');
+      t.equal(await t.page.evaluate(() => window.__game.labelLayer()), true, 'the lettering is its own layer');
+      await t.shot('S4-11-lettering');
+      // a close-up of the bathhouse row and the mode inserts for the owner to look at
+      const clip = await t.page.evaluate(() => { const a = window.__game.viewScreen(60, 520), b = window.__game.viewScreen(470, 780), r = document.getElementById('gl').getBoundingClientRect(); return { x: Math.max(0, r.left + Math.min(a[0], b[0])), y: Math.max(0, r.top + Math.min(a[1], b[1])), width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]) }; });
+      await t.page.screenshot({ path: t.shotDir + '/S4-11-bathhouse-row.png', clip });
+    },
+  },
+];
+tests.push(...labelTests);
+
+export const nameTests = [
+  {
+    name: 'S4-11 a bathhouse hit flashes its name large above the bank (3D), and a house that is already lit still says its name on the display',
+    async run(t) {
+      await clear(t);
+      await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+      await skipTips(t);
+      const s0 = await t.state();
+      t.equal(await t.page.evaluate(() => window.__game.nameInfo() && window.__game.nameInfo().visible), s0.view === '3d' ? false : null, 'no name before a hit');
+      await t.page.waitForFunction(() => window.__game.getState().dmd.text == null, null, { timeout: 12000 });   // the display runs on the wall clock: let the opening callout finish
+      await t.game('act', 'placeBall', 300, 400, 0, 0); await t.game('act', 'switch', 'bhHale'); await t.game('step', 2);
+      let s = await t.state(); t.equal(s.dmd.text, 'HALE', 'the first hit puts the house on the display: ' + s.dmd.text);
+      if (s0.view === '3d') {
+        await t.waitFrames(8);
+        const n = await t.page.evaluate(() => window.__game.nameInfo());
+        t.expect(n.visible && n.name === 'HALE' && n.opacity > 0.6, 'its name floats above the bank: ' + JSON.stringify(n));
+        const need = await t.page.evaluate(() => { const a = window.__game.viewScale(190, 650); return 15 / a / 0.55; });
+        t.expect(n.height >= Math.min(need, 34) * 0.95, 'tall enough for the type to be about 15 CSS px (' + n.height.toFixed(0) + ' mm, wanted ' + need.toFixed(0) + ')');
+        await t.shot('S4-11-name-flash');
+        await t.page.waitForFunction(() => !window.__game.nameInfo().visible, null, { timeout: 5000 });
+        t.expect(true, 'and it goes after a second or two');
+      }
+      await t.page.waitForFunction(() => window.__game.getState().dmd.text == null, null, { timeout: 8000 });   // the display runs on the wall clock: let the first callout finish
+      await t.game('act', 'placeBall', 300, 400, 0, 0); await t.game('act', 'switch', 'bhHale'); await t.game('step', 2);
+      s = await t.state(); t.equal([s.dmd.text, s.dmd.sub], ['HALE', '500'], 'a repeat hit says the name again: ' + s.dmd.text + ' ' + s.dmd.sub);
+      if (s0.view === '3d') { await t.waitFrames(6); const n = await t.page.evaluate(() => window.__game.nameInfo()); t.expect(n.visible && n.name === 'HALE', 'and flashes it again'); await t.game('act', 'placeBall', 300, 400, 0, 0); await t.game('act', 'switch', 'bhOzark'); await t.game('step', 2); await t.waitFrames(6); t.equal((await t.page.evaluate(() => window.__game.nameInfo())).name, 'OZARK', 'another house: its own name'); }
+    },
+  },
+];
+tests.push(...nameTests);

@@ -388,7 +388,7 @@ function bathhouse(G, i, e) {
       f.grandSoakLit = true;
       dmd(G, 'BATHHOUSE ROW COMPLETE', 'GRAND SOAK AT THE VAPORS', 2400, 3, 'row'); sound(G, 'complete'); show(G, 'row', 1600);
     }
-  } else score(G, 500);
+  } else { score(G, 500); if (!G.mode) dmd(G, name.toUpperCase(), '500', 700, 0); }   // a house already lit: its name again, so the player knows which one it was
 }
 
 function spinner(G, e) {

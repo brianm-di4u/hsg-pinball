@@ -1,10 +1,10 @@
 // The playfield artwork, composed in code on a canvas aligned 1:1 with the physics table (mm → px): a deco-neon
-// base, the painted Codex vignettes masked into their zones, gold pinstripes along the walls, unlit insert plastics,
-// and all lettering. Returns the canvas (colour) plus a matching insert mask used for the lit glow.
+// base, the painted Codex vignettes masked into their zones, gold pinstripes along the walls and unlit insert plastics.
+// Returns the canvas (colour) plus a matching insert mask used for the lit glow. The lettering is a layer of its own
+// (paintLabels), sized for the screen it is shown on.
 import { shape } from './view2d.js';
-import { CX, BATHHOUSES, VAP } from '../sim/table-spa-city.js';
-import { MODES } from '../sim/rules.js';
-import { FEATURE_LABELS } from '../sim/labels.js';
+import { CX } from '../sim/table-spa-city.js';
+import { allLabels, grownCentre } from '../sim/labels.js';
 
 const FONT = '"Futura", "Century Gothic", "Avenir Next", "Trebuchet MS", system-ui, sans-serif';
 const SERIF = '"Rockwell", "Bookman Old Style", Georgia, "Times New Roman", serif';
@@ -78,35 +78,7 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
   }
   g.save(); outline(); g.strokeStyle = 'rgba(79,195,255,0.35)'; g.lineWidth = 3 * k; g.stroke(); g.restore();
 
-  // 5. lettering
-  const label = (txt, x, y, size, color = '#f2e6c8', angle = 0, font = FONT, weight = 700, spacing = 0.12, plate = false, maxW = 0) => {
-    g.save(); g.translate(X(x), Y(y)); g.rotate(-angle);
-    g.font = `${weight} ${size * k}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    // shrink to fit a slot (bathhouse names share the bank's width)
-    if (maxW) { const w0 = g.measureText(txt).width + size * k * 0.9; if (w0 > maxW * k) { size *= (maxW * k) / w0; g.font = `${weight} ${size * k}px ${font}`; } }
-    if ('letterSpacing' in g) g.letterSpacing = `${size * k * spacing}px`;
-    if (plate) { const tw = g.measureText(txt).width + size * k * spacing * txt.length, ph = size * k * 1.5, pw = tw + size * k * 0.9; g.fillStyle = 'rgba(10,8,18,0.78)'; g.beginPath(); g.roundRect ? g.roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.3) : g.rect(-pw / 2, -ph / 2, pw, ph); g.fill(); g.strokeStyle = 'rgba(212,175,55,0.55)'; g.lineWidth = 0.5 * k; g.stroke(); }
-    g.lineWidth = size * k * 0.22; g.strokeStyle = 'rgba(8,6,14,0.85)'; g.strokeText(txt, 0, 0);
-    g.fillStyle = color; g.fillText(txt, 0, 0);
-    g.restore();
-  };
-  // centre logo
-  for (const [t, x, y, size, col, ang, wt, plate, font] of FEATURE_LABELS) label(t, x, y, size, col, ang, font === 'serif' ? SERIF : FONT, wt, t === 'SPA CITY' ? 0.08 : 0.12, plate);
-  ['S', 'P', 'A'].forEach((l, i) => label(l, 356 + i * 40, 908, 11, '#ffd877'));
-  // bathhouse names on the bank, small, north to south
-  const banks = [[[117, 650], [203, 694], 0], [[2 * CX - 203, 694], [2 * CX - 117, 650], 4]];
-  for (const [a, b, off] of banks) {
-    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L; if (ny > 0) { nx = -nx; ny = -ny; }
-    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-    for (let i = 0; i < 4; i++) {
-      const t = (i + 0.5) / 4;
-      const shift = off + i === 0 ? 0.22 : 0, out = off + i === 0 ? 40 : 30;   // Superior sits clear of the Vapors marquee
-      label(BATHHOUSES[off + i].toUpperCase(), a[0] + (b[0] - a[0]) * (t + shift) + nx * out, a[1] + (b[1] - a[1]) * (t + shift) + ny * out, 4.6, '#f4ecd8', ang, FONT, 800, 0, true, 22.5);
-    }
-  }
-  MODES.forEach((m, i) => { const l = lamps.find((q) => q.name === 'mode' + i); if (l) label(m.short, l.x, l.y - 18, 8.6, '#ecd8ff', 0, FONT, 800, 0.02, true, 34); });
-  for (const l of lamps) if (l.label && l.group === 'bonusx') label(l.label, l.x, l.y - 15, 8, '#ffd877', 0, FONT, 800, 0.04, true);
+  // 5. (the lettering is its own layer: paintLabels, below, so it can be sized for the screen and sit over the mode art)
 
   // 6. inserts: unlit plastic look (dark tinted with a light rim). The lit glow is a separate emissive layer.
   const mask = document.createElement('canvas'); mask.width = W; mask.height = H;
@@ -120,6 +92,33 @@ export function paintPlayfield(T, lamps, art, pxPerMm = 2) {
     }
   }
   return { canvas: cv, mask, W, H, k };
+}
+
+/**
+ * The playfield's lettering on a transparent canvas the size of the painting, to be laid over it. `scaleOf(label)` gives the
+ * factor that makes a label readable on this screen (see labelScale in sim/labels.js); without it the lettering is drawn at
+ * its printed size.
+ */
+export function paintLabels(T, lamps, pxPerMm = 2, scaleOf = () => 1, list = allLabels(lamps)) {
+  const W = Math.round(T.width * pxPerMm), H = Math.round(T.height * pxPerMm);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  const k = pxPerMm;
+  const X = (x) => x * k, Y = (y) => (T.height - y) * k;
+  const label = (txt, x, y, size, color = '#f2e6c8', angle = 0, font = FONT, weight = 700, spacing = 0.12, plate = false, maxW = 0, grow = null, f = 1) => {
+    [x, y] = grownCentre({ x, y, size, plate, grow }, f); size *= f; maxW *= f;
+    g.save(); g.translate(X(x), Y(y)); g.rotate(-angle);
+    g.font = `${weight} ${size * k}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    // shrink to fit a slot (bathhouse names share the bank's width)
+    if (maxW) { const w0 = g.measureText(txt).width + size * k * 0.9; if (w0 > maxW * k) { size *= (maxW * k) / w0; g.font = `${weight} ${size * k}px ${font}`; } }
+    if ('letterSpacing' in g) g.letterSpacing = `${size * k * spacing}px`;
+    if (plate) { const tw = g.measureText(txt).width + size * k * spacing * txt.length, ph = size * k * 1.5, pw = tw + size * k * 0.9; g.fillStyle = 'rgba(10,8,18,0.78)'; g.beginPath(); g.roundRect ? g.roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.3) : g.rect(-pw / 2, -ph / 2, pw, ph); g.fill(); g.strokeStyle = 'rgba(212,175,55,0.55)'; g.lineWidth = 0.5 * k; g.stroke(); }
+    g.lineWidth = size * k * 0.22; g.strokeStyle = 'rgba(8,6,14,0.85)'; g.strokeText(txt, 0, 0);
+    g.fillStyle = color; g.fillText(txt, 0, 0);
+    g.restore();
+  };
+  for (const l of list) label(l.text, l.x, l.y, l.size, l.color, l.angle, l.serif ? SERIF : FONT, l.weight, l.spacing, l.plate, l.maxW, l.grow, scaleOf(l));
+  return cv;
 }
 
 function shade(hex, f) {

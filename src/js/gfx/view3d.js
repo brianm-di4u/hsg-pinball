@@ -3,7 +3,8 @@
 // watchdog) and the post chain follows hsg-football post3d.js (HDR target, bloom with a high threshold so only lamps
 // glow). Geometry for walls, ramp and wire is generated from the physics table so the picture always matches play.
 import { K, BALL_R, LAYER } from '../sim/physics.js';
-import { paintPlayfield } from './playfield.js';
+import { paintPlayfield, paintLabels } from './playfield.js';
+import { allLabels, labelScale } from '../sim/labels.js';
 import { CX, BATHHOUSES, VAP } from '../sim/table-spa-city.js';
 
 const TIERS = {
@@ -24,6 +25,10 @@ export const HIGHLIGHT = {
   floorDark: 0.40,      // how far the painting darkens at the foot of the table (0 = not at all)
   floorTo: 0.6,         // the darkening fades out by this fraction of the table's height
 };
+
+// The bathhouse name that floats above the bank when a target is hit (S4-11): the painted plates are a few pixels tall on a
+// phone, so the hit says which house it was in type that can be read. Seconds in, held and out; the type's height on screen.
+export const NAME_FLASH = { inS: 0.08, holdS: 0.9, outS: 0.4, px: 15, lift: 105, rise: 14 };
 
 export function probeGL() {
   if (!window.THREE) return false;
@@ -131,6 +136,14 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   applyMaterials();
   pfMesh.rotation.x = -Math.PI / 2; pfMesh.receiveShadow = true;
   scene.add(pfMesh);
+  // the lettering is a transparent layer laid over the painting (and over the mode art), repainted when the screen's scale changes (S4-11)
+  const lblTex = new THREE.CanvasTexture(document.createElement('canvas'));
+  lblTex.colorSpace = THREE.SRGBColorSpace; lblTex.anisotropy = 4;
+  const lblMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: lblTex, transparent: true, depthWrite: false }));
+  lblMesh.rotation.x = -Math.PI / 2; lblMesh.position.y = 0.22; lblMesh.renderOrder = 0.5; lblMesh.visible = false;
+  scene.add(lblMesh);
+  const labelList = allLabels(lamps);
+  let lblKey = '', lblScales = [];
   // cabinet body around the playfield
   const cab = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 40, H + 40), M.wood);
   cab.position.set(0, -20.5, 0); scene.add(cab);
@@ -553,6 +566,48 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     camera.lookAt(tgt); camera.userData.base = camera.position.clone();
   }
 
+  // CSS pixels per table mm at a point, for a canvas w CSS pixels wide (the camera must be placed)
+  function cssPerMm(x, y, w) { camera.updateMatrixWorld(); const a = P(x, y, 0).project(camera), b = P(x + 20, y, 0).project(camera); return Math.hypot((b.x - a.x) * w / 2, (b.y - a.y) * (w / camera.aspect) / 2) / 20; }
+  // paint the lettering at the size this screen needs; nothing is repainted when no label's size changed
+  function layoutLabels(w) {
+    const px = Math.max(1, Math.round(Q.pf * 0.8 * 10) / 10);
+    const scales = labelList.map((l) => Math.round(labelScale(cssPerMm(l.x, l.y, w), l.size, l.cap) * 20) / 20);
+    const key = px + ':' + scales.join();
+    if (key === lblKey) return;
+    lblKey = key; lblScales = scales;
+    const byLabel = new Map(labelList.map((l, i) => [l, scales[i]]));
+    lblTex.image = paintLabels(T, lamps, px, (l) => byLabel.get(l) || 1, labelList); lblTex.needsUpdate = true; lblMesh.visible = true;
+  }
+
+  // the bathhouse name flash: one sprite, its picture swapped for the house that was hit
+  const nameTex = {};
+  const nameTexture = (name) => nameTex[name] || (nameTex[name] = (() => {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = 'rgba(10,8,18,0.86)'; g.beginPath(); g.roundRect ? g.roundRect(6, 6, 500, 116, 26) : g.rect(6, 6, 500, 116); g.fill();
+    g.lineWidth = 6; g.strokeStyle = '#d4af37'; g.stroke();
+    g.fillStyle = '#fff3cf'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    let size = 84; g.font = '800 ' + size + 'px Futura, "Century Gothic", "Trebuchet MS", sans-serif';
+    while (g.measureText(name).width > 440 && size > 30) { size -= 4; g.font = '800 ' + size + 'px Futura, "Century Gothic", "Trebuchet MS", sans-serif'; }
+    g.fillText(name, 256, 68);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })());
+  const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false }));
+  nameSprite.renderOrder = 6; nameSprite.visible = false; scene.add(nameSprite);
+  let nameShown = '';
+  function nameFlash(fx, t, reduced, w) {
+    const e = [...fx].reverse().find((q) => q.k === 'flash' && /^bh/.test(q.name || '') && t - q.t < NAME_FLASH.inS + NAME_FLASH.holdS + NAME_FLASH.outS);
+    if (!e) { nameSprite.visible = false; nameShown = ''; return; }
+    const age = t - e.t, N = NAME_FLASH, a = age < N.inS ? age / N.inS : age < N.inS + N.holdS ? 1 : 1 - (age - N.inS - N.holdS) / N.outS;
+    const tg = targets.find((q) => q.name === e.name); if (!tg) { nameSprite.visible = false; return; }
+    const sg = T.segs[tg.seg], mx = (sg.ax + sg.bx) / 2, my = (sg.ay + sg.by) / 2;
+    const house = e.name.slice(2).toUpperCase();
+    if (house !== nameShown) { nameShown = house; nameSprite.material.map = nameTexture(house); nameSprite.material.needsUpdate = true; }
+    const hmm = Math.max(34, N.px / Math.max(0.2, cssPerMm(mx, my, w)) / 0.55);   // tall enough that the type is N.px CSS pixels high
+    nameSprite.scale.set(hmm * 4, hmm, 1);
+    nameSprite.position.copy(P(mx, my + 20, N.lift + (reduced ? 0 : N.rise * Math.min(1, age / 0.5))));
+    nameSprite.material.opacity = Math.max(0, Math.min(1, a)); nameSprite.visible = true;
+  }
+
   // ------------------------------------------------------------------------------------------- post
   let composer = null, bloom = null, rtW = 1, rtH = 1;
   function buildPost() {
@@ -587,6 +642,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       rtW = Math.round(w * Math.min(ratio, Q.ratio)); rtH = Math.round(h * Math.min(ratio, Q.ratio));
       fitCamera(w / Math.max(1, h));
       if (camMode !== 'full') this.setCamera(camMode);
+      layoutLabels(w);
       buildPost();
     },
     setTier(name) {
@@ -600,6 +656,9 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     hide() { canvas.style.visibility = 'hidden'; },
     /** For tests: where a table point (mm) lands on the canvas, in CSS pixels, and what the ball highlight is showing. */
     toScreen(x, y, h = 0) { const v = P(x, y, h).project(camera), r = canvas.getBoundingClientRect(); return [(v.x + 1) / 2 * r.width, (1 - v.y) / 2 * r.height]; },
+    /** For tests: the lettering's current scale factors, label by label, and its CSS size on this screen. */
+    labelInfo() { return labelList.map((l, i) => ({ text: l.text, size: l.size, scale: lblScales[i] || 1, px: l.size * (lblScales[i] || 1) * cssPerMm(l.x, l.y, canvas.getBoundingClientRect().width) })); },
+    nameInfo() { return { visible: nameSprite.visible, name: nameShown, opacity: nameSprite.material.opacity, height: nameSprite.scale.y }; },
     highlightInfo() { return { rims: ballPool.filter((B) => B.rim.visible).length, ghosts: ballPool.reduce((n, B) => n + B.ghosts.filter((g) => g.visible).length, 0), floorDark: pfDark.value }; },
     /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */
     /** The rendered (uploaded) brightness of a lamp's insert, for tests. */
@@ -652,6 +711,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
         });
       });
       pfDark.value = o.highlight ? HIGHLIGHT.floorDark : 0;
+      if (o.demo) { nameSprite.visible = false; } else nameFlash(o.effects, o.t, o.reduced, canvas.getBoundingClientRect().width);
       for (let i = interp.balls.length; i < ballPool.length; i++) { const B = ballPool[i]; B.m.visible = B.sh.visible = B.rim.visible = false; B.ghosts.forEach((g) => { g.visible = false; }); B.last = null; }
       // lamps
       const touched = new Set();
