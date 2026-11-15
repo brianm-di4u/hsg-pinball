@@ -1,6 +1,6 @@
 // Menus and overlays as DOM (title, settings, help, high scores, pause, game over, initials entry). Keyboard,
 // touch and gamepad reachable: every control is a real button; focus moves into each dialog.
-import { MODES } from '../sim/rules.js';
+import { MODES, LADDER, COMBO_MAX, EB_CAP } from '../sim/rules.js';
 import { BATHHOUSES } from '../sim/table-spa-city.js';
 import { FACTS } from '../sim/facts.js';
 import { GOALS, RANKS, MODE_NAMES, shiftDay } from '../progress.js';
@@ -218,6 +218,15 @@ export function createScreens(root, app) {
             <h3>Modes at the Vapors</h3>
             <ol class="modes">${MODES.map((m) => `<li><b>${esc(m.name)}</b>: ${esc(m.goal.toLowerCase())}</li>`).join('')}</ol>
             <p>Win two to light an extra ball and win four to light the wizard mode, <b>Valley of the Vapors</b>. A mode you lose pays a smaller bonus. Finish it and the round goes up: the modes ask a little more and pay a little more.</p>
+            <h3>Scoring</h3>
+            <ul id="help-scoring">
+              <li><b>Combo:</b> a second big shot (the ramp or an orbit) within 3 seconds pays 20,000 times the chain, up to ${fmt(20000 * COMBO_MAX)}.</li>
+              <li><b>Modes:</b> every step pays 15,000 or more, and most pay 50,000 to 200,000 more for finishing.</li>
+              <li><b>Extra ball:</b> 300 spins fill the Fifth Season meter. At most ${EB_CAP === 2 ? 'two' : EB_CAP} extra balls a game.</li>
+              <li><b>Bonus</b> at the end of each ball: 2,000 a bathhouse, 10,000 a tower level, ${fmt(LADDER.bonusWon)} a mode won (${fmt(LADDER.bonusPlayed)} if only played) and 10 a spin, times the S·P·A multiplier.</li>
+              <li><b>Match:</b> a score that ends in the match number wins a free game.</li>
+              <li><b>Beat the table:</b> the display shows the next high score to pass.</li>
+            </ul>
             <h3>About</h3>${'' /* fact: reserved, older */}
             <p class="small" id="help-about">An original game in the open-source Hot Springs Games collection (MIT). Places are shown as setting only; no affiliation with any business. Facts come from the collection's research notes, with "about" or "reportedly" where sources disagree. Horses, riders and characters are fictional. Hot Springs was set aside by Congress on April 20, 1832, forty years before Yellowstone.</p>
           </div>

@@ -147,4 +147,49 @@ export const tests = [
       t.equal(combos(H).length, 0, 'the first shot of the new ball is not a combo');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S3-13
+  {
+    name: 'S3-13 the help screen has a Scoring block with the thresholds, and the display gives way to the next score to pass',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'help');
+      await t.page.waitForSelector('#help-scoring');
+      const text = await t.page.textContent('#help-scoring');
+      for (const [re, what] of [[/3 seconds/, 'the combo window'], [/100,000/, 'what a combo tops out at'], [/300 spins/, 'the Fifth Season meter'], [/two extra balls a game/, 'the extra-ball limit'], [/15,000 a mode won/, 'what the bonus pays a mode'], [/free game/, 'what match does'], [/next high score/, 'the score to beat']]) t.expect(re.test(text), 'Scoring says ' + what + ': ' + text.slice(0, 60));
+      await t.page.evaluate(() => document.querySelector('#help-scoring').scrollIntoView({ block: 'center' }));
+      await t.waitFrames(3);
+      await t.checkLayout();
+      await shot(t, 'S3-13-help-scoring');
+    },
+  },
+  {
+    name: 'S3-13 the bottom line of the display shows the next score to pass every other 3 seconds, NEW BEST past the top, and nothing in a practice game',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('applySettings', { practice: false });
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('act', 'plunge', 0.9);
+      await t.page.waitForFunction(() => !/SKILL SHOT/.test(window.__game.getState().dmd.line || 'SKILL SHOT'), null, { timeout: 15000 });
+      const rows = (await t.state()).scores.map((r) => r.score);
+      const above = (x) => rows.filter((v) => v > x).pop();
+      const line = async (ms) => { await t.game('act', 'clock', ms); return (await t.state()).dmd.line; };
+      await t.game('setState', { player: { score: 1000 } });
+      t.equal(await line(1000), 'BALL 1', 'in the first 3 s of a 6 s cycle it is the ball');
+      t.equal(await line(4000), 'TO BEAT ' + above(1000).toLocaleString('en-US'), 'in the second it is the lowest table score above yours');
+      await t.game('setState', { player: { score: above(1000) + 1 } });
+      const next = rows.filter((v) => v > above(1000) + 1).pop();
+      t.equal(await line(4000), next ? 'TO BEAT ' + next.toLocaleString('en-US') : 'NEW BEST', 'passing a score moves the target up: ' + await line(4000));
+      await t.game('setState', { player: { score: rows[0] + 1 } });
+      t.equal(await line(4000), 'NEW BEST', 'past the top of the table it says so');
+      t.equal(await line(1000), 'BALL 1', 'and the ball line still shows in between');
+      await t.game('act', 'clock', null);
+      await t.game('applySettings', { practice: true });
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('act', 'plunge', 0.9);
+      await t.page.waitForFunction(() => !/SKILL SHOT/.test(window.__game.getState().dmd.line || 'SKILL SHOT'), null, { timeout: 15000 });
+      t.equal(await line(4000), 'BALL 1', 'a practice game is not ranked, so there is nothing to beat');
+      await t.game('act', 'clock', null);
+      await t.game('applySettings', { practice: false });
+    },
+  },
 ];

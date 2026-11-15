@@ -37,6 +37,7 @@ const app = {
 };
 
 let G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffff) });
+let beat = [];   // the high-score table of the game being played, best first: the display shows the next score to pass (S3-13)
 let demo = true, bot = null, paused = false, acc = 0, lastNow = performance.now(), timeScale = 1, slowUntil = 0;
 let renderClock = null, clockBase = 0, view = null, view2d = null, loading = true, frameNo = 0, lastFact = 0, overTimer = 0;
 // The attract demo is a live game: it rests (no sim, no redraw, the last picture stays up) while the player reads a menu, under
@@ -173,6 +174,7 @@ app.start = (resume = null, o = {}) => {
     G.cues = G.cues.filter((c) => c.k !== 'dmd');
     G.cues.push({ t: G.t, k: 'dmd', text: 'BALL ' + G.player.ball, sub: fmt(G.player.score), ms: 1600, prio: 2, anim: null });
   }
+  beat = G.settings.practice ? [] : loadScores(G.player.ballsPerGame);   // a practice game is not ranked, so it has nothing to beat
   coach.stop();
   dmd.queue.length = 0; dmd.cur = null;   // a new game starts with a clean display
   screens.close();
@@ -449,13 +451,26 @@ function dmdBase(d) {
     else { d.center('BONUS ' + b.x + 'X', 3, 1, 2); d.center(fmt(b.total), 15, 2, 3); }
     return;
   }
-  const p = G.player, s = fmt(p.score);
+  const s = fmt(G.player.score);
   d.center(s, 3, s.length <= 10 ? 2 : 1, 3);
+  d.center(statusLine(), 23, 1, 2);
+}
+// the bottom line of the display between callouts: the ball, the mode and its clock, the multiball or the skill shot, and on the
+// plain ball line every other 3 s the next score to pass (S3-13)
+function statusLine() {
+  const p = G.player;
   let line = 'BALL ' + p.ball + (p.extraBalls ? ' · EB' : '');
   if (G.mode) line = G.mode.id.toUpperCase() + ' ' + Math.max(0, Math.ceil(G.mode.end - G.t)) + 's · ' + (G.mode.progress | 0) + '/' + G.mode.need;
   else if (G.mb) line = { arlington: 'ARLINGTON MULTIBALL', soak: 'GRAND SOAK', valley: 'VALLEY OF THE VAPORS' }[G.mb.kind];
   else if (G.ball.inLane) line = 'SKILL SHOT: LANE ' + 'SPA'[G.ball.skillLane];
-  d.center(line, 23, 1, 2);
+  else if (beat.length && Math.floor(now() / 3) % 2) line = beatLine(p.score) || line;
+  return line;
+}
+// the next score on the table above this one, or NEW BEST once the top is passed (S3-13)
+function beatLine(score) {
+  if (score > beat[0].score) return 'NEW BEST';
+  const up = beat.filter((r) => r.score > score).pop();
+  return up ? 'TO BEAT ' + fmt(up.score) : '';
 }
 
 // ------------------------------------------------------------------------------------------------- loop
@@ -544,7 +559,7 @@ window.__game = {
   getState() {
     const s = gameState(G);
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null; s.gfx = view && view.info ? view.info() : null;
-    s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
+    s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text), line: demo ? null : statusLine() };
     s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
     s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], pans: { ...audio.pans }, roll: { ...audio.roll }, ...audioNow() };
     return s;
