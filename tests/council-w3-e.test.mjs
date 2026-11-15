@@ -362,4 +362,56 @@ export const tests = [
       t.expect(S.jackpot.peak > 0.24 && S.skill.peak > 0.24, 'a jackpot and a skill shot are louder than a bumper hit');
     },
   },
+
+  // ---------------------------------------------------------------------------------------------- S4-08
+  {
+    name: 'S4-08 the lake ripples on the High and Medium tiers, stands still under reduced motion and is gone on Low',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('applySettings', { motion: 'full' });
+      await t.game('newGame', { balls: 3, seed: 5 });
+      const info = async () => (await t.state()).gfx;
+      t.equal((await t.state()).view, '3d', 'the 3D table is up');
+      for (const tier of ['high', 'medium']) {
+        await t.game('act', 'tier', tier); await t.waitFrames(3);
+        const a = await info();
+        t.expect(a.tier === tier && a.ripple.length === 2 && a.ripple.every((r) => r.visible), 'both layers of the lake show on ' + tier + ': ' + JSON.stringify(a.ripple));
+        await t.page.waitForFunction(([x0, y0]) => { const r = window.__game.getState().gfx.ripple[0]; return r.x !== x0 || r.y !== y0; }, [a.ripple[0].x, a.ripple[0].y], { timeout: 20000 });
+        const b = await info();
+        t.expect(b.ripple[1].x !== a.ripple[1].x || b.ripple[1].y !== a.ripple[1].y, 'and both drift on ' + tier);
+        t.expect((b.ripple[0].x - a.ripple[0].x) * (b.ripple[1].x - a.ripple[1].x) < 0, 'in opposite directions along the table');
+      }
+      await t.game('act', 'tier', 'high'); await t.game('applySettings', { motion: 'reduced' }); await t.waitFrames(5);
+      const s0 = await info(); await t.waitFrames(30); const s1 = await info();
+      t.equal(s1.ripple.map((r) => [r.x, r.y]), s0.ripple.map((r) => [r.x, r.y]), 'under reduced motion the lake does not move');
+      t.expect(s1.ripple.every((r) => r.visible), 'but it is still there');
+      await t.game('applySettings', { motion: 'full' }); await t.game('act', 'tier', 'low'); await t.waitFrames(5);
+      t.expect((await info()).ripple.every((r) => !r.visible), 'on the Low tier it is switched off');
+      await t.game('act', 'tier', 'high');
+    },
+  },
+  {
+    name: 'S4-08 the steam thickens and more of it rises as the springs warm, and a boil is the most',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('applySettings', { motion: 'full' });
+      await t.game('newGame', { balls: 3, seed: 5 }); await t.game('act', 'tier', 'high');
+      await t.game('act', 'plunge', 0.9);
+      const steam = async (temp, boil) => {
+        await t.game('setState', { features: { springTemp: temp, boilUntil: boil ? 1e9 : 0 } }); await t.waitFrames(4);
+        return (await t.state()).gfx.steam;
+      };
+      const cold = await steam(100, false), warm = await steam(120, false), hot = await steam(143, false), boil = await steam(143, true);
+      t.log('steam (opacity, particles shown): 100 F ' + JSON.stringify(cold) + ', 120 F ' + JSON.stringify(warm) + ', 143 F ' + JSON.stringify(hot) + ', boiling ' + JSON.stringify(boil));
+      t.expect(cold.opacity < warm.opacity && warm.opacity < hot.opacity && hot.opacity < boil.opacity, 'the opacity climbs with the heat to a boil');
+      t.expect(cold.shown < warm.shown && warm.shown < hot.shown, 'and so does the number of particles');
+      t.expect(cold.shown >= 0.5 * hot.shown && boil.shown === hot.shown, 'a cold table still steams, and a hot one shows every particle');
+      await steam(143, false); await t.waitFrames(10);
+      await shot(t, 'S4-08-lake-and-steam');
+      const cr = await t.page.evaluate(() => { const r = document.querySelector('#gl').getBoundingClientRect(); return [r.left, r.top]; });
+      const a = (await t.game('viewScreen', 110, 1060)).map((v, i) => v + cr[i]), b = (await t.game('viewScreen', 440, 790)).map((v, i) => v + cr[i]);
+      const x = Math.max(0, Math.min(a[0], b[0])), y = Math.max(0, Math.min(a[1], b[1])), w = Math.min(Math.abs(a[0] - b[0]), t.vp.width - x), h = Math.min(Math.abs(a[1] - b[1]), t.vp.height - y);
+      fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, 'S4-08-lake-zoom-' + t.viewport + '.png'), clip: { x, y, width: w, height: h } });
+    },
+  },
 ];
