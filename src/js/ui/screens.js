@@ -236,6 +236,7 @@ export function createScreens(root, app) {
     over(score, match, won, res) {
       current = 'over';
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="o-h">
+        <div class="title-art" aria-hidden="true"></div>
         <h2 id="o-h">Game over</h2>
         <p class="big-score">${fmt(score)}</p>
         <p>Match <b>${String(match).padStart(2, '0')}</b>${won ? ' · <b class="won">Match! Free game</b>' : ''}</p>
@@ -255,6 +256,7 @@ export function createScreens(root, app) {
       const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
       const render = () => {
         el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="e-h">
+          <div class="title-art" aria-hidden="true"></div>
           <h2 id="e-h">High score!</h2>
           <p class="big-score">${fmt(score)}</p>
           ${summary(res, true)}

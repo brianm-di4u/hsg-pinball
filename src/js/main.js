@@ -62,7 +62,7 @@ function startLoads() {
   const one = (p) => p.then((ok) => { bootLoaded++; bootProgress(); return ok; });
   if (!packsP) {
     const packs = typeof PB_ASSETS !== 'undefined' ? PB_ASSETS : [];
-    packsP = Promise.all(packs.map((f) => one(loadScript('assets/' + f).then((ok) => { if (ok && f === 'art.js' && window.__PB_ART && window.__PB_ART.backglass) $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`; return ok; }))));
+    packsP = Promise.all(packs.map((f) => one(loadScript('assets/' + f).then((ok) => { if (ok && f === 'art.js' && window.__PB_ART && window.__PB_ART.backglass) { $('.glass-art').style.backgroundImage = `url(${window.__PB_ART.backglass})`; document.documentElement.style.setProperty('--backglass', `url(${window.__PB_ART.backglass})`); } return ok; }))));
   }
   if (!threeP && want !== '2d') threeP = window.THREE ? Promise.resolve(true) : one(loadScript('vendor/three-r186.min.js'));
   return Promise.all([packsP, threeP]);

@@ -169,6 +169,12 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   .cols { grid-template-columns: 1fr; gap: 6px; }
   .screen { padding: 18px 16px; }
 }
+/* the painted backglass is the cabinet's art on a desktop and a phone in landscape; on a phone in portrait it is the header of the title, game-over and initials cards (S4-03) */
+.title-art { display: none; }
+@media (max-aspect-ratio: 4 / 5) {
+  .title-art { display: block; height: 118px; margin: -4px -4px 10px; border-radius: 10px; background: #14121f var(--backglass, none) center 58% / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.55), inset 0 -26px 22px -12px rgba(20, 18, 31, 0.9); }
+  .screen.dialog .title-art { height: 84px; margin-bottom: 8px; }
+}
 /* phone landscape */
 /* phone landscape: backglass art | the whole table | DMD and controls, the same cabinet layout as desktop */
 @media (max-height: 520px) and (min-aspect-ratio: 4 / 5) {

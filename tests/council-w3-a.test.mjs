@@ -265,6 +265,40 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S4-03
+  {
+    name: 'S4-03 on a phone in portrait the painted backglass heads the title and game-over cards; on a desktop the cabinet shows it and the cards do not repeat it',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      const art = (sel) => t.page.locator(sel + ' .title-art');
+      await t.page.waitForFunction(() => /^url\(/.test(getComputedStyle(document.documentElement).getPropertyValue('--backglass').trim()), null, { timeout: 15000 });
+      if (t.viewport === 'mobile') {
+        t.expect(await art('.screen.title').isVisible(), 'the title card has the painting');
+        const box = await art('.screen.title').boundingBox();
+        t.expect(box.height >= 80 && box.width >= 250, 'a real header: ' + Math.round(box.width) + 'x' + Math.round(box.height));
+        t.expect(/url\(/.test(await art('.screen.title').evaluate((n) => getComputedStyle(n).backgroundImage)), 'and it is the painting');
+        await shot(t, 'S4-03-title-backglass');
+        await t.game('scene', 'over');
+        t.expect(await art('.screen').isVisible(), 'the game-over card has it too');
+        await shot(t, 'S4-03-gameover-backglass');
+        await t.checkLayout();
+        await t.page.evaluate(() => localStorage.removeItem('hsg-pinball:scores'));
+        await t.game('newGame', { balls: 3, seed: 5 });
+        await t.game('setState', { player: { ball: 3, score: 9000000 }, ball: { saveUntil: 0 } });
+        await t.game('act', 'placeBall', 242, 60, 0, -1500);
+        await t.game('step', 400);
+        await t.page.waitForSelector('#b-ok');
+        t.expect(await art('.screen').isVisible(), 'and so does the initials card');
+        await shot(t, 'S4-03-initials-backglass');
+        const ok = await t.page.locator('#b-ok').boundingBox();
+        t.expect(ok.y + ok.height <= 844, 'OK is on screen');
+      } else {
+        t.expect(!(await art('.screen.title').isVisible()), 'a desktop title card does not repeat the cabinet art');
+        t.expect(await t.page.locator('.glass-art').isVisible(), 'the cabinet panel shows the painting');
+      }
+    },
+  },
+
   // ---------------------------------------------------------------------------------------------- S5-08
   {
     name: 'S5-08 a saved ball plays only the save cue; a lost ball plays only the drain cue',
