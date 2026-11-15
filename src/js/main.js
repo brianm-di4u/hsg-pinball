@@ -242,6 +242,24 @@ function simTimeFor(ts) {
   const t = now + acc + Math.min(MAX_DT, Math.max(0, (ts - lastNow) / 1000)) * timeScale;
   return Math.max(now, t);
 }
+// Haptics (S1-09): a short pulse on a phone (navigator.vibrate) or a rumble on a gamepad, for what a hand would feel: a flip, a bumper,
+// a sling, a nudge warning and a tilt. Off in the demo, while paused, under reduced motion and with the Vibration switch off.
+// Nobody here can feel it, so the tests watch the calls.
+const HAPTIC = { flip: 10, bumper: 15, sling: 15, warning: [20, 40, 20], tilt: [25, 50, 25] };   // ms of pulse (and gap)
+const HAPTIC_GAP = 35;   // ms between pulses: a bumper frenzy is a buzz, not a queue
+let hapticAt = 0;
+function haptic(name) {
+  const p = HAPTIC[name];
+  if (!p || demo || paused || !app.settings.haptics || reducedMotion()) return;
+  const t = performance.now();
+  if (t - hapticAt < HAPTIC_GAP && name !== 'tilt') return;
+  hapticAt = t;
+  try {
+    const pad = coach.kind === 'pad' && navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g && g.connected && g.vibrationActuator) : null;
+    if (pad) pad.vibrationActuator.playEffect('dual-rumble', { duration: Array.isArray(p) ? p.reduce((a, b) => a + b, 0) : p, strongMagnitude: 0.5, weakMagnitude: 0.5 });
+    else if (navigator.vibrate) navigator.vibrate(p);
+  } catch { /* haptics are optional */ }
+}
 applyKeys(app.settings.keys);   // the keys the player chose in Settings, if any
 const input = createInput(tableEl, {
   menuMode() { return !!screens.current && screens.current !== 'entry'; },   // the gamepad steers a menu, not the table
@@ -263,7 +281,11 @@ const input = createInput(tableEl, {
       return;
     }
     if (paused || demo || screens.current) return;
-    if (a === 'flipL' || a === 'flipR') { flipper(G, a === 'flipL' ? 'L' : 'R', down, simTimeFor(ts)); if (down) coach.note('flip'); }
+    if (a === 'flipL' || a === 'flipR') {
+      const n = G.cues.length;
+      flipper(G, a === 'flipL' ? 'L' : 'R', down, simTimeFor(ts));
+      if (down) { coach.note('flip'); if (G.cues.slice(n).some((c) => c.k === 'sound' && c.name === 'flip')) haptic('flip'); }   // only a flip that happened (not on a tilted table)
+    }
     else if (a === 'plunge') { if (!down && src === 'blur') plungerCancel(G); else plunger(G, down); }
     else if (down && a.startsWith('nudge')) { nudge(G, { nudgeL: 'left', nudgeR: 'right', nudgeU: 'up' }[a]); if (!reducedMotion()) effects.push({ k: 'shake', dir: a, t: now() }); }
   },
@@ -333,7 +355,7 @@ function routeCues() {
   for (const c of G.cues) {
     switch (c.k) {
       case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
-      case 'sound': if (!demo) sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); break;   // pan by where it happened (the cue carries n and m for ladders and countdowns)
+      case 'sound': if (!demo) { sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); if (c.name !== 'flip') haptic(c.name); } break;   // pan by where it happened; a flip buzzes the moment the button goes down, in the input handler (the cue carries n and m for ladders and countdowns)
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
       case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;

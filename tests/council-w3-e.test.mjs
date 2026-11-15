@@ -17,6 +17,17 @@ const LOUD = ['achieve', 'saveEnd', 'multUp', 'mbEnd', 'rivalPass', 'jackpot', '
 const TABLE = ['bumper'];   // the table cue that most often lands with a ceremony (S5-14 later tests a sling and more with the limiter)
 const EVERY = ['bumper', 'sling', 'kick', 'flip', 'flipHit', 'wall'];
 
+// S1-09: a stand-in for navigator.vibrate that keeps every call, so the tests can see what a phone would be told
+const spyVibrate = (t) => t.page.evaluate(() => { window.__vib = []; Object.defineProperty(navigator, 'vibrate', { configurable: true, value: (p) => { window.__vib.push(p); return true; } }); });
+const vibes = (t) => t.page.evaluate(() => window.__vib.slice());
+const flat = (a) => a.flat();
+// press the left flipper the way this viewport's player does: the Z key on a desktop, a tap on the left half of the table on a phone
+const flipOnce = async (t) => {
+  if (t.viewport === 'mobile') await t.tap([90, 520]); else { await t.page.keyboard.down('KeyZ'); await t.page.keyboard.up('KeyZ'); }
+  await t.waitFrames(3);
+};
+const freshGame = async (t) => { await t.waitIdle(30000); await t.game('newGame', { balls: 3, seed: 5 }); await t.waitFrames(3); await t.game('act', 'plunge', 0.9); await t.waitFrames(3); };
+
 export const tests = [
   // ---------------------------------------------------------------------------------------------- CL-01
   {
@@ -51,6 +62,77 @@ export const tests = [
       t.expect(worst < 0.95, `the busiest moment peaks at ${worst} with every volume control at its maximum (${worstName})`);
       // every cue alone at full volume
       for (const name of [...LOUD, ...EVERY]) t.expect((await cue(t, name, { seconds: 2.5, vol: 1 })).peak < 0.95, name + ' alone at full volume stays under 0.95');
+    },
+  },
+
+  // ---------------------------------------------------------------------------------------------- S1-09
+  {
+    name: 'S1-09 a flip, a bumper, a sling, a nudge warning and a tilt each pulse the phone, and nothing else does',
+    async run(t) {
+      await freshGame(t);
+      await spyVibrate(t);
+      await flipOnce(t);
+      let v = await vibes(t);
+      t.expect(v.length >= 1 && flat(v).every((x) => x === 10), 'a flip pulses 10 ms: ' + JSON.stringify(v));
+      await t.page.evaluate(() => { window.__vib.length = 0; });
+      await t.page.waitForTimeout(80);   // past the gap between pulses
+      await t.game('act', 'switch', 'bumper1', 'bumper', 150); await t.waitFrames(3);
+      v = await vibes(t); t.expect(v.length === 1 && v[0] === 15, 'a bumper pulses 15 ms: ' + JSON.stringify(v));
+      await t.page.evaluate(() => { window.__vib.length = 0; }); await t.page.waitForTimeout(80);
+      await t.game('act', 'switch', 'slingL', 'sling', 100); await t.waitFrames(3);
+      v = await vibes(t); t.expect(v.length === 1 && v[0] === 15, 'a sling pulses 15 ms: ' + JSON.stringify(v));
+      await t.page.evaluate(() => { window.__vib.length = 0; }); await t.page.waitForTimeout(80);
+      await t.game('act', 'nudge', 'left'); await t.game('act', 'nudge', 'right'); await t.game('act', 'nudge', 'left'); await t.waitFrames(3);
+      v = await vibes(t);
+      t.expect(v.some((p) => Array.isArray(p) && p.length === 3 && p.every((x) => x >= 10 && x <= 50)), 'the first nudge warning is a short double pulse: ' + JSON.stringify(v));
+      t.expect(flat(v).every((x) => x <= 50), 'no pulse is longer than 50 ms');
+      await t.page.evaluate(() => { window.__vib.length = 0; });
+      for (let i = 0; i < 12 && !(await t.state()).player.tilted; i++) { await t.game('act', 'nudge', 'left'); await t.waitFrames(2); await t.page.waitForTimeout(40); }
+      v = await vibes(t);
+      t.expect(v.some((p) => Array.isArray(p) && p[0] === 25), 'a tilt has its own, stronger pulse: ' + JSON.stringify(v));
+    },
+  },
+  {
+    name: 'S1-09 the Vibration switch, reduced motion and the attract demo keep the phone still',
+    async run(t) {
+      await freshGame(t);
+      await spyVibrate(t);
+      await t.game('applySettings', { haptics: false });
+      await flipOnce(t); await t.game('act', 'switch', 'bumper1', 'bumper', 150); await t.waitFrames(3);
+      t.equal(await vibes(t), [], 'with the switch off nothing pulses');
+      await t.game('applySettings', { haptics: true, motion: 'reduced' });
+      await flipOnce(t); await t.game('act', 'switch', 'bumper1', 'bumper', 150); await t.waitFrames(3);
+      t.equal(await vibes(t), [], 'under reduced motion nothing pulses');
+      await t.game('applySettings', { motion: 'full' });
+      await flipOnce(t);
+      t.expect((await vibes(t)).length >= 1, 'switched back on, a flip pulses again');
+      await t.game('scene', 'title'); await t.waitFrames(3);
+      await t.page.evaluate(() => { window.__vib.length = 0; });
+      await t.waitFrames(30);
+      t.equal(await vibes(t), [], 'the attract demo plays the table without a pulse');
+    },
+  },
+  {
+    name: 'S1-09 Settings has a Vibration switch that is on for a new player, is saved, and an older save gets it on',
+    async run(t) {
+      await t.waitIdle(30000);
+      t.equal((await t.state()).settings.haptics, true, 'on for a new player');
+      await t.game('scene', 'settings'); await t.waitFrames(3);
+      const sel = t.page.locator('#s-haptics');
+      t.expect(await sel.count() === 1, 'the row is there');
+      t.expect((await t.page.locator('label.row', { has: sel }).innerText()).includes('Vibration'), 'it is called Vibration');
+      await t.page.evaluate(() => { document.querySelector('#s-haptics').scrollIntoView({ block: 'center' }); }); await t.waitFrames(2);
+      await shot(t, 'S1-09-settings-vibration');
+      await sel.selectOption('0'); await t.waitFrames(2);
+      t.equal((await t.state()).settings.haptics, false, 'turning it off is applied');
+      await t.reload();
+      t.equal((await t.state()).settings.haptics, false, 'and stays off after a reload');
+      await t.page.evaluate(() => { const k = 'hsg-pinball:settings', s = JSON.parse(localStorage.getItem(k)); delete s.haptics; localStorage.setItem(k, JSON.stringify(s)); });
+      await t.reload();
+      t.equal((await t.state()).settings.haptics, true, 'a save from before the switch gets it on');
+      await t.page.evaluate(() => { const k = 'hsg-pinball:settings', s = JSON.parse(localStorage.getItem(k)); s.haptics = 'maybe'; localStorage.setItem(k, JSON.stringify(s)); });
+      await t.reload();
+      t.equal((await t.state()).settings.haptics, true, 'a damaged value falls back to on');
     },
   },
 ];
