@@ -252,4 +252,62 @@ export const tests = [
       await t.game('act', 'clock', null);
     },
   },
+  // ---------------------------------------------------------------------------------------------- P-N02
+  {
+    name: 'P-N02 with a notch and a home indicator the display, the buttons and the cards keep clear of them in portrait and in landscape',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      const cdp = await t.page.context().newCDPSession(t.page);
+      const insets = (top, right, bottom, left) => cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top, right, bottom, left } });
+      const box = (sel) => t.page.evaluate((q) => { const r = document.querySelector(q).getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; }, sel);
+      const hasMeta = await t.page.evaluate(() => (document.querySelector('meta[name=theme-color]') || {}).content);
+      t.equal(hasMeta, '#0b0a12', 'the page names its colour for the browser bar: ' + hasMeta);
+      // portrait: 47 px of notch above, 34 px of home indicator below
+      await insets(47, 0, 34, 0);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.waitFrames(8);
+      const H = await t.page.evaluate(() => innerHeight);
+      let dmd = await box('.dmd-frame'), menu = await box('#b-menu'), launch = await box('#b-launch'), table = await box('#table');
+      t.expect(dmd.t >= 47 && menu.t >= 47, 'the display and Menu start below the notch: ' + dmd.t + ', ' + menu.t);
+      t.expect(launch.b <= H - 34 - 5, 'Launch sits above the home indicator, bottom edge ' + launch.b + ' of ' + H);
+      t.expect(table.b <= H - 34 + 1, 'the table stops above it too: ' + table.b);
+      t.expect((await t.state()).physics.balls.length > 0, 'the game is running');
+      await shot(t, 'P-N02-portrait-insets');
+      await t.game('scene', 'help');
+      const card = await t.page.evaluate(() => { const r = document.querySelector('.screen').getBoundingClientRect(); return { t: r.top, b: r.bottom }; });
+      t.expect(card.t >= 47 && card.b <= H - 34, 'a card stays between the notch and the indicator: ' + JSON.stringify(card));
+      await shot(t, 'P-N02-portrait-card-insets');
+      // no insets: the layout is what it was
+      await insets(0, 0, 0, 0);
+      await t.game('scene', 'title'); await t.game('newGame', { balls: 3, seed: 5 }); await t.waitFrames(8);
+      launch = await box('#b-launch'); dmd = await box('.dmd-frame');
+      t.expect(Math.abs(launch.b - (H - 6)) <= 1 && dmd.t <= 14, 'with no inset Launch is 6 px from the edge and the display near the top: ' + launch.b + ', ' + dmd.t);
+      // landscape: the notch is on the left, the corner on the right
+      await t.page.setViewportSize({ width: 844, height: 390 });
+      await insets(0, 47, 21, 47);
+      await t.waitFrames(8);
+      const art = await box('.glass-art'), buttons = await box('.buttons');
+      t.expect(art.l >= 47, 'the painted glass starts beside the notch: ' + art.l);
+      t.expect(buttons.r <= 844 - 47, 'the buttons end before the right-hand corner: ' + buttons.r);
+      await t.page.screenshot({ path: path.join(SHOTS, 'P-N02-landscape-insets-mobile.png') });
+      await insets(0, 0, 0, 0);
+      await t.page.setViewportSize({ width: 390, height: 844 });
+    },
+  },
+  {
+    name: 'P-N02 Settings offers Full screen where the browser has it, and the button asks for it',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.page.evaluate(() => { window.__fs = []; Element.prototype.requestFullscreen = function () { window.__fs.push(this.tagName); return Promise.resolve(); }; });
+      await t.game('scene', 'settings');
+      await t.page.waitForSelector('#s-full');
+      t.expect(/Go full screen/.test(await t.page.textContent('#s-full')), 'the button offers it');
+      await t.page.click('#s-full');
+      await t.waitFrames(3);
+      t.equal(JSON.stringify(await t.page.evaluate(() => window.__fs)), JSON.stringify(['HTML']), 'a click asks the page for full screen');
+      t.expect(/Leave full screen/.test(await t.page.textContent('#s-full')), 'and the button now offers to leave');
+      await t.checkLayout();
+    },
+  },
 ];

@@ -126,6 +126,7 @@ export function createScreens(root, app) {
           ${opt('s-tier', 'Graphics quality', [['auto', 'Automatic'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['2d', 'Flat 2D']], s.tier)}
           ${opt('s-glow', 'Ball highlight', [[1, 'On'], [0, 'Off']], +s.ballGlow)}
           ${opt('s-text', 'Text size', [[1, 'Normal'], [1.15, 'Large'], [1.3, 'Larger']], s.textScale)}
+          ${document.fullscreenEnabled ? '<div class="row"><span>Full screen</span><button type="button" id="s-full" class="btn sm" aria-pressed="' + !!document.fullscreenElement + '">' + (document.fullscreenElement ? 'Leave full screen' : 'Go full screen') + '</button></div>' : ''}
           <div class="row"><span>First-game tips</span><button type="button" id="s-tips" class="btn sm">Show tips again</button></div>
           <p class="hint" id="s-tips-hint" aria-live="polite">${s.tipsSeen ? '' : 'The tips will show on the next ball.'}</p>
           ${app.touch ? '' : keyRows()}
@@ -157,6 +158,10 @@ export function createScreens(root, app) {
         window.addEventListener('keydown', fn, true);
       }));
       on('#s-keys-reset', () => { app.applySettings({ keys: undefined }); showKeys(); hint.textContent = 'The keys are back to the usual ones.'; });
+      on('#s-full', () => {
+        const b = root.querySelector('#s-full'), enter = !document.fullscreenElement;
+        Promise.resolve(enter ? document.documentElement.requestFullscreen() : document.exitFullscreen()).then(() => { b.textContent = enter ? 'Leave full screen' : 'Go full screen'; b.setAttribute('aria-pressed', String(enter)); }, () => { b.textContent = 'Full screen is not available here'; });
+      });
       on('#s-tips', () => { app.showTipsAgain(); root.querySelector('#s-tips-hint').textContent = 'The tips will show on the next ball.'; });
       root.querySelectorAll('select, input').forEach((n) => n.addEventListener('change', read));
       root.querySelector('#s-difficulty').addEventListener('change', (e) => { root.querySelector('#s-diff-hint').textContent = DIFF_HINT[e.target.value] + (back === 'pause' ? ' Applies to the next game.' : ''); });

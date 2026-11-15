@@ -6,6 +6,8 @@
   --font: "Avenir Next", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
   --display: "Rockwell", "Bookman Old Style", Georgia, serif;
   --side-w: clamp(220px, 22vw, 340px);
+  /* the room a notch, the rounded corners and the home indicator take (viewport-fit=cover): nothing the player presses sits under them (P-N02) */
+  --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px); --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -28,7 +30,7 @@ body {
 .table canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 body[data-view="3d"] #c2d { visibility: hidden; }
 body[data-view="2d"] #gl { visibility: hidden; }
-.glass { position: relative; display: flex; align-items: center; justify-content: flex-end; padding: 24px 18px 24px 24px; min-width: 0; }
+.glass { position: relative; display: flex; align-items: center; justify-content: flex-end; padding: 24px 18px 24px calc(24px + var(--sal)); min-width: 0; }
 .glass-art { width: 100%; max-width: 420px; aspect-ratio: 2 / 3; border-radius: 10px; background: #14121f center / cover no-repeat;
   box-shadow: 0 0 0 3px #3b2a12, 0 0 0 6px var(--gold), 0 18px 60px rgba(0, 0, 0, 0.6), 0 0 80px rgba(79, 195, 255, 0.12); }
 .glass-title { position: absolute; top: 8%; right: 18px; left: 24px; display: flex; flex-direction: column; align-items: center; pointer-events: none;
@@ -37,7 +39,7 @@ body[data-view="2d"] #gl { visibility: hidden; }
   text-shadow: 0 0 12px rgba(255, 180, 60, 0.6), 0 2px 0 #4a2a00; }
 .t-big { font: 900 calc(2rem + 2.2vw) / 1 var(--display); color: #fff3cf; letter-spacing: 0.04em; text-transform: uppercase;
   text-shadow: 0 0 6px #ff5a3d, 0 0 22px rgba(255, 70, 50, 0.85), 0 3px 0 #7a1e10; }
-.side { display: flex; flex-direction: column; gap: 14px; padding: 24px 24px 24px 18px; justify-content: center; min-width: 0; max-width: 520px; }
+.side { display: flex; flex-direction: column; gap: 14px; padding: 24px calc(24px + var(--sar)) 24px 18px; justify-content: center; min-width: 0; max-width: 520px; }
 .dmd-frame { background: #050403; padding: 10px; border-radius: 8px; box-shadow: inset 0 0 0 2px #1a1208, 0 0 0 3px #3b2a12, 0 0 0 5px var(--gold), 0 10px 30px rgba(0, 0, 0, 0.6); }
 #dmd { display: block; width: 100%; aspect-ratio: 4 / 1; image-rendering: auto; }
 .info { display: flex; flex-direction: column; gap: 10px; }
@@ -86,11 +88,11 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .power { position: absolute; left: 0; bottom: 0; height: 5px; width: calc(var(--p, 0) * 100%); background: linear-gradient(90deg, var(--teal), var(--gold-2), var(--neon-red)); }
 
 /* ---------------------------------------------------------------- screens */
-.screens { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10;
+.screens { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal)); z-index: 10;
   background: rgba(8, 6, 16, 0.55); backdrop-filter: blur(3px); }
 .screens[hidden] { display: none; }
 .screen { background: linear-gradient(180deg, rgba(37, 32, 58, 0.97), rgba(22, 19, 36, 0.97)); border: 2px solid var(--gold); border-radius: 16px;
-  padding: 24px 28px; max-width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 0 0 5px #2b1e0a, 0 30px 80px rgba(0, 0, 0, 0.7);
+  padding: 24px 28px; max-width: min(560px, 100%); max-height: calc(100dvh - 32px - var(--sat) - var(--sab)); overflow: auto; box-shadow: 0 0 0 5px #2b1e0a, 0 30px 80px rgba(0, 0, 0, 0.7);
   text-align: center; }
 .screen.wide { max-width: min(920px, 100%); text-align: left; }
 .screen h2 { font: 800 1.7em var(--display); color: var(--gold-2); margin: 0 0 14px; letter-spacing: 0.02em; }
@@ -149,7 +151,7 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
 @media (max-aspect-ratio: 4 / 5) {
   .stage { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .glass { display: none; }
-  .side { order: -1; padding: 8px 10px 4px; gap: 8px; max-width: none; flex-direction: row; align-items: center; }
+  .side { order: -1; padding: calc(8px + var(--sat)) calc(10px + var(--sar)) 4px calc(10px + var(--sal)); gap: 8px; max-width: none; flex-direction: row; align-items: center; }
   .side .dmd-frame { flex: 1; min-width: 0; }
   .side .info { display: contents; }
   .side .controls-hint, .side .mode-line { display: none; }
@@ -169,10 +171,10 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   /* Menu and the speaker stack beside the display (S1-08): the bottom of the screen, under both thumbs, is left to the flippers and Launch (it was Menu over the left apron) */
   .buttons { flex-direction: column; gap: 6px; flex: none; }
   #b-menu, #b-mute { position: static; width: 44px; height: 44px; min-width: 44px; padding: 0; justify-content: center; }
-  .btn.launch { position: fixed; right: 13vw; bottom: 6px; z-index: 5; flex: none; width: 92px; height: 46px; visibility: hidden; background: rgba(30, 26, 48, 0.78); }   /* over the apron, clear of the shooter lane */
+  .btn.launch { position: fixed; right: calc(13vw + var(--sar)); bottom: calc(6px + var(--sab)); z-index: 5; flex: none; width: 92px; height: 46px; visibility: hidden; background: rgba(30, 26, 48, 0.78); }   /* over the apron, clear of the shooter lane */
   .btn.launch.ready { visibility: visible; }
   .btn.icon .lbl { display: none; }
-  .table { width: 100%; height: 100%; }
+  .table { width: 100%; height: calc(100% - var(--sab)); }   /* the flippers stay clear of the home indicator */
   .cols { grid-template-columns: 1fr; gap: 6px; }
   .screen { padding: 18px 16px; }
 }
@@ -185,14 +187,14 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
 /* phone landscape */
 /* phone landscape: backglass art | the whole table | DMD and controls, the same cabinet layout as desktop */
 @media (max-height: 520px) and (min-aspect-ratio: 4 / 5) {
-  .glass { display: flex; padding: 8px 6px 8px 8px; }
+  .glass { display: flex; padding: 8px 6px 8px calc(8px + var(--sal)); }
   .glass-art { max-width: none; height: calc(100dvh - 16px); width: 100%; aspect-ratio: auto; border-radius: 6px; box-shadow: 0 0 0 2px #3b2a12, 0 0 0 4px var(--gold); }
   .glass-title { top: 6%; left: 8px; right: 6px; }
   .glass-title .t-small { font-size: 0.7rem; }
   .glass-title .t-big { font-size: clamp(0.6rem, calc((100vw - 100dvh * 1.3) * 0.07), 1.5rem); }   /* the whole word inside the panel beside the table */
   .stage { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
   .table { width: calc(100dvh * 1.3); height: 100dvh; }
-  .side { width: auto; min-width: 0; padding: 6px 8px 6px 6px; gap: 6px; justify-content: flex-start; }
+  .side { width: auto; min-width: 0; padding: 6px calc(8px + var(--sar)) 6px 6px; gap: 6px; justify-content: flex-start; }
   .dmd-frame { padding: 4px; }
   .controls-hint { display: none; }
   .score-line { flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -238,18 +240,18 @@ body.closeup .table { width: 100vw; }
 .cal li { aspect-ratio: 1; border-radius: 6px; background: #231e38; border: 1px solid #3a3358; display: flex; align-items: center; justify-content: center; font-size: 0.72em; color: var(--muted); line-height: 1; }
 .cal li.on { background: linear-gradient(#e8c25a, #b8892a); color: #1d1405; border-color: #ffe7a0; font-weight: 700; }
 .cal li.today { outline: 2px solid var(--neon-blue); outline-offset: 1px; }
-.toast { position: fixed; z-index: 30; top: 10px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); display: flex; gap: 10px; align-items: baseline; padding: 8px 16px;
+.toast { position: fixed; z-index: 30; top: calc(10px + var(--sat)); left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); display: flex; gap: 10px; align-items: baseline; padding: 8px 16px;
   background: rgba(22, 19, 36, 0.94); border: 2px solid var(--gold); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); pointer-events: none; font-size: 0.95em; }
 .toast[hidden] { display: none; }
 .toast b { color: var(--gold-2); text-transform: uppercase; font-size: 0.78em; letter-spacing: 0.08em; white-space: nowrap; }
 .toast span { color: var(--text); font-weight: 700; }
 body:not(.reduced) .toast { animation: toast-in 0.35s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@media (max-aspect-ratio: 4 / 5) { .toast { top: 152px; } }   /* phone portrait: below the display, so a callout is never covered */
+@media (max-aspect-ratio: 4 / 5) { .toast { top: calc(152px + var(--sat)); } }   /* phone portrait: below the display, so a callout is never covered */
 
 /* ---------------------------------------------------------------- first-game tips (S2-01) */
 .goal-line { margin: 0 0 10px; color: var(--cream); }
-.coach { position: fixed; z-index: 12; top: 14px; left: 50%; transform: translateX(-50%); width: max-content; max-width: min(calc(100vw - 32px), 460px); display: flex; gap: 12px; align-items: center; padding: 8px 8px 8px 16px;
+.coach { position: fixed; z-index: 12; top: calc(14px + var(--sat)); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(calc(100vw - 32px), 460px); display: flex; gap: 12px; align-items: center; padding: 8px 8px 8px 16px;
   background: rgba(22, 19, 36, 0.94); border: 2px solid var(--neon-blue); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); pointer-events: none; }
 .coach[hidden] { display: none; }
 .coach .btn { pointer-events: auto; flex: none; font-size: 0.82em; }
@@ -259,5 +261,5 @@ body:not(.reduced) .coach { animation: toast-in 0.35s ease-out; }
 .btn.launch.coached { border-color: var(--neon-blue); box-shadow: 0 0 0 3px rgba(79, 195, 255, 0.55), 0 0 18px rgba(79, 195, 255, 0.5); }
 body:not(.reduced) .btn.launch.coached { animation: coach-ring 1.1s ease-in-out infinite; }
 @keyframes coach-ring { 50% { box-shadow: 0 0 0 7px rgba(79, 195, 255, 0.2), 0 0 26px rgba(79, 195, 255, 0.7); } }
-@media (max-aspect-ratio: 4 / 5) { .coach { top: 148px; } }   /* phone portrait: under the display and its score plate, over the empty top of the arch, clear of the bumpers */
-@media (max-height: 520px) and (min-aspect-ratio: 4 / 5) { .coach { top: 6px; } }
+@media (max-aspect-ratio: 4 / 5) { .coach { top: calc(148px + var(--sat)); } }   /* phone portrait: under the display and its score plate, over the empty top of the arch, clear of the bumpers */
+@media (max-height: 520px) and (min-aspect-ratio: 4 / 5) { .coach { top: calc(6px + var(--sat)); } }
