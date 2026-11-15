@@ -137,6 +137,26 @@ const JITTER_CENTS = 25, JITTER_DB = 1.5;
 const jf = () => J(JITTER_CENTS), jg = () => G(JITTER_DB);
 const thunk = (t, f = 90, g = 0.35) => { tone(f, t, 0.09, 'sine', g, -40); noise(t, 0.04, g * 0.5, 1200, 'bandpass', 1.2); };
 
+// Impacts (S1-23): what the ball does to a flipper and to the table's rails, posts and rubbers, each built from three layers: a
+// short noise click (the transient, brighter the harder the hit), a body tuned to the material that falls in pitch, and a ring
+// (resonant noise) that lasts a little. body: [start Hz, end Hz, seconds, wave, gain]; click and ring: [type, Hz, Q, gain, seconds].
+// Gains are at a hit of full strength; a softer one is quieter and duller. Each repeat picks one of three pitches (IMPACT_PITCH) and
+// is detuned a little more, so two hits are not the same.
+const IMPACT = {
+  flip:   { body: [190, 110, 0.09, 'sine', 0.56], click: ['highpass', 3000, 0.7, 0.36, 0.012], ring: ['bandpass', 1100, 6, 0.15, 0.12] },    // the ball on the flipper's rubber: a solid thump with a little ring
+  rubber: { body: [150, 95, 0.07, 'sine', 0.48], click: ['bandpass', 1400, 0.8, 0.24, 0.012], ring: null },                                   // a rubber ring or post: a dull thud
+  metal:  { body: [320, 240, 0.05, 'triangle', 0.42], click: ['highpass', 4500, 0.7, 0.62, 0.01], ring: ['bandpass', 2300, 10, 0.52, 0.14] },   // a rail or guide: a tick and a bright ring
+  post:   { body: [230, 150, 0.06, 'sine', 0.44], click: ['bandpass', 2500, 1, 0.35, 0.01], ring: ['bandpass', 1600, 8, 0.16, 0.09] },         // a chrome post in its rubber: between the two
+};
+const IMPACT_PITCH = [0.92, 1, 1.09];
+const MATERIAL = { 0: 'metal', 1: 'rubber', 4: 'metal', 6: 'post' };   // by the segment kind sim/physics.js K (WALL, RUBBER, GATE, POST); anything else is metal
+function impact(t, m, v) {
+  const I = IMPACT[m] || IMPACT.metal, k = 0.35 + 0.65 * v, pitch = IMPACT_PITCH[Math.floor(Math.random() * 3)];
+  tone(I.body[0] * pitch * jf(), t, I.body[2], I.body[3], I.body[4] * v * jg(), I.body[1] - I.body[0]);
+  noise(t, I.click[4], I.click[3] * k * jg(), I.click[1] * jf(), I.click[0], I.click[2]);
+  if (I.ring) noise(t, I.ring[4], I.ring[3] * k * jg(), I.ring[1] * pitch * jf(), I.ring[0], I.ring[2]);
+}
+
 // peak gains of the quiet foley cues (each measured: cueRender in the test hooks) and of the new event cues
 const LV = { rollover: 0.25, spinner: 0.2, switch: 0.28, rampEnter: 0.8, wireDrop: 0.3, launch: 0.6, cue: 0.45 };
 const RAMP_SWEEP = 0.55;   // seconds: about the time a shot takes from the ramp mouth to the top
@@ -184,10 +204,10 @@ function synth(name, v, t, o) {
     case 'flip': thunk(t, 110 * jf(), 0.32 * jg()); noise(t, 0.03, 0.12 * jg(), 3000 * jf()); tone(220 * jf(), t, 0.04, 'triangle', 0.06 * jg()); break;
     case 'flipDown': tone(70 * jf(), t, 0.06, 'sine', 0.12 * jg(), -20); break;
     case 'flipStop': noise(t, 0.02, 0.08 * jg(), 2500 * jf()); break;
-    case 'flipHit': tone((180 + 120 * v) * jf(), t, 0.05, 'triangle', 0.16 * v * jg()); break;
+    case 'flipHit': impact(t, 'flip', v); break;
     case 'bumper': thunk(t, 80 * jf(), 0.4 * jg()); tone(523 * jf(), t + 0.01, 0.25, 'triangle', 0.12 * jg(), 0, sfxBus, 1); noise(t + 0.02, 0.3, 0.05 * jg(), 2500 * jf(), 'highpass', 0.7, sfxBus, 1); break;
     case 'sling': thunk(t, 95 * jf(), 0.38 * jg()); tone(330 * jf(), t, 0.07, 'square', 0.06 * jg()); break;
-    case 'wall': tone((140 + 200 * v) * jf(), t, 0.04, 'triangle', 0.10 * v * jg()); noise(t, 0.02, 0.06 * v * jg(), 2000 * jf()); break;
+    case 'wall': impact(t, MATERIAL[o.kind] || 'metal', v); break;
     case 'clack': tone(1800 * jf(), t, 0.03, 'square', 0.08 * v * jg()); noise(t, 0.02, 0.1 * v * jg(), 4000 * jf()); break;
     case 'rollover': tone(1046 * J(), t, 0.05, 'square', LV.rollover); tone(1568 * J(), t + 0.04, 0.06, 'square', LV.rollover * 0.7); break;
     case 'target': thunk(t, 160, 0.25); tone(880, t, 0.08, 'triangle', 0.12); break;
@@ -398,7 +418,7 @@ function offlineChain(oc, dest, vol = DEFAULT_VOLUME) {
 }
 // vol: the master volume to render at (CL-01: 1 is the slider at its maximum). under: the name of a piece of music to play, at full
 // intensity with its ambience bed, underneath the cue (the busiest moment of the game); with: more cues struck at the same moment.
-export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, wav = false, vol = DEFAULT_VOLUME, under = null, with: also = [], demo = false } = {}) {
+export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, wav = false, vol = DEFAULT_VOLUME, under = null, with: also = [], demo = false, kind } = {}) {
   return measureAudio((oc, dest) => {
     const { m: mg, bus } = offlineChain(oc, dest, vol);
     const keep = [cx, sfxBus, verb, noiseBuf, dst];
@@ -418,7 +438,7 @@ export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, w
         const bed = SCENES[AMBIENCE_FOR[under]]; if (bed) kit.amb.play(bed, { at: 0, fade: 0.02 });
         kit.scheduleUntil(seconds); at = 2;
       }
-      for (const cue of [name, ...also]) synth(cue, Math.max(0.15, Math.min(1, v)), at, { n, m });
+      for (const cue of [name, ...also]) synth(cue, Math.max(0.15, Math.min(1, v)), at, { n, m, kind });
     } finally { [cx, sfxBus, verb, noiseBuf, dst] = keep; quiet = false; }
     return null;
   }, seconds, { wav });

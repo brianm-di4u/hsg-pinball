@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
-import { createGame, newGame, api, MODES } from '../src/js/sim/rules.js';
+import { createGame, newGame, tick, api, MODES } from '../src/js/sim/rules.js';
 import { textWidth, DW } from '../src/js/ui/dmd.js';
 
 const T = compileTable(spec);
@@ -33,6 +33,19 @@ const flipOnce = async (t) => {
   await t.waitFrames(3);
 };
 const freshGame = async (t) => { await t.waitIdle(30000); await t.game('newGame', { balls: 3, seed: 5 }); await t.waitFrames(3); await t.game('act', 'plunge', 0.9); await t.waitFrames(3); };
+
+// decode the 16-bit stereo WAV a render hands back (base64) and say how bright it is: zero crossings per second of the left channel in the
+// first 150 ms, and how many seconds it takes to fall under a tenth of its loudest 10 ms
+const brightness = (wav) => {
+  const b = Buffer.from(wav, 'base64'), rate = b.readUInt32LE(24), n = (b.length - 44) / 4, L = (i) => b.readInt16LE(44 + i * 4) / 32768;
+  const m = Math.min(n, Math.round(rate * 0.15)); let z = 0; for (let i = 1; i < m; i++) if ((L(i) < 0) !== (L(i - 1) < 0)) z++;
+  return { zcr: z / (m / rate) };
+};
+const impactStats = async (t, name, opts, reps = 7) => {
+  const peaks = [], zcrs = [];
+  for (let k = 0; k < reps; k++) { const r = await cue(t, name, { ...opts, seconds: 1, wav: true }); peaks.push(r.peak); zcrs.push(brightness(r.wav).zcr); }
+  return { peak: median(peaks), zcr: median(zcrs), zcrs, peaks };
+};
 
 export const tests = [
   // ---------------------------------------------------------------------------------------------- CL-01
@@ -280,6 +293,38 @@ export const tests = [
       t.expect(r.peak >= 0.02 && r.peak <= 0.25, 'the tone peaks between 0.02 and 0.25 (' + r.peak + ')');
       t.expect(r.secs[2] > r.secs[0] * 1.4, 'it gets louder as the pull grows');
       t.expect(r.secs[4] < r.secs[3] * 0.3, 'and dies away after the release');
+    },
+  },
+
+  // ---------------------------------------------------------------------------------------------- S1-23
+  {
+    name: 'S1-23 a wall hit carries what the ball hit, so a rail, a rubber and a post can sound different',
+    node: true,
+    async run(t) {
+      const G = createGame(T, { seed: 3 }); newGame(G, { seed: 3 }); G.cues.length = 0;
+      for (const kind of [0, 1, 6]) { G.cues.length = 0; G.w.events.push({ t: 'wall', kind, speed: 1500, x: 200, y: 400, ball: 0 }); tick(G); const c = G.cues.find((q) => q.k === 'sound' && q.name === 'wall'); t.expect(c && c.kind === kind && c.v === 0.6, 'a wall cue of kind ' + kind + ': ' + JSON.stringify(c)); }
+    },
+  },
+  {
+    name: 'S1-23 the ball on a flipper and on the rails sounds weighty and different by material: median peaks in the cue range, and bright metal against dull rubber',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.waitForFunction(() => window.__game && window.__game.cueRender, null, { timeout: 60000 });
+      // before this item (median of 7, default volume, full strength): flipHit 0.064, wall 0.042; every wall was one sound
+      const fl = await impactStats(t, 'flipHit', { v: 1 });
+      const metal = await impactStats(t, 'wall', { v: 1, kind: 0 }), rubber = await impactStats(t, 'wall', { v: 1, kind: 1 }), post = await impactStats(t, 'wall', { v: 1, kind: 6 });
+      t.log(`median peak at full strength: flipHit ${fl.peak}, metal ${metal.peak}, rubber ${rubber.peak}, post ${post.peak}; brightness (zero crossings a second): flipHit ${Math.round(fl.zcr)}, metal ${Math.round(metal.zcr)}, rubber ${Math.round(rubber.zcr)}, post ${Math.round(post.zcr)}`);
+      t.expect(fl.peak >= 0.2 && fl.peak <= 0.45, 'the flipper hit is in the cue range: ' + fl.peak);
+      for (const [n, m] of [['metal', metal], ['rubber', rubber], ['post', post]]) t.expect(m.peak >= 0.15 && m.peak <= 0.45, n + ' rail hit is in range: ' + m.peak);
+      t.expect(metal.zcr > rubber.zcr * 1.5, 'metal is brighter than rubber (' + Math.round(metal.zcr) + ' against ' + Math.round(rubber.zcr) + ')');
+      t.expect(post.zcr > rubber.zcr * 1.1 && post.zcr < metal.zcr, 'and a post sits between them');
+      // a gentle hit is quieter and duller than a hard one
+      const soft = await impactStats(t, 'flipHit', { v: 0.3 }, 5);
+      t.expect(soft.peak < fl.peak * 0.6, 'a soft hit is under 60 percent of a hard one: ' + soft.peak + ' against ' + fl.peak);
+      // no two repeats are the same: the gain, the pitch and the noise differ every time (twelve renders, at least ten different peaks at four decimals;
+      // a collision is a chance of about one in a few hundred per pair, so three or more among twelve is far under one in ten thousand)
+      const rep = await impactStats(t, 'flipHit', { v: 1 }, 12);
+      t.expect(new Set(rep.peaks).size >= 10, 'repeats differ: ' + JSON.stringify(rep.peaks));
     },
   },
 ];

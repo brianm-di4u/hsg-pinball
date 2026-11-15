@@ -299,7 +299,7 @@ function handleEvent(G, e) {
   if (e.t === 'drain') { G.lastDrainX = e.x; if (G.scene === 'game' || G.scene === 'bonus') onDrain(G, e.ball); return; }
   if (e.t === 'flipEnd') { sound(G, 'flipStop', 1, flipX(G, e.side)); return; }
   if (e.t === 'plungerHit') { sound(G, 'plungerHit', 1, SHOOTER.x); return; }
-  if (e.t === 'wall') { sound(G, 'wall', Math.min(1, e.speed / 2500)); return; }
+  if (e.t === 'wall') { sound(G, 'wall', Math.min(1, e.speed / 2500), undefined, { kind: e.kind }); return; }   // kind: what it hit, so a rail, a rubber and a post sound different (S1-23)
   if (e.t === 'clack') { sound(G, 'clack', Math.min(1, e.speed / 2000)); return; }
   if (e.t === 'flipHit') { sound(G, 'flipHit', Math.min(1, e.speed / 3000)); return; }
   if (e.t === 'offRamp') return;
