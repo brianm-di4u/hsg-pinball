@@ -76,6 +76,10 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .btn.primary { background: linear-gradient(#e8c25a, #b8892a); color: #1d1405; border-color: #ffe7a0; }
 .btn.sm { padding: 4px 10px; min-height: 44px; }
 .btn.icon { display: inline-flex; align-items: center; gap: 8px; }
+#b-mute .lbl { display: none; }   /* icon only: Menu and Launch need the width */
+#b-mute .slash { display: none; }
+#b-mute.muted .slash { display: inline; }
+#b-mute.muted .waves { display: none; }
 .btn.launch { position: relative; flex: 1; overflow: hidden; opacity: 0.6; }
 .btn.launch:not(.ready) { visibility: hidden; }
 .btn.launch.ready { opacity: 1; border-color: var(--coral); box-shadow: 0 0 16px rgba(242, 107, 91, 0.45); }
@@ -157,6 +161,7 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   .score-line { display: none; }
   .buttons { flex-direction: row; }
   #b-menu { position: fixed; left: 13vw; bottom: 6px; z-index: 5; height: 46px; background: rgba(30, 26, 48, 0.78); }   /* over the apron: the DMD gets the full width */
+  #b-mute { position: fixed; left: calc(13vw + 62px); bottom: 6px; z-index: 5; height: 46px; background: rgba(30, 26, 48, 0.78); }
   .btn.launch { position: fixed; right: 13vw; bottom: 6px; z-index: 5; flex: none; width: 92px; height: 46px; visibility: hidden; background: rgba(30, 26, 48, 0.78); }   /* over the apron, clear of the shooter lane */
   .btn.launch.ready { visibility: visible; }
   .btn.icon .lbl { display: none; }
@@ -184,8 +189,8 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   .side { font-size: 0.8em; }
   /* Menu and Launch share the narrow side column: stacked in flow (not the fixed portrait positions), icon-only Menu */
   .buttons { flex-direction: column; gap: 6px; }
-  #b-menu, .btn.launch { position: relative; inset: auto; left: auto; right: auto; bottom: auto; width: auto; flex: none; min-width: 44px; height: auto; padding: 8px 4px; justify-content: center; background: linear-gradient(#2c2645, #1e1a30); }
-  #b-menu .lbl { display: none; }
+  #b-menu, #b-mute, .btn.launch { position: relative; inset: auto; left: auto; right: auto; bottom: auto; width: auto; flex: none; min-width: 44px; height: auto; padding: 8px 4px; justify-content: center; background: linear-gradient(#2c2645, #1e1a30); }
+  #b-menu .lbl, #b-mute .lbl { display: none; }
 }
 body.reduced *, body.reduced *::before { animation: none !important; transition: none !important; }
 

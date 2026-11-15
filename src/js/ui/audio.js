@@ -6,7 +6,7 @@
 import { makeAudioKit, measureAudio } from './audiokit.js';
 import { SCORES, SCENES, AMBIENCE_FOR, MUSIC_LEVEL, AMBIENCE_LEVEL } from './music.js';
 
-export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, played: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 } };
+export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 } };
 
 let master, sfxBus, verb, noiseBuf;
 // cx is the context the cue synthesis builds on (the live one, or an offline one while a cue is rendered for a test);
@@ -16,6 +16,10 @@ let cx = null, dst = null, roll = null;
 // Sound effects, Music and Ambience are three separate switches. Music never depended on the effects switch: a player
 // who turns the effects off keeps the music, as before the ambience was added.
 const musicOn = () => audio.music;
+// the bus levels the settings give: the Effects and Music sliders scale what the switches allow; a mute (the M key, the speaker button) closes the master for the session
+const sfxLevel = () => (audio.on ? 0.9 * audio.sfxVol : 0);
+const musicLevel = () => (musicOn() ? MUSIC_LEVEL * audio.musicVol : 0);
+const masterLevel = () => (audio.muted ? 0 : audio.vol);
 const ambOn = () => audio.ambience;
 
 export function unlock() {
@@ -26,9 +30,9 @@ export function unlock() {
     const c = (audio.ctx = new AC()); cx = c;
     const comp = c.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
-    master = c.createGain(); master.gain.value = audio.vol;
+    master = c.createGain(); master.gain.value = masterLevel();
     master.connect(comp).connect(c.destination);
-    sfxBus = c.createGain(); sfxBus.gain.value = audio.on ? 0.9 : 0; sfxBus.connect(master);
+    sfxBus = c.createGain(); sfxBus.gain.value = sfxLevel(); sfxBus.connect(master);
     // a short generated room impulse for a little space
     const len = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
@@ -37,7 +41,7 @@ export function unlock() {
     const n = c.sampleRate; noiseBuf = c.createBuffer(1, n, n);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
     dst = sfxBus;
-    audio.kit = makeAudioKit(c, master, { seed: (Math.random() * 0xffffff) | 0, music: musicOn() ? MUSIC_LEVEL : 0, ambience: ambOn() ? AMBIENCE_LEVEL : 0 });
+    audio.kit = makeAudioKit(c, master, { seed: (Math.random() * 0xffffff) | 0, music: musicLevel(), ambience: ambOn() ? AMBIENCE_LEVEL : 0 });
     if (audio.hold) { audio.kit.hold(); c.suspend(); }
     if (audio.scene) startMusic(audio.scene, audio.mode);
   } catch { audio.ctx = null; }
@@ -65,13 +69,13 @@ export function resumeAudio() {
   if (audio.kit) audio.kit.release();
 }
 
-export function setVolumes({ sound = audio.on, music = audio.music, ambience = audio.ambience, volume = audio.vol } = {}) {
-  audio.on = sound; audio.music = music; audio.ambience = ambience; audio.vol = volume;
+export function setVolumes({ sound = audio.on, music = audio.music, ambience = audio.ambience, volume = audio.vol, sfxVol = audio.sfxVol, musicVol = audio.musicVol, muted = audio.muted } = {}) {
+  audio.on = sound; audio.music = music; audio.ambience = ambience; audio.vol = volume; audio.sfxVol = sfxVol; audio.musicVol = musicVol; audio.muted = muted;
   if (!audio.ctx) return;
   const t = audio.ctx.currentTime;
-  master.gain.setTargetAtTime(volume, t, 0.05);
-  sfxBus.gain.setTargetAtTime(sound ? 0.9 : 0, t, 0.05);
-  audio.kit.music.level(musicOn() ? MUSIC_LEVEL : 0); audio.kit.amb.level(ambOn() ? AMBIENCE_LEVEL : 0);
+  master.gain.setTargetAtTime(masterLevel(), t, 0.05);
+  sfxBus.gain.setTargetAtTime(sfxLevel(), t, 0.05);
+  audio.kit.music.level(musicLevel()); audio.kit.amb.level(ambOn() ? AMBIENCE_LEVEL : 0);
   startMusic(audio.scene, audio.mode);   // plays or stops the pieces for the new switches: nothing is scheduled for a muted bus
 }
 
@@ -235,7 +239,7 @@ export function audioNow() {
   return {
     scene: audio.scene, mode: audio.mode, intensity: audio.intensity, held: !!(k && k.held),
     music: k ? name(SCORES, k.music.score) : null, ambience: k ? name(SCENES, k.amb.scene) : null,
-    musicLevel: musicOn() ? MUSIC_LEVEL : 0, ambienceLevel: ambOn() ? AMBIENCE_LEVEL : 0,
+    musicLevel: musicLevel(), sfxLevel: sfxLevel(), masterLevel: masterLevel(), muted: audio.muted, ambienceLevel: ambOn() ? AMBIENCE_LEVEL : 0,
     ambienceParams: { ...audio.params },
     bars: k && k.music.info() ? k.music.info().bars : 0,
   };

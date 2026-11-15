@@ -109,7 +109,9 @@ export function createScreens(root, app) {
           ${opt('s-sound', 'Sound effects', [[1, 'On'], [0, 'Off']], +s.sound)}
           ${opt('s-music', 'Music', [[1, 'On'], [0, 'Off']], +s.music)}
           ${opt('s-ambience', 'Ambience', [[1, 'On'], [0, 'Off']], +s.ambience)}
-          <label class="row"><span>Volume</span><input id="s-vol" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
+          <label class="row"><span>Master volume</span><input id="s-vol" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
+          <label class="row"><span>Effects volume</span><input id="s-sfxvol" type="range" min="0" max="1" step="0.05" value="${s.sfxVol}"></label>
+          <label class="row"><span>Music volume</span><input id="s-musvol" type="range" min="0" max="1" step="0.05" value="${s.musicVol}"></label>
           ${opt('s-motion', 'Motion', [['auto', 'Follow system'], ['full', 'Full'], ['reduced', 'Reduced']], s.motion)}
           ${opt('s-difficulty', 'Table difficulty', DIFF_OPTS, s.difficulty)}
           <p class="hint" id="s-diff-hint">${DIFF_HINT[s.difficulty]}${back === 'pause' ? ' Applies to the next game.' : ''}</p>
@@ -125,7 +127,7 @@ export function createScreens(root, app) {
       </section>`);
       const read = () => {
         const v = (id) => root.querySelector(id).value;
-        app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), motion: v('#s-motion'),
+        app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), sfxVol: +v('#s-sfxvol'), musicVol: +v('#s-musvol'), motion: v('#s-motion'),
           balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text'), ballGlow: v('#s-glow') === '1' });
       };
       on('#s-tips', () => { app.showTipsAgain(); root.querySelector('#s-tips-hint').textContent = 'The tips will show on the next ball.'; });
@@ -145,12 +147,14 @@ export function createScreens(root, app) {
               <tr><th>Flippers</th><td>Tap and hold the left or right half of the table</td></tr>
               <tr><th>Plunger</th><td>Hold Launch, then let go (longer = stronger). A quick tap launches.</td></tr>
               <tr><th>Nudge</th><td>Tap two fingers together on one side. Too many and the table tilts.</td></tr>
-              <tr><th>Pause</th><td>The ☰ button</td></tr>` : `
+              <tr><th>Pause</th><td>The ☰ button</td></tr>
+              <tr><th>Mute</th><td>The speaker button</td></tr>` : `
               <tr><th>Left flipper</th><td>Left Shift · Z · ←</td></tr>
               <tr><th>Right flipper</th><td>Right Shift · / · →</td></tr>
               <tr><th>Plunger</th><td>Hold Space · Enter · ↓, then release (longer = stronger). A quick tap launches.</td></tr>
               <tr><th>Nudge</th><td>X (left) · . (right) · ↑. Too many and the table tilts.</td></tr>
               <tr><th>Pause</th><td>Esc · P · the menu button</td></tr>
+              <tr><th>Mute</th><td>M · the speaker button</td></tr>
               <tr><th>Tip</th><td>On Windows, Z and / work best: while one Shift is held, Windows hides the other Shift's release.</td></tr>`}
             </tbody></table>
             <h3>The table</h3>

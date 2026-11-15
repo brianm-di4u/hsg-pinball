@@ -10,6 +10,10 @@ import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+async function gesture(t) {
+  if (t.viewport === 'mobile') await t.tap([20, 400]); else await t.page.mouse.click(20, 400);
+  for (let i = 0; i < 40; i++) { if ((await t.state()).audio.ctx) break; await t.page.waitForTimeout(50); }
+}
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 
 const T = compileTable(spec);
@@ -152,6 +156,83 @@ export const tests = [
       t.equal(await t.page.locator('[data-balls="3"]').getAttribute('aria-pressed'), 'true', 'and its toggle is pressed');
       t.equal(await t.page.locator('.scores tr').count(), 1, 'the 3-ball table is the one old row, as saved');
       await t.checkLayout();
+    },
+  },
+
+  // ---------------------------------------------------------------------------------------------- S5-09
+  {
+    name: 'S5-09 Effects and Music volume sliders feed their own buses, are saved, and an older save sounds as it did',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      const old = { v: 1, sound: true, music: true, volume: 0.8, balls: 3 };   // a save from before the two sliders
+      await t.page.evaluate((o) => { localStorage.clear(); localStorage.setItem('hsg-pinball:settings', JSON.stringify(o)); }, old);
+      await t.page.reload(); await t.waitIdle(30000);
+      await gesture(t);
+      let s = await t.state();
+      t.equal([s.settings.sfxVol, s.settings.musicVol, s.settings.volume], [1, 1, 0.8], 'an old save gets both sliders at full and keeps its master volume');
+      t.equal([s.audio.sfxLevel, s.audio.musicLevel], [0.9, 0.4], 'the buses are at the levels they always had');
+      await t.game('scene', 'settings');
+      await t.page.evaluate(() => { for (const [id, v] of [['#s-sfxvol', '0.5'], ['#s-musvol', '0.25']]) { const n = document.querySelector(id); n.value = v; n.dispatchEvent(new Event('change', { bubbles: true })); } });
+      await shot(t, 'S5-09-settings-sliders');
+      s = await t.state();
+      t.equal([s.settings.sfxVol, s.settings.musicVol], [0.5, 0.25], 'the sliders set the settings');
+      t.equal([s.audio.sfxLevel, s.audio.musicLevel], [0.45, 0.1], 'effects bus at half, music bus at a quarter of its level');
+      t.equal(s.settings.volume, 0.8, 'the master volume is not touched');
+      await t.game('applySettings', { music: false });
+      t.equal((await t.state()).audio.musicLevel, 0, 'Music Off still shuts the music bus, whatever its slider says');
+      await t.game('applySettings', { music: true });
+      await t.page.reload(); await t.waitIdle(30000);
+      s = await t.state();
+      t.equal([s.settings.sfxVol, s.settings.musicVol], [0.5, 0.25], 'both survive a reload');
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, sfxVol: 7, musicVol: 'loud' })));
+      await t.page.reload(); await t.waitIdle(30000);
+      s = await t.state();
+      t.equal([s.settings.sfxVol, s.settings.musicVol], [1, 1], 'out of range clamps, a damaged value falls back to full');
+    },
+  },
+  {
+    name: 'S5-09 M and the speaker button mute everything during play and bring it back; the saved settings do not change',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.page.evaluate(() => localStorage.clear());
+      await t.page.reload(); await t.waitIdle(30000);
+      await gesture(t);
+      await t.game('newGame', { seed: 5 });
+      let s = await t.state();
+      const level = s.audio.masterLevel;
+      t.expect(level > 0, 'master is open: ' + level);
+      const btn = t.page.locator('#b-mute');
+      t.expect(await btn.isVisible(), 'the speaker button is on screen');
+      t.equal(await btn.getAttribute('aria-pressed'), 'false', 'not pressed');
+      const box = await btn.boundingBox();
+      t.expect(box.width >= 44 && box.height >= 44, 'a touch target of at least 44 px: ' + box.width + 'x' + box.height);
+      if (t.viewport === 'desktop') {
+        await t.page.keyboard.press('KeyM');
+      } else {
+        await t.tap([box.x + box.width / 2, box.y + box.height / 2]);
+      }
+      await t.waitForStable(2);
+      s = await t.state();
+      t.equal([s.audio.muted, s.audio.masterLevel], [true, 0], 'muted: the master is shut');
+      t.equal(await btn.getAttribute('aria-pressed'), 'true', 'the button shows it');
+      await shot(t, 'S5-09-muted');
+      t.equal(s.settings.volume, 0.8, 'the saved volume is untouched');
+      const saved = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:settings') || 'null'));
+      t.expect(!saved || saved.volume === 0.8, 'and nothing was saved');
+      await btn.click();
+      s = await t.state();
+      t.equal([s.audio.muted, s.audio.masterLevel], [false, level], 'the button brings the sound back to where it was');
+      await t.checkLayout();
+    },
+  },
+  {
+    name: 'S5-09 pressing M in a Settings list does not mute',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('scene', 'settings');
+      await t.page.focus('#s-sound');
+      await t.page.keyboard.press('KeyM');
+      t.equal((await t.state()).audio.muted, false, 'M is a typed letter there, not the mute key');
     },
   },
 

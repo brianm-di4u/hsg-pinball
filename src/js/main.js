@@ -170,11 +170,20 @@ app.startDaily = () => app.start(null, { daily: true });
 app.progress = () => { const today = todayKey(), daily = loadDaily(today); return { stats: app.stats, rank: rankOf(app.stats.score), daily, today, streak: streakOf(daily.days, today) }; };
 app.resume = () => { resumeAudio(); paused = false; screens.close(); document.body.dataset.scene = demo ? 'title' : 'game'; lastNow = performance.now(); };
 app.quit = () => { resumeAudio(); paused = false; coach.stop(); screens.title(); startDemo(); };
+// the speaker button and the M key: silence everything for this visit (nothing in the saved settings changes)
+const muteBtn = $('#b-mute');
+app.toggleMute = () => {
+  const muted = !audio.muted;
+  setVolumes({ muted });
+  muteBtn.setAttribute('aria-pressed', String(muted)); muteBtn.setAttribute('aria-label', muted ? 'Sound is off: turn it back on' : 'Mute all sound'); muteBtn.classList.toggle('muted', muted);
+  announce(muted ? 'Sound off' : 'Sound on');
+  return muted;
+};
 app.applySettings = (s) => {
   const tierChanged = s.tier && s.tier !== app.settings.tier;
   Object.assign(app.settings, s);
   saveSettings(app.settings);
-  setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume });
+  setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume, sfxVol: app.settings.sfxVol, musicVol: app.settings.musicVol });
   document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
   document.body.classList.toggle('reduced', reducedMotion());
   if (tierChanged && view && view.kind === '3d') { if (s.tier === '2d') { view.hide(); view = view2d; } else view.setTier(s.tier); }
@@ -208,12 +217,13 @@ function simTimeFor(ts) {
   return Math.max(now, t);
 }
 const input = createInput(tableEl, {
-  wantsKeys(a) { return !screens.current || screens.current === 'entry' || a === 'pause'; },
+  wantsKeys(a) { return a === 'mute' ? !screens.current || screens.current === 'pause' : !screens.current || screens.current === 'entry' || a === 'pause'; },
   touchActive() { return !screens.current && !paused; },
   action(a, down, ts, src) {
     unlock();
     if (src === 'key' || src === 'touch' || src === 'pad') coach.setKind(src);
     if (a === 'tips') { if (down) coach.skip(); return; }
+    if (a === 'mute') { if (down) app.toggleMute(); return; }
     if (screens.current === 'entry') { if (down && screens.entryKey) screens.entryKey(a); return; }
     if (a === 'pause') {
       if (!down) return;
@@ -234,6 +244,7 @@ $('#b-launch').addEventListener('pointerdown', (e) => { unlock(); coach.setKind(
 const releaseLaunch = (e) => { if (!demo && !paused) plunger(G, false); };
 $('#b-launch').addEventListener('pointerup', releaseLaunch);
 $('#b-launch').addEventListener('pointerleave', releaseLaunch);
+muteBtn.addEventListener('click', () => { unlock(); app.toggleMute(); tableEl.focus({ preventScroll: true }); });
 $('#b-menu').addEventListener('click', () => { unlock(); if (demo) screens.title(); else pause(); });
 
 const screens = createScreens($('#screens'), app);
@@ -546,7 +557,7 @@ window.__game = {
     clockBase = performance.now();
     document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
     document.body.classList.toggle('reduced', reducedMotion());
-    setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume });
+    setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume, sfxVol: app.settings.sfxVol, musicVol: app.settings.musicVol });
     startLoads();   // the downloads start now and run while the title is built (upgradeTo3D joins them)
     try { dmd.art = makeSilhouettes(); } catch { /* optional */ }
     initView2D();
