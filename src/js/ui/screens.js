@@ -159,6 +159,7 @@ export function createScreens(root, app) {
           ${opt('s-tier', 'Graphics quality', [['auto', 'Automatic'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['2d', 'Flat 2D']], s.tier)}
           ${opt('s-glow', 'Ball highlight', [[1, 'On'], [0, 'Off']], +s.ballGlow)}
           ${typeof navigator.vibrate === 'function' || typeof navigator.getGamepads === 'function' ? opt('s-haptics', 'Vibration', [[1, 'On'], [0, 'Off']], +s.haptics) : ''}
+          ${matchMedia('(max-aspect-ratio: 4 / 5)').matches ? '' : opt('s-callouts', 'Callouts on the table', [[1, 'On'], [0, 'Off']], +s.callouts)}
           ${opt('s-text', 'Text size', [[1, 'Normal'], [1.15, 'Large'], [1.3, 'Larger']], s.textScale)}
           ${document.fullscreenEnabled ? '<div class="row"><span>Full screen</span><button type="button" id="s-full" class="btn sm" aria-pressed="' + !!document.fullscreenElement + '">' + (document.fullscreenElement ? 'Leave full screen' : 'Go full screen') + '</button></div>' : ''}
           <div class="row"><span>First-game tips</span><button type="button" id="s-tips" class="btn sm">Show tips again</button></div>
@@ -170,7 +171,8 @@ export function createScreens(root, app) {
       const read = () => {
         const v = (id) => root.querySelector(id).value;
         app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), sfxVol: +v('#s-sfxvol'), musicVol: +v('#s-musvol'), motion: v('#s-motion'),
-          balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text'), ballGlow: v('#s-glow') === '1', haptics: root.querySelector('#s-haptics') ? v('#s-haptics') === '1' : app.settings.haptics });
+          balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text'), ballGlow: v('#s-glow') === '1', haptics: root.querySelector('#s-haptics') ? v('#s-haptics') === '1' : app.settings.haptics,
+          callouts: root.querySelector('#s-callouts') ? v('#s-callouts') === '1' : app.settings.callouts });
       };
       const hint = root.querySelector('#s-keys-hint');
       const showKeys = () => root.querySelectorAll('.keybtn').forEach((b) => { b.textContent = keyList(b.dataset.act); b.setAttribute('aria-label', ACTION_NAME[b.dataset.act] + ': ' + keyList(b.dataset.act) + '. Press to choose another key.'); });

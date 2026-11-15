@@ -575,7 +575,12 @@ function render(alpha, still = false) {
   const chip = dmd.cur ? fmt(p.score) : !touchChip() ? '' : G.mode ? `${G.mode.id.toUpperCase()} ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`;
   setText('#score', demo ? '' : dmd.cur || !touchChip() ? chip : chip + saveLeft);
   setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
-  setText('#modeline', demo ? '' : (G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : modeShort(G.mode.i)} · ${G.mode.id === 'derby' ? (G.mode.progress | 0) + '%' : (G.mode.progress | 0) + '/' + G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak Multiball', valley: 'Valley of the Vapors' }[G.mb.kind] : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`) + saveLeft);   // fact: raid
+  const modeText = G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : modeShort(G.mode.i)} · ${G.mode.id === 'derby' ? (G.mode.progress | 0) + '%' : (G.mode.progress | 0) + '/' + G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak Multiball', valley: 'Valley of the Vapors' }[G.mb.kind] : '';   // fact: raid
+  setText('#modeline', demo ? '' : (modeText || `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`) + saveLeft);
+  // the callout banner on the table (P-N01): the display's line and the running mode, where the eye already is; not in the demo, not under a first-game tip, and off when the player turns it off
+  const showCo = !demo && G.scene === 'game' && app.settings.callouts && coachEl.hidden && !!(dmd.cur || modeText);
+  setText('#co-t', showCo && dmd.cur ? dmd.cur.text || '' : ''); setText('#co-s', showCo && dmd.cur ? String(dmd.cur.sub || '') : ''); setText('#co-m', showCo ? modeText : '');
+  if (showCo !== uiCache.callout) { uiCache.callout = showCo; $('#callout').hidden = !showCo; }
   const showLaunch = !demo && !paused && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150);
   const mg = demo ? '' : G.f.modesPlayed.map((p, i) => ((G.mode && G.mode.i === i) || (G.mb && G.mb.kind === 'valley') ? 'on' : G.f.modesWon[i] ? 'won' : p ? 'played' : !G.mode && !G.mb && i === nextModeIndex(G.f) ? 'next' : '')).join(',');
   if (mg !== uiCache.mg) { uiCache.mg = mg; const cls = mg.split(','); document.querySelectorAll('#modegrid li').forEach((li, i) => { li.className = cls[i] || ''; }); }
