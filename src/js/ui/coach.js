@@ -10,14 +10,17 @@ export const GOAL_LINE = 'Score big: light the Row, win all six modes, reach the
 
 // the steps, in order. `until` is how the step ends besides the Skip button: 'launch' (the ball leaves the lane),
 // 'flip' (the player flips), or a number of sim seconds (waiting is enough).
+// the keys the tips name (Settings can change them: main.js calls setTipKeys)
+let tipKeys = { plunge: 'Space', flip: 'Z or /' };
+export const setTipKeys = (k) => { tipKeys = { ...tipKeys, ...k }; };
 export const STEPS = [
-  { id: 'plunge', until: 'launch', max: 40, text: { key: 'Hold Space, then let go to launch.', touch: 'Hold Launch, then let go to fire.', pad: 'Hold A, then let go to launch.' } },
-  { id: 'flip', until: 'flip', max: 10, text: { key: 'Press Z or / to work the flippers.', touch: 'Tap the left or right side to flip.', pad: 'Squeeze LB or RB to flip.' } },
+  { id: 'plunge', until: 'launch', max: 40, text: { key: () => `Hold ${tipKeys.plunge}, then let go to launch.`, touch: 'Hold Launch, then let go to fire.', pad: 'Hold A, then let go to launch.' } },
+  { id: 'flip', until: 'flip', max: 10, text: { key: () => `Press ${tipKeys.flip} to work the flippers.`, touch: 'Tap the left or right side to flip.', pad: 'Squeeze LB or RB to flip.' } },
   { id: 'goal', until: 6, text: { key: 'Light all eight bathhouses for Grand Soak.', touch: 'Light all eight bathhouses for Grand Soak.', pad: 'Light all eight bathhouses for Grand Soak.' } },
   { id: 'vapors', until: 6, text: { key: 'Roll into The Vapors to start a mode.', touch: 'Roll into The Vapors to start a mode.', pad: 'Roll into The Vapors to start a mode.' } },
 ];
 
-export const tipText = (step, kind) => STEPS[step].text[kind] || STEPS[step].text.key;
+export const tipText = (step, kind) => { const t = STEPS[step].text[kind] || STEPS[step].text.key; return typeof t === 'function' ? t() : t; };
 
 /**
  * The coach. `host` gives it the page: show(text, id) / hide() / say(text) for the screen-reader line, and done(skipped)

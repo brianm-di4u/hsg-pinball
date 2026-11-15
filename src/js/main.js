@@ -8,9 +8,9 @@ import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
 import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
 import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
-import { createInput } from './ui/input.js';
+import { createInput, applyKeys, customKeys, keyName, KEYS } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
-import { createCoach } from './ui/coach.js';
+import { createCoach, setTipKeys } from './ui/coach.js';
 import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, suspendAudio, resumeAudio } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, storageWritable, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
 import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
@@ -195,6 +195,7 @@ app.applySettings = (s) => {
 function pause() {
   if (demo || paused || G.scene === 'over') return;
   paused = true; suspendAudio();
+  if ('keys' in s) { applyKeys(app.settings.keys); paintKeyText(); }
   // keys released while paused never reach the game, so let go of everything now
   G.w.pending.length = 0;   // a flip queued for a later substep must not fire after the release
   for (const f of G.w.flippers) if (f.held) flipper(G, f.side, false);
@@ -225,7 +226,10 @@ const input = createInput(tableEl, {
     unlock();
     if (src === 'key' || src === 'touch' || src === 'pad') coach.setKind(src);
     if (a === 'tips') { if (down) coach.skip(); return; }
+applyKeys(app.settings.keys);   // the keys the player chose in Settings, if any
     if (a === 'mute') { if (down) app.toggleMute(); return; }
+  menuMode() { return !!screens.current && screens.current !== 'entry'; },   // the gamepad steers a menu, not the table
+  menu(cmd) { if (cmd === 'back') this.action('pause', true, performance.now(), 'pad'); else screens.navigate(cmd); },
     if (screens.current === 'entry') { if (down && screens.entryKey) screens.entryKey(a); return; }
     if (a === 'pause') {
       if (!down) return;
@@ -280,6 +284,16 @@ function routeCues() {
   for (const c of G.cues) {
     switch (c.k) {
       case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
+// the key names the cabinet hint, the table's screen-reader line and the first-game tips show: the usual ones, or the player's own
+const hintEl = $('.controls-hint'), helpEl = $('#table-help'), hintHTML = hintEl.innerHTML, helpText = helpEl.textContent;
+function paintKeyText() {
+  const custom = customKeys(), k = (a) => keyName(KEYS[a][0]);
+  hintEl.innerHTML = custom ? `<span><kbd>${k('flipL')}</kbd> <kbd>${k('flipR')}</kbd> flippers</span><span>hold <kbd>${k('plunge')}</kbd> plunge</span><span><kbd>${k('nudgeL')}</kbd> <kbd>${k('nudgeR')}</kbd> <kbd>${k('nudgeU')}</kbd> nudge · <kbd>Esc</kbd> pause</span>` : hintHTML;
+  helpEl.textContent = custom ? `Pinball table. Keep the ball in play with the left and right flippers, hit targets to light bathhouses and start modes, and score as much as you can. Hold ${k('plunge')} or the Launch button to pull the plunger and release to fire. ${k('flipL')} and ${k('flipR')} flip; ${k('nudgeL')}, ${k('nudgeR')} and ${k('nudgeU')} nudge; Escape pauses. On a touch screen, tap the left or right half of the table to flip. Callouts, the ball number and your score at the end of each ball are announced.` : helpText;
+  setTipKeys(custom ? { plunge: k('plunge'), flip: `${k('flipL')} or ${k('flipR')}` } : { plunge: 'Space', flip: 'Z or /' });
+}
+paintKeyText();
+
       case 'sound': if (!demo) sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); break;   // pan by where it happened (the cue carries n and m for ladders and countdowns)
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
       case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;

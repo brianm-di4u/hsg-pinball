@@ -1,6 +1,7 @@
 // localStorage wrapper (pattern from hsg-property-game main.js `store`): every access in try/catch so the game runs
 // with storage blocked, in private windows and in previews.
 import { DIFFICULTIES } from './sim/rules.js';
+import { REBIND, RESERVED, KEYS } from './ui/input.js';
 import { emptyTally, GOALS, pruneDays, streakOf, todayKey } from './progress.js';
 
 const PREFIX = 'hsg-pinball:';
@@ -25,9 +26,17 @@ export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, s
 const pick = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt);
 const bool = (v, dflt) => (typeof v === 'boolean' ? v : dflt);
 const unit = (v, dflt) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : dflt);
+// the keys the player chose (settings.keys: action -> KeyboardEvent.code): a code for an action Settings can rebind, a plain key name, not Escape or Tab,
+// not used twice and not one of the fixed keys (pause, mute, tips). Anything else is dropped; none left means the record has no `keys` at all.
+const FIXED = ['pause', 'mute', 'tips'].flatMap((a) => KEYS[a]);
+function cleanKeys(k) {
+  const out = {}, used = new Set([...RESERVED, ...FIXED]);
+  if (k && typeof k === 'object' && !Array.isArray(k)) for (const a of REBIND) { const c = k[a]; if (typeof c === 'string' && /^[A-Za-z0-9]{1,16}$/.test(c) && !used.has(c)) { out[a] = c; used.add(c); } }
+  return out;
+}
 function cleanSettings(s) {
   const d = DEFAULT_SETTINGS;
-  return {
+  const keys = cleanKeys(s.keys), out = {
     ...s, v: 1,
     sound: bool(s.sound, d.sound), music: bool(s.music, d.music),
     ambience: bool(s.ambience, bool(s.sound, d.ambience)),   // a save from before the Ambience switch gets it where its Sound effects switch is, so effects off means no new sound
@@ -41,6 +50,9 @@ function cleanSettings(s) {
     difficulty: pick(s.difficulty, DIFFICULTIES, d.difficulty),   // a save from before the setting has none: Standard
     tipsSeen: bool(s.tipsSeen, true),   // a settings record from before the tips is a returning player's: no first-game tips unless asked
   };
+  delete out.keys;
+  if (Object.keys(keys).length) out.keys = keys;
+  return out;
 }
 export function loadSettings() {
   const s = store.get('settings', null);

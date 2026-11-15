@@ -109,6 +109,8 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .hint.warn { color: var(--gold-2); border-left: 3px solid var(--gold); padding-left: 8px; text-align: left; }
 .form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; }
+.form h3.sub { margin: 8px 0 -2px; }
+.keybtn { min-width: 9em; }
 select, input[type=range] { font: inherit; min-height: 40px; background: var(--surface-2); color: var(--text); border: 1px solid #5a4f80; border-radius: 8px; padding: 4px 8px; }
 select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue); }
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }

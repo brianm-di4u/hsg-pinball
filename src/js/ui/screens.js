@@ -5,6 +5,7 @@ import { BATHHOUSES } from '../sim/table-spa-city.js';
 import { FACTS } from '../sim/facts.js';
 import { GOALS, RANKS, MODE_NAMES, shiftDay } from '../progress.js';
 import { GOAL_LINE } from './coach.js';
+import { KEYS, REBIND, ACTION_NAME, keyList, keyName, keyOwner, customKeys } from './input.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -35,7 +36,8 @@ export function createScreens(root, app) {
   let current = null;
   // with storage blocked (a private window, site data switched off) nothing the player earns is kept: say so
   const noSave = (id) => (app.storageOk() ? '' : `<p class="hint warn" id="${id}" role="note">Progress cannot be saved in this browser: scores and settings will not be kept.</p>`);
-  const el = (html) => { root.innerHTML = html; root.hidden = !html; const st = document.getElementById('stage'); if (st) st.inert = !!html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
+  let unbind = null;   // set while Settings waits for a key to bind: takes the listener off again
+  const el = (html) => { if (unbind) unbind(); root.innerHTML = html; root.hidden = !html; const st = document.getElementById('stage'); if (st) st.inert = !!html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
   const on = (sel, fn) => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx('ui'); fn(e); }); };
   // a destructive button: the first tap asks, a second tap within 3 s does it
   const confirmOn = (sel, fn) => {
@@ -66,7 +68,7 @@ export function createScreens(root, app) {
           <div class="pair"><button type="button" id="b-scores" class="btn">High scores</button><button type="button" id="b-records" class="btn">Records</button></div>
           <div class="pair"><button type="button" id="b-help" class="btn">How to play</button><button type="button" id="b-settings" class="btn">Settings</button></div>
         </div>
-        <p class="hint">${app.touch ? 'Tap the left or right side to flip · hold Launch to plunge' : 'Z and / (or Shift) to flip · hold Space to plunge'}</p>
+        <p class="hint">${app.touch ? 'Tap the left or right side to flip · hold Launch to plunge' : customKeys() ? `${keyName(KEYS.flipL[0])} and ${keyName(KEYS.flipR[0])} to flip · hold ${keyName(KEYS.plunge[0])} to plunge` : 'Z and / (or Shift) to flip · hold Space to plunge'}</p>
         <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
         ${noSave('t-nosave')}
         <p class="hint" id="t-rank">Rank: ${esc(P.rank.name)}${P.daily.days[P.today] ? ' · daily played today' : ' · today\'s daily table is waiting'}</p>
@@ -101,6 +103,10 @@ export function createScreens(root, app) {
     settings(back) {
       current = 'settings';
       const s = app.settings;
+      // the keyboard rows: each action shows its keys, and a press on the button waits for the key to use instead
+      const keyRows = () => `<h3 class="sub">Keys</h3>${REBIND.map((a) => `<div class="row"><span>${ACTION_NAME[a]}</span><button type="button" class="btn sm keybtn" data-act="${a}" aria-label="${ACTION_NAME[a]}: ${esc(keyList(a))}. Press to choose another key.">${esc(keyList(a))}</button></div>`).join('')}
+          <div class="row"><span>Default keys</span><button type="button" id="s-keys-reset" class="btn sm">Reset keys</button></div>
+          <p class="hint" id="s-keys-hint" aria-live="polite">Pick a key button, then press the new key. Esc cancels.</p>`;
       const opt = (id, label, vals, cur) => `<label class="row"><span>${label}</span><select id="${id}">${vals.map(([v, t]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="s-h">
         <h2 id="s-h">Settings</h2>
@@ -122,6 +128,7 @@ export function createScreens(root, app) {
           ${opt('s-text', 'Text size', [[1, 'Normal'], [1.15, 'Large'], [1.3, 'Larger']], s.textScale)}
           <div class="row"><span>First-game tips</span><button type="button" id="s-tips" class="btn sm">Show tips again</button></div>
           <p class="hint" id="s-tips-hint" aria-live="polite">${s.tipsSeen ? '' : 'The tips will show on the next ball.'}</p>
+          ${app.touch ? '' : keyRows()}
         </div>
         <div class="menu"><button type="button" id="b-back" class="btn primary">Done</button></div>
       </section>`);
@@ -130,10 +137,45 @@ export function createScreens(root, app) {
         app.applySettings({ sound: v('#s-sound') === '1', music: v('#s-music') === '1', ambience: v('#s-ambience') === '1', volume: +v('#s-vol'), sfxVol: +v('#s-sfxvol'), musicVol: +v('#s-musvol'), motion: v('#s-motion'),
           balls: +v('#s-balls'), difficulty: v('#s-difficulty'), practice: v('#s-practice') === '1', tier: v('#s-tier'), textScale: +v('#s-text'), ballGlow: v('#s-glow') === '1' });
       };
+      const hint = root.querySelector('#s-keys-hint');
+      const showKeys = () => root.querySelectorAll('.keybtn').forEach((b) => { b.textContent = keyList(b.dataset.act); b.setAttribute('aria-label', ACTION_NAME[b.dataset.act] + ': ' + keyList(b.dataset.act) + '. Press to choose another key.'); });
+      root.querySelectorAll('.keybtn').forEach((btn) => btn.addEventListener('click', () => {
+        app.sfx('ui');
+        if (unbind) unbind();
+        const a = btn.dataset.act;
+        btn.textContent = 'Press a key'; hint.textContent = 'Press the key for ' + ACTION_NAME[a].toLowerCase() + '. Esc cancels.';
+        const fn = (e) => {
+          if (e.repeat || e.code === 'Tab') { if (e.code === 'Tab') unbind(); return; }
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (e.code === 'Escape') { unbind(); hint.textContent = 'Cancelled. Keys are as they were.'; return; }
+          const owner = keyOwner(e.code);
+          if (owner && owner !== a) { hint.textContent = keyName(e.code) + ' already works the ' + ACTION_NAME[owner].toLowerCase() + '. Press another key.'; return; }
+          app.applySettings({ keys: { ...(app.settings.keys || {}), [a]: e.code } });
+          unbind(); hint.textContent = ACTION_NAME[a] + ' is now ' + keyName(e.code) + '.';
+        };
+        unbind = () => { window.removeEventListener('keydown', fn, true); unbind = null; showKeys(); };
+        window.addEventListener('keydown', fn, true);
+      }));
+      on('#s-keys-reset', () => { app.applySettings({ keys: undefined }); showKeys(); hint.textContent = 'The keys are back to the usual ones.'; });
       on('#s-tips', () => { app.showTipsAgain(); root.querySelector('#s-tips-hint').textContent = 'The tips will show on the next ball.'; });
       root.querySelectorAll('select, input').forEach((n) => n.addEventListener('change', read));
       root.querySelector('#s-difficulty').addEventListener('change', (e) => { root.querySelector('#s-diff-hint').textContent = DIFF_HINT[e.target.value] + (back === 'pause' ? ' Applies to the next game.' : ''); });
       on('#b-back', () => { read(); back === 'pause' ? S.pause() : S.title(); });
+    },
+    // the gamepad in a menu: up and down move between the controls, left and right change a list or a slider, A presses
+    navigate(cmd) {
+      const all = [...root.querySelectorAll('button, select, input')].filter((n) => !n.disabled && n.getClientRects().length);
+      if (!all.length) return;
+      const at = all.indexOf(document.activeElement), a = all[at];
+      if (cmd === 'ok') { if (a && a.tagName === 'BUTTON') a.click(); else if (!a) all[0].focus({ preventScroll: true }); return; }
+      if ((cmd === 'left' || cmd === 'right') && a && (a.tagName === 'SELECT' || a.type === 'range')) {
+        const d = cmd === 'left' ? -1 : 1;
+        if (a.tagName === 'SELECT') { const i = Math.max(0, Math.min(a.options.length - 1, a.selectedIndex + d)); if (i !== a.selectedIndex) { a.selectedIndex = i; a.dispatchEvent(new Event('change', { bubbles: true })); } }
+        else { if (d < 0) a.stepDown(); else a.stepUp(); a.dispatchEvent(new Event('input', { bubbles: true })); a.dispatchEvent(new Event('change', { bubbles: true })); }
+        return;
+      }
+      const d = cmd === 'up' || cmd === 'left' ? -1 : 1, n = all[(at < 0 ? (d > 0 ? 0 : all.length - 1) : (at + d + all.length) % all.length)];
+      n.focus({ preventScroll: false });
     },
     help(back) {
       current = 'help';
@@ -149,11 +191,13 @@ export function createScreens(root, app) {
               <tr><th>Nudge</th><td>Tap two fingers together on one side. Too many and the table tilts.</td></tr>
               <tr><th>Pause</th><td>The ☰ button</td></tr>
               <tr><th>Mute</th><td>The speaker button</td></tr>` : `
-              <tr><th>Left flipper</th><td>Left Shift · Z · ←</td></tr>
-              <tr><th>Right flipper</th><td>Right Shift · / · →</td></tr>
-              <tr><th>Plunger</th><td>Hold Space · Enter · ↓, then release (longer = stronger). A quick tap launches.</td></tr>
-              <tr><th>Nudge</th><td>X (left) · . (right) · ↑. Too many and the table tilts.</td></tr>
+              <tr><th>Left flipper</th><td>${keyList('flipL')}</td></tr>
+              <tr><th>Right flipper</th><td>${keyList('flipR')}</td></tr>
+              <tr><th>Plunger</th><td>Hold ${keyList('plunge')}, then release (longer = stronger). A quick tap launches.</td></tr>
+              <tr><th>Nudge</th><td>${keyList('nudgeL')} (left) · ${keyList('nudgeR')} (right) · ${keyList('nudgeU')}. Too many and the table tilts. Keys can be changed in Settings.</td></tr>
               <tr><th>Pause</th><td>Esc · P · the menu button</td></tr>
+              <tr><th>Mouse</th><td>Click the left or right half of the table to flip.</td></tr>
+              <tr><th>Gamepad</th><td>Bumpers or triggers flip, A plunges, Y or a flick of the stick nudges, Start pauses. In menus the D-pad moves, A presses, B goes back.</td></tr>
               <tr><th>Mute</th><td>M · the speaker button</td></tr>
               <tr><th>Tip</th><td>On Windows, Z and / work best: while one Shift is held, Windows hides the other Shift's release.</td></tr>`}
             </tbody></table>
