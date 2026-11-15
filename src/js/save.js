@@ -20,7 +20,7 @@ export function storageWritable() {
   try { const k = PREFIX + 'probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch { return false; }
 }
 
-export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, sfxVol: 1, musicVol: 1, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard', tipsSeen: false, ballGlow: true };
+export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, sfxVol: 1, musicVol: 1, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard', tipsSeen: false, ballGlow: true, tierLearned: '' };
 
 // saved values come from storage anyone can edit: keep only what the settings screen could have written
 const pick = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt);
@@ -47,10 +47,12 @@ function cleanSettings(s) {
     balls: pick(s.balls, [3, 5], d.balls),
     tier: pick(s.tier, ['auto', 'high', 'medium', 'low', '2d'], d.tier),
     textScale: pick(s.textScale, [1, 1.15, 1.3], d.textScale),
+    tierLearned: pick(s.tierLearned, ['high', 'medium', 'low'], ''),   // the tier the quality governor last settled on (S6-08); none until it has stepped
     difficulty: pick(s.difficulty, DIFFICULTIES, d.difficulty),   // a save from before the setting has none: Standard
     tipsSeen: bool(s.tipsSeen, true),   // a settings record from before the tips is a returning player's: no first-game tips unless asked
   };
   delete out.keys;
+  if (!out.tierLearned) delete out.tierLearned;   // absent until the governor has stepped, like keys
   if (Object.keys(keys).length) out.keys = keys;
   return out;
 }

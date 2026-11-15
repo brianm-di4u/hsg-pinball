@@ -16,6 +16,46 @@ const TIERS = {
   low: { ratio: 0.75, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 24, gi: 0, flashers: 0, glow: 0, cube: 0 },
 };
 
+// The quality governor (S6-08): it watches the frame time and steps the tier down when the median of the last 60 frames is slow
+// (twice running), and says so when even Low is too slow. It now also steps back up: when the frames have held at 18 ms or
+// better (a steady 55 fps) for 10 s, one tier at a time, but only to the tier it fell from this session, and only once: a tier it
+// fell from a second time stays given up. (The council asked for 12 ms; a 60 Hz screen never shows a frame under 16.7 ms, so
+// 12 ms would never come.) Pure data and logic, no DOM: the tests drive it with frame times.
+export const GOV = { frames: 60, slowMs: 24, tooSlowMs: 50, fastMs: 18, fastSecs: 10, provenSecs: 20 };   // provenSecs: a tier held this long after stepping up is not given up for one stall   // before S6-08 there was no fastMs or fastSecs: it only stepped down
+export const TIER_ORDER = ['low', 'medium', 'high'];
+export function createGovernor() {
+  let frames = [], slowRuns = 0, fastFor = 0, limit = -1, upTo = null, sinceUp = 0;   // limit: the highest tier (by place in TIER_ORDER) it may step up to
+  const rank = (n) => TIER_ORDER.indexOf(n);
+  return {
+    /** The most it may step up to is this tier (the start tier of a device that was started low on purpose). */
+    allowUpTo(name) { limit = Math.max(limit, rank(name)); },
+    /** A frame took dt seconds at this tier: 'down', 'up', 'toolow' or null. */
+    push(dt, tier, canUp = true) {
+      if (!(dt > 0 && dt < 0.2)) return null;
+      if (upTo && (sinceUp += dt) > GOV.provenSecs) upTo = null;
+      frames.push(dt); if (frames.length > GOV.frames) frames.shift();
+      if (frames.length < GOV.frames) return null;
+      const med = [...frames].sort((a, b) => a - b)[GOV.frames / 2];
+      if (med > GOV.slowMs / 1000 && tier !== 'low') {
+        fastFor = 0;
+        if (++slowRuns <= 1) return null;
+        slowRuns = 0; frames = [];
+        if (tier === upTo) limit = rank(tier) - 1;   // it went back up and fell again: that tier is given up
+        else limit = Math.max(limit, rank(tier));
+        upTo = null;
+        return 'down';
+      }
+      if (med > GOV.tooSlowMs / 1000 && tier === 'low') { fastFor = 0; if (++slowRuns > 2) { slowRuns = 0; frames = []; return 'toolow'; } return null; }
+      slowRuns = 0;
+      fastFor = med <= GOV.fastMs / 1000 ? fastFor + dt : 0;
+      if (canUp && fastFor >= GOV.fastSecs && rank(tier) < limit) { fastFor = 0; frames = []; upTo = TIER_ORDER[rank(tier) + 1]; sinceUp = 0; return 'up'; }
+      return null;
+    },
+    /** The tier was changed from outside (Settings): start counting again. */
+    settle() { frames = []; slowRuns = 0; fastFor = 0; upTo = null; },
+  };
+}
+
 // Ball highlight (S1-11): a rim glow round the ball, a short trail that grows with speed, and a darkening of the lower
 // playfield's painting (a shader parameter, not a repaint). One setting turns all three off. Reverse any of it here.
 export const HIGHLIGHT = {
@@ -86,7 +126,7 @@ function parseGLB(THREE, b64) {
 // Give the page's own work (frames, input, the title) a turn between the heavy build steps, say how far along we are, and let the
 // caller hold the build (gate) while something more important, a ball in play, is going on.
 const yieldUI = () => new Promise((res) => setTimeout(res, 0));
-export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMotion = () => false, progress = () => {}, gate = null } = {}) {
+export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = null, reducedMotion = () => false, progress = () => {}, gate = null } = {}) {
   const THREE = window.THREE;
   const step = async (p) => { progress(p); await yieldUI(); if (gate) await gate(); };
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!window.__TEST__ });
@@ -94,9 +134,20 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.type = THREE.PCFShadowMap;
-  // auto: software GL → low; touch devices (phones, tablets) → medium; everything else → high. The governor steps down.
-  const autoTier = () => (softwareGL(renderer) ? 'low' : matchMedia('(pointer: coarse)').matches ? 'medium' : 'high');
+  // auto: software GL → low; touch devices (phones, tablets) → medium, or low with four cores or fewer (S1-27); everything else → high.
+  // What the governor settled on last time (the saved `learned` tier) is used instead when it is no higher than the device's own
+  // top tier (S6-08). The governor steps down, and back up to the tier it fell from.
+  const coarse = () => matchMedia('(pointer: coarse)').matches;
+  const weak = () => coarse() && (navigator.hardwareConcurrency || 8) <= 4;
+  const autoTier = () => {
+    if (softwareGL(renderer)) return 'low';
+    const top = coarse() ? 'medium' : 'high', l = typeof learned === 'function' ? learned() : '';
+    if (TIER_ORDER.includes(l) && TIER_ORDER.indexOf(l) <= TIER_ORDER.indexOf(top)) return l;
+    return weak() ? 'low' : top;
+  };
+  const gov = createGovernor();
   let tierName = tier === 'auto' ? autoTier() : tier;
+  if (tier === 'auto' && tierName === 'low' && !softwareGL(renderer) && coarse()) gov.allowUpTo('medium');   // a weak phone starts low and may prove it can do medium
   let Q = TIERS[tierName] || TIERS.high;
 
   const packs = await loadPacks();
@@ -680,7 +731,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   }
 
   // ------------------------------------------------------------------------------------------- runtime
-  let lastT = 0, slowFrames = 0, frames = [];
+  let lastT = 0;
   const view = {
     kind: '3d',
     get tier() { return tierName; },
@@ -701,7 +752,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
     setTier(name) {
       if (name === 'auto') name = autoTier();
       if (!TIERS[name] || name === tierName) return;
-      tierName = name; Q = TIERS[name];
+      tierName = name; Q = TIERS[name]; gov.settle();
       applyLights(); applyMaterials();
       buildPost();
       window.dispatchEvent(new Event('resize'));
@@ -750,14 +801,10 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       canvas.style.visibility = 'visible';
       const t = o.t, dt = Math.min(0.1, Math.max(0, t - lastT)); lastT = t;
       // governor (ignore long frames from test stepping; a test opts in with window.__GOVERNOR__ to measure what a player gets)
-      if ((!window.__TEST__ || window.__GOVERNOR__) && dt > 0 && dt < 0.2) {
-        frames.push(dt); if (frames.length > 60) frames.shift();
-        if (frames.length === 60) {
-          const med = [...frames].sort((a, b) => a - b)[30];
-          if (med > 0.024 && tierName !== 'low') { slowFrames++; if (slowFrames > 1) { view.setTier(tierName === 'high' ? 'medium' : 'low'); slowFrames = 0; frames = []; } }
-          else if (med > 0.05 && tierName === 'low') { slowFrames++; if (slowFrames > 2 && view.onTooSlow) { view.onTooSlow(); slowFrames = 0; frames = []; } }
-          else slowFrames = 0;
-        }
+      if (!window.__TEST__ || window.__GOVERNOR__) {
+        const act = gov.push(dt, tierName, view.canStepUp ? view.canStepUp() : true);
+        if (act === 'down' || act === 'up') { view.setTier(TIER_ORDER[TIER_ORDER.indexOf(tierName) + (act === 'up' ? 1 : -1)]); if (view.onTier) view.onTier(tierName); }
+        else if (act === 'toolow' && view.onTooSlow) view.onTooSlow();
       }
       // flippers
       interp.flippers.forEach((f, i) => { flipperObjs[i].rotation.y = f.angle; });

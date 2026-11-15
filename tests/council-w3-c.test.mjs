@@ -3,6 +3,7 @@
 // Sim rules run in Node on the sim itself, with fixed seeds, so they give the same answer every run; the page checks use the window.__game hooks.
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
+import { createGovernor, GOV } from '../src/js/gfx/view3d.js';
 import { createGame, newGame, tick, api, nextModeIndex, LADDER } from '../src/js/sim/rules.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -161,6 +162,94 @@ export const tests = [
       t.expect(high.hit.pointLights >= 6 && high.hit.glow === 0, 'high keeps its two flasher lights and no sprite: ' + JSON.stringify(high.hit));
       const low = await read('low');
       t.expect(low.hit.pointLights === 0 && low.hit.glow === 0, 'low has neither: ' + JSON.stringify(low.hit));
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S6-08, S1-27
+  {
+    name: 'S6-08 the governor steps down on slow frames, and back up after ten steady seconds, once, to the tier it fell from',
+    node: true,
+    async run(t) {
+      // feed frames of ms each; the result is the action and how many frames it took, or null
+      const feed = (g, tier, ms, secs, canUp) => { const n = Math.round(secs * 1000 / ms); for (let i = 0; i < n; i++) { const a = g.push(ms / 1000, tier, canUp); if (a) return { a, frames: i + 1 }; } return null; };
+      const g = createGovernor();
+      const down = feed(g, 'medium', 40, 5);
+      t.expect(down && down.a === 'down' && down.frames === 61, 'a full window of slow frames, seen twice, steps medium down: ' + JSON.stringify(down));
+      t.equal(feed(g, 'low', 16.7, 9), null, 'nine steady seconds at low is not enough to step up');
+      const up = feed(g, 'low', 16.7, 6);
+      t.expect(up && up.a === 'up', 'ten steady seconds steps back up to the tier it fell from: ' + JSON.stringify(up));
+      const again = feed(g, 'medium', 40, 5);
+      t.expect(again && again.a === 'down', 'falling again right after the step up steps down');
+      t.equal(feed(g, 'low', 16.7, 40), null, 'and that tier is given up for the session: no second step up');
+      // a tier that held for twenty seconds is not given up for one stall
+      const h = createGovernor();
+      feed(h, 'medium', 40, 5);
+      t.equal(feed(h, 'low', 16.7, 20).a, 'up', 'again: back up after the steady seconds');
+      t.equal(feed(h, 'medium', 16.7, 25), null, 'it holds for 25 s');
+      t.equal(feed(h, 'medium', 40, 5).a, 'down', 'a stall steps it down');
+      t.equal(feed(h, 'low', 16.7, 20).a, 'up', 'and it may step up again, because the tier had proved itself');
+      // it never climbs above where it has not fallen from, a slow-ish 20 ms frame is not steady, a player's own tier is left alone
+      const k = createGovernor();
+      t.equal(feed(k, 'medium', 16.7, 40), null, 'steady frames at a tier it never fell from do nothing');
+      const w = createGovernor(); w.allowUpTo('medium');
+      t.equal(feed(w, 'low', 20, 40), null, '20 ms frames are not steady enough');
+      t.equal(feed(w, 'low', 16.7, 40, false), null, 'a player-chosen tier (canUp false) is not raised');
+      t.equal(feed(createGovernor(), 'low', 60, 10).a, 'toolow', 'frames of 60 ms at low still say it is too slow');
+      t.equal(GOV.fastSecs, 10, 'the constants are there to be read');
+    },
+  },
+  {
+    name: 'S6-08 the tier the governor settled on is saved and Automatic starts there; a damaged value is ignored and choosing Automatic again clears it',
+    viewports: ['mobile', 'desktop'],
+    async run(t) {
+      const put = (v) => t.page.evaluate((x) => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, tipsSeen: true, ...x })), v);
+      const tier = async () => { await t.page.reload(); await t.waitIdle(30000); return (await t.state()).tier; };
+      const mobile = t.viewport === 'mobile';
+      await put({ tier: 'auto' });
+      t.equal(await tier(), mobile ? 'medium' : 'high', 'with nothing learned Automatic starts where it always did');
+      await put({ tier: 'auto', tierLearned: 'low' });
+      t.equal(await tier(), 'low', 'a learned low is where it starts');
+      await put({ tier: 'auto', tierLearned: 'high' });
+      t.equal(await tier(), mobile ? 'medium' : 'high', 'a learned tier above the device\'s own top is not used');
+      await put({ tier: 'auto', tierLearned: 'ultra' });
+      t.equal(await tier(), mobile ? 'medium' : 'high', 'a damaged value is ignored');
+      await put({ tier: 'medium', tierLearned: 'low' });
+      t.equal(await tier(), 'medium', 'a tier the player picked beats what was learned');
+      await t.game('act', 'tier', 'auto');
+      t.equal(await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:settings')).tierLearned), '', 'choosing Automatic again clears it');
+    },
+  },
+  {
+    name: 'S6-08 under load the governor steps down in play and the tier it lands on is saved for the next visit',
+    viewports: ['mobile'],
+    initScript: () => { window.__GOVERNOR__ = true; },
+    async run(t) {
+      await t.page.evaluate(() => localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, tipsSeen: true, tier: 'auto' })));
+      await t.page.reload(); await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 3 });
+      await t.game('act', 'plunge', 0.9);
+      await t.cpuThrottle(6);
+      let s = await t.state();
+      for (let i = 0; i < 120 && s.tier !== 'low'; i++) { await t.page.waitForTimeout(500); s = await t.state(); }
+      await t.cpuThrottle(1);
+      t.equal(s.tier, 'low', 'the governor fell to low under a six-times throttle');
+      t.equal(await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:settings')).tierLearned), 'low', 'and the landing tier is saved');
+    },
+  },
+  {
+    name: 'S1-27 a phone with four cores or fewer starts Automatic on the low tier, one with more starts on medium, and what was learned beats the core count',
+    viewports: ['mobile'],
+    initScript: () => { Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => { try { return +localStorage.getItem('cores') || 8; } catch { return 8; } } }); },
+    async run(t) {
+      const start = async (cores, extra = {}) => {
+        await t.page.evaluate(([c, x]) => { localStorage.setItem('cores', String(c)); localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, tipsSeen: true, tier: 'auto', ...x })); }, [cores, extra]);
+        await t.page.reload(); await t.waitIdle(30000);
+        return (await t.state()).tier;
+      };
+      t.equal(await start(4), 'low', 'four cores: low');
+      t.equal(await start(2), 'low', 'two cores: low');
+      t.equal(await start(8), 'medium', 'eight cores: medium, as before');
+      t.equal(await start(4, { tierLearned: 'medium' }), 'medium', 'four cores that proved they can do medium last time start there');
+      await t.page.evaluate(() => localStorage.removeItem('cores'));
     },
   },
 ];

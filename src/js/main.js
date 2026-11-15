@@ -97,7 +97,7 @@ async function buildAndSwap(want, loads) {
   await loads;
   if (!probeGL()) return;
   let v3 = null;
-  try { v3 = await createView3D(canvasGL, T, LAMPS, { tier: want, reducedMotion, gate: whenQuiet, progress: (p) => { boot3d = p; bootProgress(); } }); } catch (e) { console.error('3D view failed, using 2D', e); return; }   // an error, so tests catch it
+  try { v3 = await createView3D(canvasGL, T, LAMPS, { tier: want, learned: () => app.settings.tierLearned, reducedMotion, gate: whenQuiet, progress: (p) => { boot3d = p; bootProgress(); } }); } catch (e) { console.error('3D view failed, using 2D', e); return; }   // an error, so tests catch it
   const r = tableEl.getBoundingClientRect(); v3.resize(r.width, r.height, Math.min(window.devicePixelRatio || 1, v3.maxRatio())); await v3.warm();
   await whenQuiet();
   // a player who chose the flat table while this was building keeps it
@@ -105,6 +105,9 @@ async function buildAndSwap(want, loads) {
   if (app.settings.tier !== 'auto' && v3.tier !== app.settings.tier && !qs.get('tier')) v3.setTier(app.settings.tier);
   view = v3;
   // the governor's last step: software GL still too slow at Low → the flat 2D table
+  // the governor stepped a tier: with Automatic quality, remember where it landed so the next visit starts there
+  v3.onTier = (name) => { if (app.settings.tier === 'auto' && app.settings.tierLearned !== name) { app.settings.tierLearned = name; saveSettings(app.settings); } };
+  v3.canStepUp = () => app.settings.tier === 'auto';   // a tier the player picked is theirs: the governor does not raise it
   v3.onTooSlow = () => { if (app.settings.tier === 'auto') { v3.hide(); view = view2d; document.body.dataset.view = '2d'; } };
   resize();
   render(Math.min(1, acc / TICK));   // draw the 3D table once before it is shown: no empty frame
@@ -191,6 +194,7 @@ app.toggleMute = () => {
 app.applySettings = (s) => {
   const tierChanged = s.tier && s.tier !== app.settings.tier;
   Object.assign(app.settings, s);
+  if (tierChanged && s.tier === 'auto') app.settings.tierLearned = '';   // choosing Automatic again starts the learning over
   saveSettings(app.settings);
   setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume, sfxVol: app.settings.sfxVol, musicVol: app.settings.musicVol });
   document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
