@@ -269,11 +269,11 @@ export const tests = [
       hit(G, 'rampMade', 450); run(G, 2.3);
       t.expect(G.f.lockLit && sounds(G, 'lit').some((c) => c.n === 0), 'the third ramp lights the lock, with its cue');
       const H = fresh(17);
-      H.ball.inLane = false; H.f.modesPlayed = [1, 1, 0, 0, 0, 0]; api.startMode(H, 2); H.cues.length = 0; api.endMode(H, false); run(H, 2.5);
-      t.expect(H.f.ebLit && sounds(H, 'lit').some((c) => c.n === 1), 'the third mode lights the extra ball, with its cue');
+      H.ball.inLane = false; H.f.modesPlayed = [1, 0, 0, 0, 0, 0]; H.f.modesWon = [1, 0, 0, 0, 0, 0]; api.startMode(H, 2); H.cues.length = 0; api.endMode(H, true); run(H, 2.5);
+      t.expect(H.f.ebLit && sounds(H, 'lit').some((c) => c.n === 1), 'the second mode won lights the extra ball, with its cue');   // S3-09: it was the third mode played
       const K = fresh(18);
-      K.ball.inLane = false; K.f.modesPlayed = [1, 1, 1, 1, 1, 0]; api.startMode(K, 5); K.cues.length = 0; api.endMode(K, false); run(K, 2.5);
-      t.expect(K.f.wizardLit && sounds(K, 'lit').some((c) => c.n === 2), 'the sixth lights the wizard, with its cue');
+      K.ball.inLane = false; K.f.modesPlayed = [1, 1, 1, 0, 0, 0]; K.f.modesWon = [1, 1, 1, 0, 0, 0]; api.startMode(K, 3); K.cues.length = 0; api.endMode(K, true); run(K, 2.5);
+      t.expect(K.f.wizardLit && sounds(K, 'lit').some((c) => c.n === 2), 'the fourth mode won lights the wizard, with its cue');   // S3-09: it was the sixth mode played
     },
   },
   {

@@ -6,7 +6,7 @@ export const TIP_MAX_WORDS = 12;
 export const KINDS = ['key', 'touch', 'pad'];
 
 // the goal in one sentence: also at the top of Help and on the pause card
-export const GOAL_LINE = 'Score big: light the Row, win all six modes, reach the Valley of the Vapors.';
+export const GOAL_LINE = 'Score big: light the Row, win four modes, reach the Valley of the Vapors.';
 
 // the steps, in order. `until` is how the step ends besides the Skip button: 'launch' (the ball leaves the lane),
 // 'flip' (the player flips), or a number of sim seconds (waiting is enough).

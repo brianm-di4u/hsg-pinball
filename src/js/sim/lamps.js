@@ -2,7 +2,7 @@
 // Shape carries meaning as well as colour (colourblind-safe): arrows = shots, circles = progress, stars = awards,
 // rectangles = targets, triangles = multiplier. Pure function of the game state, so tests can read lamp states.
 import { VAP, RAMP, CX, BATHHOUSES } from './table-spa-city.js';
-import { MODES } from './rules.js';
+import { MODES, nextModeIndex } from './rules.js';
 
 const C = { gold: '#ffc94a', red: '#ff4a3d', blue: '#4fc3ff', teal: '#3fe0c5', coral: '#ff7a5c', white: '#fff4dc', green: '#7dde7a', violet: '#c48cff' };
 
@@ -96,7 +96,6 @@ export function lampStates(G, lamps, t) {
   return out;
 }
 
-function nextModeIndex(f) { let i = f.nextMode; for (let k = 0; k < 6 && f.modesPlayed[i]; k++) i = (i + 1) % 6; return i; }
 
 /** Light shows: patterns over all lamps by position (sweeps, chases), none faster than 3 Hz per lamp. */
 export function showStates(G, lamps, t) {

@@ -367,10 +367,10 @@ export const tests = [
       for (let i = 0; i < 400; i++) picks.add(mystery(G));
       t.expect(!picks.has('eb') && picks.size >= 5, 'the Vapors reel never draws the extra ball: ' + [...picks].join(','));
       const H = fresh(5); H.player.eb = 2;
-      for (const i of [0, 1, 2]) { api.startMode(H, i); api.endMode(H, false); }
-      t.expect(!H.f.ebLit, 'three modes played light no extra ball at the limit');
+      for (const i of [0, 1]) { api.startMode(H, i); api.endMode(H, true); }   // S3-09: two modes won light it (it was three played)
+      t.expect(!H.f.ebLit, 'two modes won light no extra ball at the limit');
       const K = fresh(6);
-      for (const i of [0, 1, 2]) { api.startMode(K, i); api.endMode(K, false); }
+      for (const i of [0, 1]) { api.startMode(K, i); api.endMode(K, true); }
       t.expect(K.f.ebLit, 'and below the limit they still do');
     },
   },

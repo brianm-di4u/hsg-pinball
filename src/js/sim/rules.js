@@ -50,6 +50,11 @@ const goalFor = (G, id, base) => Math.min(Math.max(base, ROUND.goalMax[id] || ba
 // surge of surgeRate more for surgeSecs, starting somewhere in surgeFrom to surgeTo seconds after the flag drops, and runs
 // the whole race at its own pace: its speed is multiplied by 1 plus or minus paceVar, drawn once when the flag drops.
 export const DERBY = { base: 1.5, spread: 1.2, surgeRate: 4, surgeSecs: 3, surgeFrom: 6, surgeTo: 34, paceVar: 0.4 };   // base 1.25, surgeRate 0 and paceVar 0 were the values before S3-07
+// The wizard (S3-09): modes WON light things, not modes started. Two wins light the extra ball and four light the Valley of
+// the Vapors (it was three modes played and all six played, so a mode lost at once counted). The end-of-ball bonus pays a
+// won mode 15,000 and a mode that was only played 5,000 (it was 15,000 for every one played); a tilt does not count a mode.
+export const LADDER = { ebWins: 2, wizardWins: 4, bonusWon: 15000, bonusPlayed: 5000 };
+const winsOf = (f) => f.modesWon.reduce((a, b) => a + b, 0);
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
 export const EB_CAP = 2;   // extra balls a game can pay out, from the Fifth Season meter, the Vapors reel and the mode count together (S3-06: there was no limit)
 const ebOpen = (G) => G.player.eb < EB_CAP;
@@ -183,7 +188,7 @@ function endBall(G) {
   const parts = [
     ['BATHHOUSES', f.row.reduce((a, b) => a + b, 0) * 2000 + f.rowsDone * 16000],
     ['TOWER', f.towerLevel * 10000],
-    ['MODES', f.modesPlayed.reduce((a, b) => a + b, 0) * 15000],
+    ['MODES', winsOf(f) * LADDER.bonusWon + (f.modesPlayed.reduce((a, b) => a + b, 0) - winsOf(f)) * LADDER.bonusPlayed],
     ['SPINS', f.spins * 10],
   ];
   const sub = parts.reduce((a, [, v]) => a + v, 0);
@@ -539,8 +544,7 @@ function lockHole(G, e) {
 // ------------------------------------------------------------------------------------------------- modes
 function startMode(G, forceIdx) {
   const f = G.f;
-  let i = forceIdx ?? f.nextMode;
-  if (forceIdx == null) { for (let k = 0; k < 6 && f.modesPlayed[i]; k++) i = (i + 1) % 6; }
+  const i = forceIdx ?? nextModeIndex(f);
   const M = MODES[i];
   G.mode = { i, id: M.id, t0: G.t + 2.2, end: G.t + 2.2 + M.dur + ROUND.time * roundOf(G), progress: 0, need: 0, phase: 1, lit: [], data: {} };
   const m = G.mode;
@@ -553,6 +557,15 @@ function startMode(G, forceIdx) {
   f.nextMode = (i + 1) % 6;
   dmd(G, M.name, modeCue(M, m.need), 2200, 3, { kind: 'mode', id: M.id }); sound(G, 'modeStart'); show(G, 'mode', 1800);
   cue(G, { k: 'mode', id: M.id, on: true });
+}
+
+// the mode the Vapors serves next: on from nextMode past the modes already played; with all six played and the wizard not
+// earned yet, past the ones won, so a lost mode comes round again
+export function nextModeIndex(f) {
+  for (const done of [f.modesPlayed, f.modesWon]) {
+    for (let k = 0; k < 6; k++) { const i = (f.nextMode + k) % 6; if (!done[i]) return i; }
+  }
+  return f.nextMode;
 }
 
 // the short goal line on the display, with this round's count in it (round 0 reads as it always did)
@@ -650,17 +663,17 @@ function tickMode(G) {
   if (G.t > m.end) { dmd(G, M.name + ' OVER', '', 1500, 2); endMode(G, false); }
 }
 
-function endMode(G, won) {
+function endMode(G, won, tilted = false) {
   const m = G.mode, f = G.f;
   if (!m) return;
-  f.modesPlayed[m.i] = 1;
+  if (!tilted) f.modesPlayed[m.i] = 1;   // a tilt ends the mode without counting it as played
   if (won) { f.modesWon[m.i] = 1; f.modeWins[m.i]++; }
   G.mode = null;
   cue(G, { k: 'mode', id: m.id, on: false, won });
   sound(G, won ? 'modeWon' : 'modeEnd');
-  const played = f.modesPlayed.reduce((a, b) => a + b, 0);
-  if (played === 3 && !f.ebLitByModes) { f.ebLitByModes = true; if (ebOpen(G)) { f.ebLit = true; after(G, 2.3, () => { dmd(G, 'EXTRA BALL IS LIT', 'AT THE VAPORS', 1600, 2); sound(G, 'lit', 1, null, { n: 1 }); }); } }
-  if (played === 6 && !f.wizardLit) { f.wizardLit = true; after(G, 2.3, () => { dmd(G, 'VALLEY OF THE VAPORS', 'IS LIT AT THE VAPORS', 2200, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
+  const wins = winsOf(f);
+  if (wins >= LADDER.ebWins && !f.ebLitByModes) { f.ebLitByModes = true; if (ebOpen(G)) { f.ebLit = true; after(G, 2.3, () => { dmd(G, 'EXTRA BALL IS LIT', 'AT THE VAPORS', 1600, 2); sound(G, 'lit', 1, null, { n: 1 }); }); } }
+  if (wins >= LADDER.wizardWins && !f.wizardLit) { f.wizardLit = true; after(G, 2.3, () => { dmd(G, 'VALLEY OF THE VAPORS', 'IS LIT AT THE VAPORS', 2200, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
 }
 
 // ------------------------------------------------------------------------------------------------- multiballs
@@ -730,7 +743,7 @@ function endMultiball(G) {
   cue(G, { k: 'mb', kind: mb.kind, on: false });
   dmd(G, mb.kind === 'valley' ? 'WIZARD MODE OVER' : 'MULTIBALL OVER', '', 1400, 2); sound(G, 'mbEnd', 1, null);
   if (mb.kind === 'valley') {
-    G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0; G.f.wizards++;
+    G.f.modesPlayed = [0, 0, 0, 0, 0, 0]; G.f.modesWon = [0, 0, 0, 0, 0, 0]; G.f.nextMode = 0; G.f.wizards++;
     if (roundOf(G) < ROUND.max) { G.f.round = roundOf(G) + 1; after(G, 1.6, () => { dmd(G, 'ROUND ' + (G.f.round + 1), 'GOALS AND VALUES UP', 2000, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
   }
 }
@@ -776,7 +789,7 @@ function tilt(G) {
   for (const f of G.w.flippers) f.held = false;
   // release anything sitting in a saucer
   for (const b of G.w.balls) if (b.held && !b.held.drained) { const h = G.T.holes.find((q) => q.sw === b.held.sw); if (h) holdThen(G, b.id, 0.6, h.kickAngle, h.kickSpeed); }
-  if (G.mode) endMode(G, false);
+  if (G.mode) endMode(G, false, true);
   dmd(G, 'TILT', '', 3000, 4); sound(G, 'tilt');
   cue(G, { k: 'tilt' });
 }

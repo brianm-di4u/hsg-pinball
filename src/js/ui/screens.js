@@ -217,7 +217,7 @@ export function createScreens(root, app) {
           <div>
             <h3>Modes at the Vapors</h3>
             <ol class="modes">${MODES.map((m) => `<li><b>${esc(m.name)}</b>: ${esc(m.goal.toLowerCase())}</li>`).join('')}</ol>
-            <p>Play all six to light the wizard mode, <b>Valley of the Vapors</b>. Finish it and the round goes up: the modes ask a little more and pay a little more.</p>
+            <p>Win two to light an extra ball and win four to light the wizard mode, <b>Valley of the Vapors</b>. A mode you lose pays a smaller bonus. Finish it and the round goes up: the modes ask a little more and pay a little more.</p>
             <h3>About</h3>${'' /* fact: reserved, older */}
             <p class="small" id="help-about">An original game in the open-source Hot Springs Games collection (MIT). Places are shown as setting only; no affiliation with any business. Facts come from the collection's research notes, with "about" or "reportedly" where sources disagree. Horses, riders and characters are fictional. Hot Springs was set aside by Congress on April 20, 1832, forty years before Yellowstone.</p>
           </div>

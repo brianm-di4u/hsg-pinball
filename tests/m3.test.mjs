@@ -81,8 +81,10 @@ export const tests = [
       const G = game();
       const won = [];
       let collectedEB = false;
+      let wizardAfterFour = false;
       for (let m = 0; m < 6; m++) {
         G.f.lockLit = false;
+        if (m >= 4) { if (m === 4) wizardAfterFour = G.f.wizardLit; G.f.wizardLit = false; }   // S3-09: four wins light the wizard, which would take the next scoop; the last two modes are played without it
         const eb0 = G.player.extraBalls;
         sink(G, 'vapors');
         if (!G.mode && G.player.extraBalls > eb0) { collectedEB = true; for (const q of G.w.balls) if (q.held && !q.held.drained) kickOut(G.w, q, 0, 500); run(G, 3); sink(G, 'vapors'); }
@@ -107,8 +109,8 @@ export const tests = [
       }
       t.equal(won.length, 6, 'all six modes completed: ' + won.join(','));
       t.equal(G.f.modesWon.reduce((a, b) => a + b, 0), 6, 'six modes won');
-      t.expect(G.f.wizardLit, 'wizard lit after six modes');
-      t.expect(collectedEB, 'extra ball lit after three modes and collected at the Vapors before the next mode');
+      t.expect(wizardAfterFour, 'wizard lit after four modes won');
+      t.expect(collectedEB, 'extra ball lit after two modes won and collected at the Vapors before the next mode');
     },
   },
   {
