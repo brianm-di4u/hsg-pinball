@@ -135,4 +135,28 @@ export const tests = [
       t.equal((await t.state()).settings.haptics, true, 'a damaged value falls back to on');
     },
   },
+
+  // ---------------------------------------------------------------------------------------------- S1-20
+  {
+    name: 'S1-20 the attract demo plays the table with its contact sounds at about a third of their level, and none of the fanfares',
+    async run(t) {
+      await t.page.waitForFunction(() => window.__game && window.__game.cueRender, null, { timeout: 60000 });
+      await t.waitIdle(30000);
+      await t.game('scene', 'title');
+      // the demo needs the audio unlocked by a first gesture, as for any sound
+      if (t.viewport === 'mobile') await t.tap([20, 400]); else await t.page.mouse.click(20, 400);
+      await t.page.waitForFunction(() => { const s = window.__game.getState(); return s.demo && s.audio.ctx && s.audio.demoPlayed.includes('flip'); }, null, { timeout: 60000 });
+      const s = await t.state();
+      t.log('the demo played: ' + [...new Set(s.audio.demoPlayed)].join(', '));
+      t.expect(s.audio.demoPlayed.includes('flip'), 'the flips of the demo player are heard');
+      const table = ['flip', 'flipDown', 'flipStop', 'flipHit', 'bumper', 'sling', 'wall', 'clack', 'target', 'rollover', 'spinner', 'switch', 'plunger', 'plungerHit', 'launch', 'kick', 'saucer', 'rampEnter', 'rampMade', 'wireDrop', 'orbit'];
+      t.expect(s.audio.demoPlayed.every((n) => table.includes(n)), 'only the sounds of the table, no fanfare or jingle: ' + s.audio.demoPlayed.join(','));
+      t.equal(s.audio.played, [], 'and nothing is logged as a cue of a game being played');
+      // the level: one deterministic cue (a single low tone, no random detune or noise) rendered as a game cue and as a demo cue
+      const full = await cue(t, 'plungerHit', { seconds: 1.5 });
+      const demo = await cue(t, 'plungerHit', { seconds: 1.5, demo: true });
+      t.log(`plungerHit peak: game ${full.peak}, demo ${demo.peak}, ratio ${(demo.peak / full.peak).toFixed(3)}`);
+      t.expect(demo.peak / full.peak > 0.3 && demo.peak / full.peak < 0.4, 'a demo cue is 30 to 40 percent of the game cue');
+    },
+  },
 ];

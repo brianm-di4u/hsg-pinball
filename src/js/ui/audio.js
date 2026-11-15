@@ -6,12 +6,12 @@
 import { makeAudioKit, measureAudio } from './audiokit.js';
 import { SCORES, SCENES, AMBIENCE_FOR, MUSIC_LEVEL, AMBIENCE_LEVEL } from './music.js';
 
-export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 } };
+export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 } };
 
 let master, sfxBus, verb, noiseBuf;
 // cx is the context the cue synthesis builds on (the live one, or an offline one while a cue is rendered for a test);
 // dst is where the current cue's dry sound goes: the sfx bus, or a stereo panner in front of it
-let cx = null, dst = null, roll = null;
+let cx = null, dst = null, roll = null, quiet = false;   // quiet: the cue being built is the attract demo's, so it has no reverb send
 // music and ambience obey the sound switch as well as their own
 // Sound effects, Music and Ambience are three separate switches. Music never depended on the effects switch: a player
 // who turns the effects off keeps the music, as before the ambience was added.
@@ -98,14 +98,14 @@ function tone(f, t0, dur, type = 'sine', g = 0.3, slide = 0, bus = sfxBus, wet =
   o.type = type; o.frequency.setValueAtTime(f, t0);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t0 + dur);
   env(a, t0, 0.005, g, dur);
-  o.connect(a).connect(bus === sfxBus ? dst : bus); if (wet) a.connect(verb);
+  o.connect(a).connect(bus === sfxBus ? dst : bus); if (wet && !quiet) a.connect(verb);
   o.start(t0); o.stop(t0 + dur + 0.05);
 }
 function noise(t0, dur, g = 0.2, freq = 800, type = 'highpass', q = 0.7, bus = sfxBus, wet = 0) {
   const c = cx, src = c.createBufferSource(), f = c.createBiquadFilter(), a = c.createGain();
   src.buffer = noiseBuf; src.loop = true; f.type = type; f.frequency.value = freq; f.Q.value = q;
   env(a, t0, 0.003, g, dur);
-  src.connect(f).connect(a).connect(bus === sfxBus ? dst : bus); if (wet) a.connect(verb);
+  src.connect(f).connect(a).connect(bus === sfxBus ? dst : bus); if (wet && !quiet) a.connect(verb);
   src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + 0.05);
 }
 // a bandpass noise that slides from f0 to f1: the rush of a ball on a ramp, steam
@@ -114,7 +114,7 @@ function sweep(t0, dur, f0, f1, g = 0.2, q = 1.5, bus = sfxBus, wet = 0) {
   src.buffer = noiseBuf; src.loop = true; f.type = 'bandpass'; f.Q.value = q;
   f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
   env(a, t0, Math.min(0.08, dur / 3), g, dur);
-  src.connect(f).connect(a).connect(bus === sfxBus ? dst : bus); if (wet) a.connect(verb);
+  src.connect(f).connect(a).connect(bus === sfxBus ? dst : bus); if (wet && !quiet) a.connect(verb);
   src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + 0.05);
 }
 const J = (cents = 20) => 2 ** (((Math.random() * 2 - 1) * cents) / 1200);   // a random detune, so no two repeats are the same
@@ -132,12 +132,18 @@ const MODE_VOICE = [{ root: 72, wave: 'sine' }, { root: 67, wave: 'square' }, { 
 const LADDER = [0, 2, 4, 7, 9, 12, 14, 16];   // major pentatonic, two octaves, by progress
 const LIT = [[523, 659, 784], [784, 988, 1319, 1568], [392, 523, 659, 784, 1047]];   // lock, extra ball, wizard
 const BIG = new Set(['jackpot', 'superJackpot', 'skill', 'complete', 'modeWon', 'extraBall', 'multiball', 'wizard', 'boil', 'gameOver', 'start', 'achieve']);
+// The attract demo plays the table with the sound of the table (S1-20): the contact cues at DEMO_GAIN of their level, through the same
+// rate limits, and none of the fanfares, which belong to a game the player is playing.
+const DEMO_GAIN = 0.35;
+const DEMO_CUES = new Set(['flip', 'flipDown', 'flipStop', 'flipHit', 'bumper', 'sling', 'wall', 'clack', 'target', 'rollover', 'spinner', 'switch', 'plunger', 'plungerHit', 'launch', 'kick', 'saucer', 'rampEnter', 'rampMade', 'wireDrop', 'orbit']);
 const LIMIT = { bumper: 0.045, wall: 0.03, spinner: 0.025, switch: 0.03, rollover: 0.04, target: 0.04, clack: 0.04, flipHit: 0.03 };
 
 // pan: -0.7 (left) to 0.7 (right), from where the thing happened on the table; o: { n, m } the step of a ladder or a
 // countdown and the mode a cue belongs to. The reverb send stays centred.
 export function sfx(name, v = 1, pan = 0, o = {}) {
-  audio.played.push(name); if (audio.played.length > 40) audio.played.shift();
+  const demo = !!o.demo;   // o.demo: a cue of the attract demo
+  if (demo && !DEMO_CUES.has(name)) return;
+  const log = demo ? audio.demoPlayed : audio.played; log.push(name); if (log.length > 40) log.shift();
   pan = Math.max(-0.7, Math.min(0.7, pan)); audio.pans[name] = +pan.toFixed(2);
   if (!audio.ctx || !audio.on || audio.hold) return;
   const t = audio.ctx.currentTime;
@@ -146,11 +152,19 @@ export function sfx(name, v = 1, pan = 0, o = {}) {
   v = Math.max(0.15, Math.min(1, v));
   if (BIG.has(name) && audio.kit) audio.kit.music.duck(6, 400);
   try {
-    dst = sfxBus;
-    if (pan && cx.createStereoPanner) { const p = cx.createStereoPanner(); p.pan.value = pan; p.connect(sfxBus); dst = p; }
+    dst = route(sfxBus, demo, pan);
     synth(name, v, t, o);
   } catch { /* audio is optional */ }
-  dst = sfxBus;
+  dst = sfxBus; quiet = false;
+}
+
+// where a cue's dry sound goes: the bus, through the demo's lower gain and a panner when it needs them
+function route(bus, demo, pan) {
+  quiet = demo;
+  let d = bus;
+  if (demo) { const g = cx.createGain(); g.gain.value = DEMO_GAIN; g.connect(d); d = g; }
+  if (pan && cx.createStereoPanner) { const p = cx.createStereoPanner(); p.pan.value = pan; p.connect(d); d = p; }
+  return d;
 }
 
 function synth(name, v, t, o) {
@@ -331,7 +345,7 @@ function offlineChain(oc, dest, vol = DEFAULT_VOLUME) {
 }
 // vol: the master volume to render at (CL-01: 1 is the slider at its maximum). under: the name of a piece of music to play, at full
 // intensity with its ambience bed, underneath the cue (the busiest moment of the game); with: more cues struck at the same moment.
-export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, wav = false, vol = DEFAULT_VOLUME, under = null, with: also = [] } = {}) {
+export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, wav = false, vol = DEFAULT_VOLUME, under = null, with: also = [], demo = false } = {}) {
   return measureAudio((oc, dest) => {
     const { m: mg, bus } = offlineChain(oc, dest, vol);
     const keep = [cx, sfxBus, verb, noiseBuf, dst];
@@ -343,7 +357,7 @@ export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, w
       const wet = oc.createGain(); wet.gain.value = 0.18; verb.connect(wet).connect(mg);
       noiseBuf = oc.createBuffer(1, oc.sampleRate, oc.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      if (pan && oc.createStereoPanner) { const p = oc.createStereoPanner(); p.pan.value = pan; p.connect(bus); dst = p; }
+      dst = route(bus, demo, pan);
       let at = 0.05;
       if (under && SCORES[under]) {
         const kit = makeAudioKit(oc, mg, { seed: 7, music: MUSIC_LEVEL, ambience: AMBIENCE_LEVEL });
@@ -352,7 +366,7 @@ export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, w
         kit.scheduleUntil(seconds); at = 2;
       }
       for (const cue of [name, ...also]) synth(cue, Math.max(0.15, Math.min(1, v)), at, { n, m });
-    } finally { [cx, sfxBus, verb, noiseBuf, dst] = keep; }
+    } finally { [cx, sfxBus, verb, noiseBuf, dst] = keep; quiet = false; }
     return null;
   }, seconds, { wav });
 }
