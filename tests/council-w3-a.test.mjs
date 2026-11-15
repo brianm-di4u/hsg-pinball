@@ -186,13 +186,13 @@ export const tests = [
       await gesture(t);
       let s = await t.state();
       t.equal([s.settings.sfxVol, s.settings.musicVol, s.settings.volume], [1, 1, 0.8], 'an old save gets both sliders at full and keeps its master volume');
-      t.equal([s.audio.sfxLevel, s.audio.musicLevel], [0.9, 0.4], 'the buses are at the levels they always had');
+      t.equal([s.audio.sfxLevel, s.audio.musicLevel], [1.1, 0.4], 'the buses are at the levels the game ships (the effects bus 1.1 since S5-14, it was 0.9; music 0.4 as before)');
       await t.game('scene', 'settings');
       await t.page.evaluate(() => { for (const [id, v] of [['#s-sfxvol', '0.5'], ['#s-musvol', '0.25']]) { const n = document.querySelector(id); n.value = v; n.dispatchEvent(new Event('change', { bubbles: true })); } });
       await shot(t, 'S5-09-settings-sliders');
       s = await t.state();
       t.equal([s.settings.sfxVol, s.settings.musicVol], [0.5, 0.25], 'the sliders set the settings');
-      t.equal([s.audio.sfxLevel, s.audio.musicLevel], [0.45, 0.1], 'effects bus at half, music bus at a quarter of its level');
+      t.equal([s.audio.sfxLevel, s.audio.musicLevel], [0.55, 0.1], 'effects bus at half, music bus at a quarter of its level');
       t.equal(s.settings.volume, 0.8, 'the master volume is not touched');
       await t.game('applySettings', { music: false });
       t.equal((await t.state()).audio.musicLevel, 0, 'Music Off still shuts the music bus, whatever its slider says');

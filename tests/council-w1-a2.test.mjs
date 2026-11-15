@@ -14,7 +14,7 @@ function fakeContext(starts) {
     resume() { this.state = 'running'; return Promise.resolve(); }
     createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
     createGain() { return stub(); } createOscillator() { return stub(); } createBiquadFilter() { return stub(); }
-    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
+    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createWaveShaper() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
   };
 }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
