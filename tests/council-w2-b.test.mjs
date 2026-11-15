@@ -254,8 +254,9 @@ export const tests = [
       t.equal(up.map((c) => c.n).join(), '1,2', 'each doubling has a cue a step higher than the last');
       G.mb.end = G.t + 0.5; run(G, 1);
       t.equal(sounds(G, 'vaporsClear').length, 1, 'THE VAPORS CLEAR has its cue');
-      G.cues.length = 0; api.endMultiball(G);
-      t.equal(sounds(G, 'mbEnd').length, 1, 'ending the wizard has one');
+      t.equal(sounds(G, 'mbEnd').length, 1, 'the wizard ending when its clock runs out has one (S3-02: the clock now ends it)');
+      api.startValley(G); G.cues.length = 0; api.endMultiball(G);
+      t.equal(sounds(G, 'mbEnd').length, 1, 'and so does ending it any other way');
       const H = fresh(15); H.ball.inLane = false; api.startArlington(H); H.cues.length = 0; api.endMultiball(H);
       t.equal(sounds(H, 'mbEnd').length, 1, 'and so does Arlington multiball');
     },

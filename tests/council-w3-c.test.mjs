@@ -4,7 +4,7 @@
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGovernor, GOV } from '../src/js/gfx/view3d.js';
-import { createGame, newGame, tick, api, nextModeIndex, LADDER, MODES } from '../src/js/sim/rules.js';
+import { createGame, newGame, tick, api, nextModeIndex, LADDER, MODES, WIZARD } from '../src/js/sim/rules.js';
 import { simulate, verdict, TARGETS } from '../tools/balance.mjs';
 import { dailySeed } from '../src/js/progress.js';
 import fs from 'node:fs';
@@ -384,6 +384,51 @@ export const tests = [
       await t.page.waitForTimeout(2400);
       await shot(t, 'CL-02-first-mode');
       await t.page.evaluate(() => localStorage.clear());
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S3-02
+  {
+    name: 'S3-02 the Valley of the Vapors ends when its time is up, with the balls still in play, and the round goes up',
+    node: true,
+    async run(t) {
+      const G = fresh(50);
+      G.ball.inLane = false;
+      api.startValley(G);
+      run(G, 4);
+      t.expect(G.mb && G.mb.kind === 'valley', 'the wizard is running');
+      t.equal(WIZARD.secs, 62, 'it lasts 62 seconds');
+      t.equal(Math.round(G.mb.end - G.mb.t0), 62, 'and its clock says so');
+      G.cues.length = 0;
+      G.mb.end = G.t + 0.5;
+      const balls = G.w.balls.length;
+      run(G, 1);
+      t.equal(G.mb, null, 'the wizard is over when the clock runs out, not when the balls drain');
+      const texts = G.cues.filter((c) => c.k === 'dmd').map((c) => c.text);
+      t.expect(texts.includes('THE VAPORS CLEAR') && texts.includes('WIZARD MODE OVER'), 'the display says it: ' + texts.join(' / '));
+      t.expect(G.w.balls.length === balls && balls >= 1, 'the balls are still on the table, playing on');
+      t.equal(G.f.wizards, 1, 'it counts as a finished wizard');
+      t.equal(G.f.round, 1, 'and the round went up');
+      t.expect(!G.f.wizardLit && G.f.modesWon.every((v) => !v), 'with the ladder empty again');
+    },
+  },
+  {
+    name: 'S3-02 the Valley multiplier doubles every 10 seconds up to 8x, so a shot pays 400,000 at the top (it was 32x, 1.6 million)',
+    node: true,
+    async run(t) {
+      const G = fresh(51);
+      G.ball.inLane = false;
+      api.startValley(G);
+      G.mb.t0 = G.t - 100;   // long enough for every doubling
+      tick(G);
+      t.equal(G.mb.mult, 8, 'the multiplier stops at 8: ' + G.mb.mult);
+      G.w.events.push({ t: 'hit', sw: G.T.sw.rampMade, speed: 2800, dir: 1, ball: (G.w.balls[0] || {}).id }); tick(G);
+      t.equal(G.mb.total, WIZARD.shot * 8, 'a shot pays the base value times 8: ' + G.mb.total);
+      const H = fresh(52);
+      H.ball.inLane = false;
+      api.startValley(H);
+      const steps = [];
+      for (const s of [0, 10, 20, 30, 40, 50, 60]) { H.mb.t0 = H.t - s - 0.1; tick(H); steps.push(H.mb.mult); }
+      t.equal(steps.join(), '1,2,4,8,8,8,8', 'one, two, four, eight, then it holds: ' + steps.join());
     },
   },
 ];

@@ -56,6 +56,10 @@ export const DERBY = { base: 1.5, spread: 1.2, surgeRate: 4, surgeSecs: 3, surge
 export const LADDER = { ebWins: 2, wizardWins: 4, bonusWon: 15000, bonusPlayed: 5000 };
 const winsOf = (f) => f.modesWon.reduce((a, b) => a + b, 0);
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
+// The Valley of the Vapors (S3-02): it lasts `secs` seconds and then ends (it used to run until the balls drained). Each shot pays `shot`
+// times a multiplier that doubles every `doubleEvery` seconds up to 2 to the `maxDoublings`. maxDoublings was 5 (32x, 1.6M a shot);
+// at 3 the top is 8x. Put 5 back to take the retune out.
+export const WIZARD = { secs: 62, shot: 50000, doubleEvery: 10, maxDoublings: 3 };
 export const EB_CAP = 2;   // extra balls a game can pay out, from the Fifth Season meter, the Vapors reel and the mode count together (S3-06: there was no limit)
 const ebOpen = (G) => G.player.eb < EB_CAP;
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
@@ -709,7 +713,7 @@ function startValley(G) {
   const f = G.f;
   f.wizardLit = false;
   if (G.mode) endMode(G, false);
-  G.mb = { kind: 'valley', t0: G.t, end: G.t + 62, mult: 1, total: 0, shots: 0 }; f.mbs[2]++;
+  G.mb = { kind: 'valley', t0: G.t, end: G.t + WIZARD.secs, mult: 1, total: 0, shots: 0 }; f.mbs[2]++;
   dmd(G, 'VALLEY OF THE VAPORS', 'ALL SHOTS LIT', 3000, 3, 'wizard'); sound(G, 'wizard'); show(G, 'wizard', 3000);
   startBallSave(G, tune(G).saveSecsMulti && tune(G).saveSecsMulti + 5, 1.6);   // the wizard's is 5 s longer
   addMultiballs(G, 2);
@@ -724,7 +728,7 @@ function valleyShot(G, name) {
     mb.total = 0; mb.shots = 0;
     return;
   }
-  const v = 50000 * mb.mult;
+  const v = WIZARD.shot * mb.mult;
   mb.total += v; mb.shots++;
   score(G, v);
   dmd(G, 'VALLEY OF THE VAPORS', fmt(mb.total) + (mb.shots >= 6 ? ' · VAPORS' : ''), 900, 2);
@@ -733,10 +737,10 @@ function valleyShot(G, name) {
 function tickMultiball(G) {
   const mb = G.mb;
   if (mb.kind === 'valley') {
-    const mult = 1 << Math.min(5, Math.floor((G.t - mb.t0) / 10));
+    const mult = 1 << Math.min(WIZARD.maxDoublings, Math.floor((G.t - mb.t0) / WIZARD.doubleEvery));
     if (mult > mb.mult) sound(G, 'multUp', 1, null, { n: Math.log2(mult) });   // the multiplier doubles, a step higher each time
     mb.mult = mult;
-    if (G.t > mb.end) { dmd(G, 'THE VAPORS CLEAR', '', 1800, 2); sound(G, 'vaporsClear', 1, null); mb.end = Infinity; }
+    if (G.t > mb.end) { dmd(G, 'THE VAPORS CLEAR', '', 1800, 2); sound(G, 'vaporsClear', 1, null); endMultiball(G); }   // S3-02: it ends here; before, the message was shown and the wizard ran on until the balls drained
   }
 }
 
