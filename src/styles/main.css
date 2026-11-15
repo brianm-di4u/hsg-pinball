@@ -102,6 +102,7 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .screen.title .tag { color: var(--cream); margin: 0 0 8px; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82em; }
 .hint { color: var(--muted); font-size: 0.86em; margin-top: 14px; }
 .form .hint { margin: -4px 0 2px; }
+.hint.warn { color: var(--gold-2); border-left: 3px solid var(--gold); padding-left: 8px; text-align: left; }
 .form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; }
 select, input[type=range] { font: inherit; min-height: 40px; background: var(--surface-2); color: var(--text); border: 1px solid #5a4f80; border-radius: 8px; padding: 4px 8px; }

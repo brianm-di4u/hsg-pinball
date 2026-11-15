@@ -90,7 +90,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   // auto: software GL → low; touch devices (phones, tablets) → medium; everything else → high. The governor steps down.
   const autoTier = () => (softwareGL(renderer) ? 'low' : matchMedia('(pointer: coarse)').matches ? 'medium' : 'high');
   let tierName = tier === 'auto' ? autoTier() : tier;

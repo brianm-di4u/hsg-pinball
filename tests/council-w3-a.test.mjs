@@ -87,6 +87,44 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S2-29
+  {
+    name: 'S2-29 building the 3D table logs no three.js warning',
+    viewports: ['desktop'],
+    async run(t) {
+      const warns = [];
+      t.page.on('console', (m) => { if (m.type() === 'warning' || m.type() === 'error') warns.push(m.text()); });
+      await t.page.reload();
+      await t.waitIdle(30000);
+      t.equal((await t.state()).view, '3d', 'the 3D table is up');
+      t.expect(!warns.some((w) => /PCFSoftShadowMap/.test(w)), 'no shadow-map warning: ' + warns.join(' | '));
+    },
+  },
+  {
+    name: 'S2-29 with storage blocked the title and Settings say progress cannot be saved',
+    viewports: ['desktop', 'mobile'],
+    initScript: () => { Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked'); } }); },
+    async run(t) {
+      const note = t.page.locator('#t-nosave');
+      t.expect(await note.isVisible(), 'the title says so');
+      t.expect(/cannot be saved/.test(await note.textContent()), 'in plain words: ' + (await note.textContent()));
+      await shot(t, 'S2-29-storage-blocked-title');
+      await t.game('scene', 'settings');
+      t.expect(await t.page.locator('#s-nosave').isVisible(), 'and so does Settings');
+      await shot(t, 'S2-29-storage-blocked-settings');
+      await t.checkLayout();
+    },
+  },
+  {
+    name: 'S2-29 with storage working there is no such note',
+    viewports: ['desktop'],
+    async run(t) {
+      t.equal(await t.page.locator('#t-nosave').count(), 0, 'no note on the title');
+      await t.game('scene', 'settings');
+      t.equal(await t.page.locator('#s-nosave').count(), 0, 'and none in Settings');
+    },
+  },
+
   // ---------------------------------------------------------------------------------------------- S5-08
   {
     name: 'S5-08 a saved ball plays only the save cue; a lost ball plays only the drain cue',

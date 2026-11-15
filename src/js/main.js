@@ -12,7 +12,7 @@ import { createInput } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { createCoach } from './ui/coach.js';
 import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, suspendAudio, resumeAudio } from './ui/audio.js';
-import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
+import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, storageWritable, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
 import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
@@ -31,6 +31,7 @@ const app = {
   sfx: (n) => sfx(n),
   scores: () => loadScores(),
   stats: loadStats(),
+  storageOk: () => storageWritable(),
 };
 
 let G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffff) });

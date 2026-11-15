@@ -33,6 +33,8 @@ function summary(res, compact) {
 
 export function createScreens(root, app) {
   let current = null;
+  // with storage blocked (a private window, site data switched off) nothing the player earns is kept: say so
+  const noSave = (id) => (app.storageOk() ? '' : `<p class="hint warn" id="${id}" role="note">Progress cannot be saved in this browser: scores and settings will not be kept.</p>`);
   const el = (html) => { root.innerHTML = html; root.hidden = !html; const st = document.getElementById('stage'); if (st) st.inert = !!html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
   const on = (sel, fn) => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx('ui'); fn(e); }); };
   // a destructive button: the first tap asks, a second tap within 3 s does it
@@ -66,6 +68,7 @@ export function createScreens(root, app) {
         </div>
         <p class="hint">${app.touch ? 'Tap the left or right side to flip · hold Launch to plunge' : 'Z and / (or Shift) to flip · hold Space to plunge'}</p>
         <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
+        ${noSave('t-nosave')}
         <p class="hint" id="t-rank">Rank: ${esc(P.rank.name)}${P.daily.days[P.today] ? ' · daily played today' : ' · today\'s daily table is waiting'}</p>
       </section>`);
       on('#b-continue', () => app.continueGame());
@@ -101,6 +104,7 @@ export function createScreens(root, app) {
       const opt = (id, label, vals, cur) => `<label class="row"><span>${label}</span><select id="${id}">${vals.map(([v, t]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="s-h">
         <h2 id="s-h">Settings</h2>
+        ${noSave('s-nosave')}
         <div class="form">
           ${opt('s-sound', 'Sound effects', [[1, 'On'], [0, 'Off']], +s.sound)}
           ${opt('s-music', 'Music', [[1, 'On'], [0, 'Off']], +s.music)}

@@ -14,6 +14,11 @@ export const store = {
   },
 };
 
+// can this browser keep anything? (private windows and blocked site data cannot): the settings and title say so
+export function storageWritable() {
+  try { const k = PREFIX + 'probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch { return false; }
+}
+
 export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard', tipsSeen: false, ballGlow: true };
 
 // saved values come from storage anyone can edit: keep only what the settings screen could have written
