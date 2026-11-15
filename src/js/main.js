@@ -415,7 +415,7 @@ function dmdBase(d) {
     return;
   }
   if (G.scene === 'bonus' && G.bonus) {
-    const b = G.bonus, age = G.t - (b.until - 2.6);
+    const b = G.bonus, age = G.t - b.t0;
     const idx = Math.min(b.parts.length, Math.floor(age / 0.45));
     if (b.tilted) { d.center('TILT', 4, 2, 3); d.center('NO BONUS', 22, 1, 2); return; }
     if (idx < b.parts.length) { d.center(b.parts[idx][0], 4, 1, 2); d.center(fmt(b.parts[idx][1]), 15, 2, 3); }

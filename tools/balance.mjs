@@ -44,7 +44,7 @@ export function simulate({ games = 30, skill = 0.8, seed = 1, difficulty, balls 
         if (c.k === 'kickback') { agg.kickbacks++; agg.outlaneHits++; }
         if (c.k === 'sound' && c.name === 'outlane') agg.outlaneHits++;
         if (c.k === 'sound' && c.name === 'drain') { const x = G.lastDrainX; agg.drains[x == null ? 'other' : x < 60 ? 'outL' : x > 425 ? 'outR' : x > 180 && x < 305 ? 'center' : 'other']++; }
-        if (c.k === 'bonus') { agg.ballTimes.push(G.t - ballStart); ballStart = G.t + 2.6; }
+        if (c.k === 'bonus') { agg.ballTimes.push(G.t - ballStart); ballStart = c.until; }
       }
       G.cues.length = 0;
     }

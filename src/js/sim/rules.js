@@ -46,6 +46,7 @@ export const ROUND = {
 const roundOf = (G) => Math.min(ROUND.max, G.f.round || 0);
 const worth = (G, n) => Math.round(n * (1 + ROUND.value * roundOf(G)));   // a mode's score for round 0 is n itself
 const goalFor = (G, id, base) => Math.min(Math.max(base, ROUND.goalMax[id] || base), base + ROUND.goal * roundOf(G));
+const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
 const SHOOTER = { x: 498.5, y: 104 };
 const MAJOR = { rampMade: 'R', orbitTop: 'L', reserve: 'R' };
@@ -181,13 +182,22 @@ function endBall(G) {
   ];
   const sub = parts.reduce((a, [, v]) => a + v, 0);
   const total = p.tilted ? 0 : sub * p.bonusX;
-  G.bonus = { parts, x: p.bonusX, total, until: G.t + 2.6, tilted: p.tilted };
+  const len = p.tilted ? BONUS_TILTED_SECS : BONUS_SECS;
+  G.bonus = { parts, x: p.bonusX, total, t0: G.t, until: G.t + len, tilted: p.tilted };
   G.scene = 'bonus';
   if (!p.tilted) p.score += total;
   cue(G, { k: 'bonus', ...G.bonus });
   sound(G, 'bonus');
   f.spins = 0;
-  after(G, 2.6, () => nextBall(G));
+  G.timers.push({ at: G.t + len, bonus: true, fn: () => nextBall(G) });
+}
+
+// A flipper press ends the bonus count early once it has run BONUS_SKIP_AFTER seconds, and goes straight to the next ball.
+export function skipBonus(G) {
+  if (G.scene !== 'bonus' || !G.bonus || G.t - G.bonus.t0 < BONUS_SKIP_AFTER) return false;
+  G.timers = G.timers.filter((q) => !q.bonus);
+  nextBall(G);
+  return true;
 }
 
 function nextBall(G) {
@@ -727,6 +737,7 @@ export function plunger(G, holding) {
 export function plungerCancel(G) { cancelPlunger(G.w); }
 
 export function nudge(G, dir) {
+  if (down && G.scene === 'bonus' && skipBonus(G)) return;   // before the tilt check: a tilted ball's NO BONUS can be skipped too
   if (G.scene !== 'game' || G.player.tilted) return;
   const n = tune(G).nudge, v = { left: [-n, 60], right: [n, 60], up: [0, 300] }[dir] || [0, 300];
   physNudge(G.w, v[0], v[1]);

@@ -230,4 +230,68 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S1-06
+  {
+    name: 'S1-06 a flip ends the bonus count once it has run 0.8 s, and not before; the old timer does not fire a second time',
+    node: true,
+    async run(t) {
+      const G = fresh(); drainLast(G);
+      t.equal(G.scene, 'bonus', 'the bonus is counting');
+      t.expect(Math.abs(G.bonus.until - G.bonus.t0 - 2.6) < 1e-9, 'a full count is still 2.6 s');
+      run(G, 0.3); flipper(G, 'L', true); flipper(G, 'L', false);
+      t.equal(G.scene, 'bonus', 'a flip at 0.3 s does nothing (a flipper held through the drain must not skip it)');
+      run(G, 0.6);
+      flipper(G, 'R', true);
+      t.equal(G.scene, 'game', 'a flip after 0.8 s goes straight to the next ball');
+      t.equal(G.player.ball, G.player.ballsPerGame, 'the next ball is up');
+      t.expect(G.w.balls.length === 1, 'and its ball is in the shooter lane');
+      run(G, 3);
+      t.equal(G.player.ball, G.player.ballsPerGame, 'the skipped timer does not advance the game again');
+      t.equal(G.scene, 'game', 'still in play');
+    },
+  },
+  {
+    name: 'S1-06 a tilted ball says NO BONUS for 1.2 s, and a flip skips that too; with the last ball the game ends',
+    node: true,
+    async run(t) {
+      const G = fresh(); drainLast(G, { tilted: true });
+      t.equal(G.scene, 'bonus', 'the tilted ball gets its bonus screen');
+      t.expect(Math.abs(G.bonus.until - G.bonus.t0 - 1.2) < 1e-9, 'which lasts 1.2 s, not 2.6');
+      t.equal(G.bonus.total, 0, 'with no bonus');
+      run(G, 0.9);
+      flipper(G, 'L', true);
+      t.equal(G.scene, 'game', 'a flip while tilted still skips the count');
+      const H = fresh(2); H.player.ball = H.player.ballsPerGame; drainLast(H, { tilted: true }); H.player.ball = H.player.ballsPerGame;
+      run(H, 1.3);
+      t.equal(H.scene, 'over', 'unskipped, a tilted last ball is over after 1.2 s');
+    },
+  },
+  {
+    name: 'S1-06 a flip on a real keyboard or a tap on the table skips the bonus count',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('pause');
+      await t.game('act', 'clearBalls');
+      await t.game('setState', { player: { ball: 1 }, ball: { saveUntil: 0, inLane: false, launched: true } });
+      await t.game('act', 'addBall', 300, 300);
+      await t.game('act', 'switch', 'shooterLane', 'drain');
+      await t.stepUntil((s) => s.scene === 'bonus', { max: 60, chunk: 1, label: 'the bonus starts' });
+      const press = async () => {
+        if (t.viewport === 'mobile') { const r = await t.page.locator('#table').boundingBox(); await t.tap([r.x + r.width * 0.25, r.y + r.height * 0.5]); }
+        else await t.page.keyboard.press('KeyZ');
+      };
+      await t.game('step', 20);
+      await press(); await t.waitFrames(3);
+      let s = await t.state();
+      t.equal(s.scene, 'bonus', 'an early press (0.17 s in) is ignored');
+      await t.game('step', 120);
+      s = await t.state();
+      t.equal(s.scene, 'bonus', 'and the count is still going at 1.2 s');
+      await press(); await t.waitFrames(3);
+      s = await t.state();
+      t.equal([s.scene, s.player.ball], ['game', 2], 'a press after 0.8 s starts ball 2 at once');
+    },
+  },
+
 ];
