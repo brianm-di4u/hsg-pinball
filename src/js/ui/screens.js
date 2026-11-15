@@ -208,7 +208,7 @@ export function createScreens(root, app) {
             </tbody></table>
             <h3>The table</h3>
             <ul>
-              <li><b>Skill shot:</b> plunge into the flashing S·P·A lane. Flippers move the lit lane.</li>
+              <li><b>Skill shot:</b> plunge into the flashing S·P·A lane. Flippers move the lit lane. Hold Launch and let go when the bar reaches the lit lane's mark.</li>
               <li><b>S·P·A lanes:</b> light all three for a bonus multiplier (up to 5×).</li>
               <li><b>Thermal springs</b> (pop bumpers) heat up to 143 °F, then boil for double points.</li>
               <li><b>Bathhouse Row:</b> hit all eight, ${BATHHOUSES.join(', ')}, to light <b>Grand Soak</b> multiball.</li>

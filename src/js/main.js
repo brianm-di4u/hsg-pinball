@@ -2,7 +2,7 @@
 // lamps, effects), screens, saves and the window.__game test hooks.
 import { compileTable } from './sim/table.js';
 import { spec } from './sim/table-spa-city.js';
-import { TICK, autoPlunge, addBall, LAYER, removeBall } from './sim/physics.js';
+import { TICK, autoPlunge, addBall, LAYER, removeBall, SKILL_LANES } from './sim/physics.js';
 import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api, LADDER, MODES, nextModeIndex } from './sim/rules.js';
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
@@ -125,6 +125,10 @@ function resize() {
   sizeDMD();
 }
 window.addEventListener('resize', resize);
+
+// the marks of the three top lanes (S, P, A) along the Launch bar, where the pull puts the ball in each (S1-04)
+const skillMarks = [...document.querySelectorAll('#skill i')];
+skillMarks.forEach((m, i) => { m.style.left = SKILL_LANES[i][0] * 100 + '%'; m.style.width = (SKILL_LANES[i][1] - SKILL_LANES[i][0]) * 100 + '%'; });
 
 const dmdCanvas = $('#dmd'), dmdCtx = dmdCanvas.getContext('2d');
 function sizeDMD() {
@@ -544,6 +548,8 @@ function render(alpha, still = false) {
   if (mg !== uiCache.mg) { uiCache.mg = mg; const cls = mg.split(','); document.querySelectorAll('#modegrid li').forEach((li, i) => { li.className = cls[i] || ''; }); }
   if (showLaunch !== uiCache.launch) { $('#b-launch').classList.toggle('ready', showLaunch); uiCache.launch = showLaunch; }
   const pw = (G.w.plunger.pull / G.w.plunger.maxPull).toFixed(2);
+  const lit = showLaunch && G.ball.inLane ? G.ball.skillLane : -1;   // the lane the skill shot is lit on: its mark on the Launch bar turns gold
+  if (lit !== uiCache.skill) { uiCache.skill = lit; skillMarks.forEach((m, i) => m.classList.toggle('lit', i === lit)); }
   if (pw !== uiCache.power) { $('#power').style.setProperty('--p', pw); uiCache.power = pw; }
 }
 

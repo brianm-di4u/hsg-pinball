@@ -12,7 +12,9 @@ import { FACTS, ATTRACT_FACTS } from '../src/js/sim/facts.js';
 import { DMD } from '../src/js/ui/dmd.js';
 import { api, createGame, newGame, tick, nudge, COMBO_MAX, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
 import { textWidth, DW } from '../src/js/ui/dmd.js';
+import * as PH from '../src/js/sim/physics.js';
 import { autoPlunge } from '../src/js/sim/physics.js';
+import { plunger } from '../src/js/sim/rules.js';
 import { simulate, TARGETS } from '../tools/balance.mjs';
 
 const T = compileTable(spec);
@@ -307,6 +309,79 @@ export const tests = [
       await t.waitFrames(3);
       t.equal(JSON.stringify(await t.page.evaluate(() => window.__fs)), JSON.stringify(['HTML']), 'a click asks the page for full screen');
       t.expect(/Leave full screen/.test(await t.page.textContent('#s-full')), 'and the button now offers to leave');
+      await t.checkLayout();
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S1-04
+  {
+    name: 'S1-04 a held plunger reaches each top lane over a window of 0.15 s or more, four times as many holds land in a lane as before, and a tap and a full pull still go round the orbit',
+    node: true,
+    async run(t) {
+      // hold the plunger for n ticks (120 a second), let go, and name the first top lane or other shot the ball reaches
+      const hold = (n, strength) => {
+        const w = PH.createWorld(T); PH.addBall(w, 498, 103.5); PH.setPlunger(w, true);
+        for (let i = 0; i < n; i++) PH.step(w);
+        if (strength) { w.plunger.holding = false; w.plunger.vel = w.plunger.maxVel * strength(w.plunger.pull / w.plunger.maxPull); } else PH.setPlunger(w, false);
+        for (let i = 0; i < 120 * 5; i++) { PH.step(w); for (const e of w.events.splice(0)) { const nm = T.swName[e.sw]; if (/^lane[SPA]$/.test(nm)) return nm[4]; if (/spinner|orbitTop|reserve/.test(nm)) return 'orbit'; } }
+        return 'none';
+      };
+      const NAMES = ['S', 'P', 'A'];
+      const windows = PH.SKILL_LANES.map(([a, b], i) => ({ lane: NAMES[i], from: a, to: b, secs: (b - a) / 0.8 }));
+      t.expect(windows.every((w) => w.secs >= 0.15), 'each lane has a pull window of 0.15 s or more: ' + windows.map((w) => w.lane + ' ' + w.secs.toFixed(2) + ' s').join(', '));
+      // inside its window a lane is hit by most holds, one tick (8 ms) at a time; the sim is deterministic, so this is the same every run
+      for (const [i, [a, b]] of PH.SKILL_LANES.entries()) {
+        const lo = Math.ceil(a / 0.8 * 120), hi = Math.floor(b / 0.8 * 120);
+        let hits = 0, total = 0; for (let n = lo; n <= hi; n++) { total++; if (hold(n) === NAMES[i]) hits++; }
+        t.expect(hits / total >= 0.65, 'lane ' + NAMES[i] + ': ' + hits + ' of ' + total + ' holds inside its window land in it (65 percent needed)');
+      }
+      // all the hold times from the shortest real hold to a full pull
+      const count = (strength) => { let any = 0, total = 0; for (let n = 18; n <= 150; n++) { total++; if (NAMES.includes(hold(n, strength))) any++; } return any / total; };
+      const before = count((f) => 0.7 + 0.3 * f), after = count();
+      t.log('share of holds that reach a top lane: ' + (before * 100).toFixed(0) + ' percent before, ' + (after * 100).toFixed(0) + ' after');
+      t.expect(after >= 0.4 && after >= 3.5 * before, 'holds that reach a top lane: ' + (after * 100).toFixed(0) + ' percent, it was ' + (before * 100).toFixed(0));
+      t.equal(hold(3), 'orbit', 'a tap still goes round the orbit to the spinner');
+      t.equal(hold(150), 'orbit', 'and so does a full pull');
+      t.equal(PH.heldStrength(1), 1, 'a full pull is still the full launch');
+      t.expect(PH.heldStrength(PH.TAP_PULL / 50) >= 0.7, 'and the shortest hold still clears the lane');
+    },
+  },
+  {
+    name: 'S1-04 a hold that lands in the lit lane scores the skill shot',
+    node: true,
+    async run(t) {
+      const G = fresh(9);
+      G.ball.skillLane = 1;   // P is lit
+      plunger(G, true); run(G, 0.34 / 0.8);   // a pull of 0.34: the middle of the P window
+      plunger(G, false);
+      run(G, 4);
+      t.equal(G.player.skillShots, 1, 'the skill shot was scored: ' + G.player.skillShots);
+    },
+  },
+  {
+    name: 'S1-04 the Launch button shows where each top lane is along the pull, and the mark of the lit lane is gold and follows the flippers',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.waitFrames(8);
+      const read = () => t.page.evaluate(() => {
+        const b = document.querySelector('#b-launch').getBoundingClientRect();
+        return { vis: getComputedStyle(document.querySelector('#b-launch')).visibility, btn: [b.left, b.right], marks: [...document.querySelectorAll('#skill i')].map((m) => { const r = m.getBoundingClientRect(); return { text: m.textContent, l: r.left, r: r.right, w: r.width, lit: m.classList.contains('lit') }; }) };
+      });
+      let v = await read();
+      t.equal(v.vis, 'visible', 'the Launch button is up while the ball waits in the lane');
+      t.equal(v.marks.map((m) => m.text).join(''), 'SPA', 'three marks, S, P and A');
+      t.expect(v.marks.every((m) => m.w >= 8 && m.l >= v.btn[0] - 1 && m.r <= v.btn[1] + 1), 'each is visible and inside the button: ' + v.marks.map((m) => Math.round(m.w)).join(', '));
+      t.expect(v.marks[2].l < v.marks[1].l && v.marks[1].l < v.marks[0].l, 'A is the shortest pull, then P, then S');
+      const lit = async () => { const m = (await read()).marks.map((q) => q.lit); return { n: m.filter(Boolean).length, i: m.indexOf(true), lane: (await t.state()).ball.skillLane }; };
+      let l = await lit();
+      t.equal(l.n, 1, 'one mark is lit'); t.equal(l.i, l.lane, 'and it is the lit lane: ' + l.i + ' against ' + l.lane);
+      await t.game('act', 'flip', 'R', true); await t.game('act', 'flip', 'R', false);
+      await t.waitFrames(4);
+      const l2 = await lit();
+      t.expect(l2.i === l2.lane && l2.i !== l.i, 'a flipper press moves the lit lane and the mark follows: ' + l.i + ' then ' + l2.i);
+      await t.game('setState', { ball: { skillLane: 1 } });
+      await t.waitFrames(4);
+      await shot(t, 'S1-04-launch-skill-band');
       await t.checkLayout();
     },
   },

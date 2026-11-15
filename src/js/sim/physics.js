@@ -74,13 +74,29 @@ export const TAP_PULL = 6;          // mm: a release before the plunger has draw
 export const TAP_STRENGTH = 0.85;   // a tap fires like a launch button, round the arch
 export const MIN_STRENGTH = 0.7;    // a real hold never fires weaker than this: below about 0.68 the ball rolls back into the lane
 
+// The skill shot (S1-04). A held plunger of strength 0.70 to 0.77 drops the ball into a top lane (the arch carries it to the lane
+// where it runs out of speed): A below about 0.734, P to 0.754, S to 0.767, and above that the bumpers and then the orbit. The strength
+// was MIN_STRENGTH + (1 - MIN_STRENGTH) x pull, a straight line, so each lane took about 30 ms of holding and A, the lowest, was below
+// what the shortest hold gives. These knots (pull, strength) spread the three lanes over the first half of the pull, 0.15 s or more
+// each, and then carry on to a full launch at a full pull. SKILL_LANES is the pull each lane (S, P, A) takes, for the meter on Launch.
+export const SKILL_KNOTS = [[0, 0.70], [0.12, 0.70], [0.26, 0.727], [0.30, 0.740], [0.43, 0.7495], [0.46, 0.7545], [0.60, 0.767], [1, 1]];
+export const SKILL_LANES = [[0.46, 0.60], [0.30, 0.43], [0.12, 0.26]];
+export function heldStrength(frac) {
+  const f = Math.max(0, Math.min(1, frac));
+  for (let k = 1; k < SKILL_KNOTS.length; k++) {
+    const [f0, s0] = SKILL_KNOTS[k - 1], [f1, s1] = SKILL_KNOTS[k];
+    if (f <= f1) return s0 + (s1 - s0) * ((f - f0) / (f1 - f0));
+  }
+  return 1;
+}
+
 /** Hold (true) to draw the plunger back, release (false) to fire. */
 export function setPlunger(w, holding) {
   const p = w.plunger;
   if (holding && !p.holding) p.holding = true;
   else if (!holding && p.holding) {
     if (p.pull < TAP_PULL) { autoPlunge(w, TAP_STRENGTH); return; }
-    p.holding = false; p.vel = p.maxVel * (MIN_STRENGTH + (1 - MIN_STRENGTH) * (p.pull / p.maxPull));   // longer is stronger, from a launch that always clears the lane
+    p.holding = false; p.vel = p.maxVel * heldStrength(p.pull / p.maxPull);   // longer is stronger, from a launch that always clears the lane
   }
 }
 

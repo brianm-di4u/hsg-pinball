@@ -85,6 +85,12 @@ kbd { font: 600 0.82em var(--font); background: var(--surface-2); color: var(--t
 .btn.launch { position: relative; flex: 1; overflow: hidden; opacity: 0.6; }
 .btn.launch:not(.ready) { visibility: hidden; }
 .btn.launch.ready { opacity: 1; border-color: var(--coral); box-shadow: 0 0 16px rgba(242, 107, 91, 0.45); }
+/* the skill-shot guide (S1-04): where along the pull each top lane is; the lit lane's mark is gold */
+.skill { position: absolute; left: 0; right: 0; bottom: 5px; height: 13px; pointer-events: none; }
+.skill i { position: absolute; bottom: 0; height: 100%; box-sizing: border-box; border: 1px solid rgba(212, 175, 55, 0.4); border-bottom: 0; border-radius: 3px 3px 0 0; background: rgba(212, 175, 55, 0.12);
+  font: 700 9px/12px var(--font); font-style: normal; text-align: center; color: var(--muted); }
+.skill i.lit { color: #1d1405; background: var(--gold-2); border-color: #ffe7a0; }
+.btn.launch .lbl { position: relative; top: -6px; }   /* the label sits above the skill marks */
 .power { position: absolute; left: 0; bottom: 0; height: 5px; width: calc(var(--p, 0) * 100%); background: linear-gradient(90deg, var(--teal), var(--gold-2), var(--neon-red)); }
 
 /* ---------------------------------------------------------------- screens */
