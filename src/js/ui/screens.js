@@ -178,14 +178,16 @@ export function createScreens(root, app) {
       </section>`);
       on('#b-back', () => (back === 'pause' ? S.pause() : S.title()));
     },
-    scores(back, highlight = -1) {
+    scores(back, highlight = -1, balls = app.settings.balls) {
       current = 'scores';
-      const rows = app.scores().map((r, i) => `<tr class="${i === highlight ? 'hl' : ''}"><td>${i + 1}</td><td>${esc(r.initials)}</td><td class="num">${fmt(r.score)}</td><td class="diff">${r.difficulty && r.difficulty !== 'standard' ? DIFF_NAME[r.difficulty] : ''}</td></tr>`).join('');
+      const rows = app.scores(balls).map((r, i) => `<tr class="${i === highlight ? 'hl' : ''}"><td>${i + 1}</td><td>${esc(r.initials)}</td><td class="num">${fmt(r.score)}</td><td class="diff">${r.difficulty && r.difficulty !== 'standard' ? DIFF_NAME[r.difficulty] : ''}</td></tr>`).join('');
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="hs-h">
         <h2 id="hs-h">High scores</h2>
+        <div class="pair seg" role="group" aria-label="Length of game">${[3, 5].map((n) => `<button type="button" class="btn sm${n === balls ? ' primary' : ''}" data-balls="${n}" aria-pressed="${n === balls}">${n}-ball games</button>`).join('')}</div>
         <table class="scores"><tbody>${rows}</tbody></table>
         <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>${back === 'over' ? 'Continue' : 'Back'}</button></div>
       </section>`);
+      root.querySelectorAll('[data-balls]').forEach((b) => b.addEventListener('click', () => { app.sfx('ui'); S.scores(back, +b.dataset.balls === balls ? highlight : -1, +b.dataset.balls); const n = root.querySelector('[data-balls="' + b.dataset.balls + '"]'); if (n) n.focus({ preventScroll: true }); }));
       on('#b-back', () => (back === 'over' ? app.quit() : S.title()));
     },
     records(back) {

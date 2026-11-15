@@ -213,7 +213,7 @@ function gameOver(G) {
   const p = G.player;
   p.match = G.rng.int(10) * 10;
   const won = (p.score % 100) === p.match;
-  cue(G, { k: 'over', score: p.score, match: p.match, won, difficulty: G.difficulty });
+  cue(G, { k: 'over', score: p.score, match: p.match, won, difficulty: G.difficulty, balls: p.ballsPerGame });
   dmd(G, 'GAME OVER', fmt(p.score), 2500, 3);
   sound(G, 'gameOver');
   show(G, 'attract', 3000);

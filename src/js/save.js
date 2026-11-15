@@ -55,8 +55,11 @@ const DEFAULT_SCORES = [
   ['QPW', 800000], ['OZK', 600000], ['LMR', 400000], ['HLE', 250000], ['SUP', 100000],
 ].map(([initials, score]) => ({ initials, score, date: '2026-11-01', difficulty: 'standard' }));
 
-export function loadScores() {
-  const s = store.get('scores', null);
+// one table for each length of game, so a 5-ball score is never set against a 3-ball one: 'scores' stays the 3-ball table (every score saved before this
+// was kept there), 'scores5' is the 5-ball table
+const scoreKey = (balls) => (balls === 5 ? 'scores5' : 'scores');
+export function loadScores(balls = 3) {
+  const s = store.get(scoreKey(balls), null);
   if (s && s.v === 1 && Array.isArray(s.table)) {
     const rows = s.table
       .filter((r) => r && typeof r.initials === 'string' && typeof r.score === 'number' && Number.isFinite(r.score))
@@ -66,13 +69,13 @@ export function loadScores() {
   }
   return DEFAULT_SCORES.map((r) => ({ ...r }));
 }
-export function qualifies(score, table = loadScores()) { return score > 0 && (table.length < 10 || score > table[table.length - 1].score); }
-export function addScore(initials, score, difficulty = 'standard') {
-  const table = loadScores();
+export function qualifies(score, table = loadScores(3)) { return score > 0 && (table.length < 10 || score > table[table.length - 1].score); }
+export function addScore(initials, score, difficulty = 'standard', balls = 3) {
+  const table = loadScores(balls);
   table.push({ initials, score, date: new Date().toISOString().slice(0, 10), difficulty: pick(difficulty, DIFFICULTIES, 'standard') });
   table.sort((a, b) => b.score - a.score);
   const out = table.slice(0, 10);
-  store.set('scores', { v: 1, table: out });
+  store.set(scoreKey(balls), { v: 1, table: out });
   return out.findIndex((r) => r.initials === initials && r.score === score);
 }
 

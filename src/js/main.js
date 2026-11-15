@@ -29,7 +29,7 @@ const app = {
   settings: loadSettings(),
   touch: matchMedia('(pointer: coarse)').matches,
   sfx: (n) => sfx(n),
-  scores: () => loadScores(),
+  scores: (balls = app.settings.balls) => loadScores(balls),
   stats: loadStats(),
   storageOk: () => storageWritable(),
 };
@@ -346,7 +346,7 @@ function gameOverFlow(c) {
   startMusic('results'); musicIntensity(0);
   const res = recordGame(c);
   overTimer = setTimeout(() => {
-    if (qualifies(c.score)) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty); screens.scores('over', i); }, res);
+    if (qualifies(c.score, loadScores(c.balls))) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty, c.balls); screens.scores('over', i, c.balls); }, res);
     else screens.over(c.score, c.match, c.won, res);
   }, TEST ? 50 : 2600);
 }
@@ -473,7 +473,7 @@ window.__game = {
     const s = gameState(G);
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
-    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(); s.frame = frameNo;
+    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.settings.balls); s.frame = frameNo;
     s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], pans: { ...audio.pans }, roll: { ...audio.roll }, ...audioNow() };
     return s;
   },

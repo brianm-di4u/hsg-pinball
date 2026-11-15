@@ -125,6 +125,36 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S3-08
+  {
+    name: 'S3-08 a 5-ball score goes on its own table; the 3-ball table (and every score saved before) is untouched',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      const old = { v: 1, table: [{ initials: 'OLD', score: 3100000, date: '2026-10-01', difficulty: 'standard' }] };
+      await t.page.evaluate((o) => { localStorage.clear(); localStorage.setItem('hsg-pinball:scores', JSON.stringify(o)); }, old);
+      await t.page.reload(); await t.waitIdle(30000);
+      await t.game('newGame', { balls: 5, seed: 5 });
+      await t.game('setState', { player: { ball: 5, score: 7777777 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      await t.page.waitForSelector('#b-ok');
+      await t.page.click('#b-ok');
+      await t.page.waitForSelector('[data-balls]');
+      const cell = () => t.page.locator('.scores tr').first().textContent().then((x) => x.replace(/s+/g, ' ').trim());
+      t.expect(/7,777,777/.test(await cell()), 'the new score tops the 5-ball table, which is the one showing: ' + (await cell()));
+      t.equal(await t.page.locator('[data-balls="5"]').getAttribute('aria-pressed'), 'true', 'the 5-ball toggle is the one pressed');
+      await shot(t, 'S3-08-high-scores-5-ball');
+      const saved = await t.page.evaluate(() => ({ five: JSON.parse(localStorage.getItem('hsg-pinball:scores5')), three: JSON.parse(localStorage.getItem('hsg-pinball:scores')) }));
+      t.equal(saved.five.table[0].score, 7777777, 'saved under its own key');
+      t.equal(saved.three.table.map((r) => r.initials), ['OLD'], 'the 3-ball key is exactly as it was');
+      await t.page.click('[data-balls="3"]');
+      t.expect(/OLD/.test(await cell()) && !/7,777,777/.test(await cell()), 'the 3-ball table shows the old score and not the 5-ball one: ' + (await cell()));
+      t.equal(await t.page.locator('[data-balls="3"]').getAttribute('aria-pressed'), 'true', 'and its toggle is pressed');
+      t.equal(await t.page.locator('.scores tr').count(), 1, 'the 3-ball table is the one old row, as saved');
+      await t.checkLayout();
+    },
+  },
+
   // ---------------------------------------------------------------------------------------------- S5-08
   {
     name: 'S5-08 a saved ball plays only the save cue; a lost ball plays only the drain cue',
