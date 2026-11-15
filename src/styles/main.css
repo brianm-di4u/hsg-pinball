@@ -46,6 +46,7 @@ body[data-view="2d"] #gl { visibility: hidden; }
 .mode-grid li { font-size: 0.78em; text-align: center; padding: 5px 2px; border-radius: 6px; border: 1px solid #4a4266; color: var(--muted); background: rgba(20, 18, 31, 0.6); }
 .mode-grid li.played { color: var(--text); border-color: #7c6aa8; }
 .mode-grid li.won { color: #1d1405; background: linear-gradient(#e8c25a, #b8892a); border-color: #ffe7a0; }
+.mode-grid li.next { color: var(--text); border-color: var(--gold); border-style: dashed; }   /* the mode the Vapors will serve next */
 .mode-grid li.on { color: #fff; border-color: #c48cff; box-shadow: 0 0 10px rgba(196, 140, 255, 0.6); }
 @media (max-aspect-ratio: 4 / 5) { .mode-grid { display: none; } }
 @media (max-height: 520px) and (min-aspect-ratio: 4 / 5) { .mode-grid { grid-template-columns: repeat(2, 1fr); gap: 3px; } .mode-grid li { padding: 2px; font-size: 0.68em; } }

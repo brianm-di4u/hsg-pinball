@@ -4,6 +4,7 @@
 // least 20 percent of games.
 //   node tools/balance.mjs [--games 30] [--skill 0.8] [--seed 1] [--difficulty standard] [--ladder] [--check] [--json]
 //   --tune kickbacks=0,saveSecs=10   override a number of the Standard tuning (rules.js STANDARD) for this run
+//   --fixed    every game starts its mode ladder at Soak (the game before CL-02); by default the start rotates, as it does for a player
 //   --ladder   the skill ladder 0.4, 0.6, 0.8, 0.95 in one table      --check   exit 1 if the targets are missed
 //   npm run balance  is  node tools/balance.mjs --check
 import { compileTable } from '../src/js/sim/table.js';
@@ -13,7 +14,7 @@ import { createBot } from '../src/js/sim/bot.js';
 import { BATHHOUSES } from '../src/js/sim/table-spa-city.js';
 import { TICK } from '../src/js/sim/physics.js';
 
-export const TARGETS = { ballMin: 40, ballMax: 90, sideMax: 0.35, reachMin: 0.2 };
+export const TARGETS = { ballMin: 40, ballMax: 90, sideMax: 0.35, reachMin: 0.2, rotatedReachMin: 0.1 };   // rotatedReachMin (CL-02): with the ladder starting at a different mode each game, every mode is reached in at least this share of games
 const SHOT_SOUND = { vapors: 'saucer', lock: 'saucer', ramp: 'rampMade', orbit: 'orbit', reserve: 'orbit', bh: 'target' };
 const BH = new Set(BATHHOUSES);
 export const LADDER = [0.4, 0.6, 0.8, 0.95];
@@ -22,13 +23,13 @@ const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(p * (s.length - 1))] : 0; };
 
 /** Play `games` full games with a bot of this skill and return the numbers. */
-export function simulate({ games = 30, skill = 0.8, seed = 1, difficulty, balls = 3 } = {}) {
+export function simulate({ games = 30, skill = 0.8, seed = 1, difficulty, balls = 3, rotate = false } = {}) {
   const agg = { skill, games, drains: { outL: 0, outR: 0, center: 0, other: 0 }, scores: [], ballTimes: [], gameTimes: [], cues: {}, modes: {}, mbs: {}, aim: {}, saves: 0, kickbacks: 0, outlaneHits: 0, tilts: 0, searches: 0, capped: 0,
     reach: Object.fromEntries([...MODES.map((m) => m.id), 'arlington', 'soak multiball', 'valley'].map((k) => [k, 0])) };
   for (let g = 0; g < games; g++) {
     const G = createGame(T, { seed: seed + g });
     if (difficulty) G.settings.difficulty = difficulty;
-    newGame(G, { balls, seed: seed + g });
+    newGame(G, { balls, seed: seed + g, firstMode: rotate ? g % 6 : null });   // the game starts its ladder at a different mode each time (CL-02, rotate); without it every game starts at Soak
     const aimed = [];
     const bot = createBot(G, { skill, seed: 99 + g, onFlip: (f) => aimed.push({ ...f, t: G.t, hit: false }) });
     const seen = new Set();
@@ -54,7 +55,7 @@ export function simulate({ games = 30, skill = 0.8, seed = 1, difficulty, balls 
     for (const k of seen) agg.reach[k]++;
   }
   const d = agg.drains, total = d.outL + d.outR + d.center + d.other;
-  return { ...agg, drainTotal: total, sideShare: total ? (d.outL + d.outR) / total : 0, ballAvg: avg(agg.ballTimes), ballMedian: pct(agg.ballTimes, 0.5), ballP10: pct(agg.ballTimes, 0.1), ballP90: pct(agg.ballTimes, 0.9),
+  return { ...agg, rotate, drainTotal: total, sideShare: total ? (d.outL + d.outR) / total : 0, ballAvg: avg(agg.ballTimes), ballMedian: pct(agg.ballTimes, 0.5), ballP10: pct(agg.ballTimes, 0.1), ballP90: pct(agg.ballTimes, 0.9),
     scoreAvg: avg(agg.scores), scoreMedian: pct(agg.scores, 0.5), scoreP90: pct(agg.scores, 0.9), gameAvg: avg(agg.gameTimes), reachShare: Object.fromEntries(Object.entries(agg.reach).map(([k, v]) => [k, v / games])) };
 }
 
@@ -63,7 +64,7 @@ export function verdict(r) {
   const misses = [];
   if (r.ballAvg < TARGETS.ballMin || r.ballAvg > TARGETS.ballMax) misses.push(`ball time ${r.ballAvg.toFixed(1)} s is outside ${TARGETS.ballMin}-${TARGETS.ballMax} s`);
   if (r.sideShare >= TARGETS.sideMax) misses.push(`side drains ${(r.sideShare * 100).toFixed(0)}% are not under ${TARGETS.sideMax * 100}%`);
-  for (const k of [...MODES.map((m) => m.id), 'arlington']) if (r.reachShare[k] < TARGETS.reachMin) misses.push(`${k} reached in ${(r.reachShare[k] * 100).toFixed(0)}% of games, under ${TARGETS.reachMin * 100}%`);
+  for (const k of [...MODES.map((m) => m.id), 'arlington']) { const min = r.rotate && k !== 'arlington' ? TARGETS.rotatedReachMin : TARGETS.reachMin; if (r.reachShare[k] < min) misses.push(`${k} reached in ${(r.reachShare[k] * 100).toFixed(0)}% of games, under ${min * 100}%`); }
   return misses;
 }
 
@@ -86,18 +87,18 @@ const isMain = process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('
 if (isMain) {
   const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; };
   const has = (k) => process.argv.includes('--' + k);
-  const games = +arg('games', 30), seed = +arg('seed', 1), difficulty = arg('difficulty', undefined);
+  const games = +arg('games', 30), seed = +arg('seed', 1), difficulty = arg('difficulty', undefined), rotate = !has('fixed');
   for (const kv of arg('tune', '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); if (!(k in STANDARD)) throw new Error('no such tuning number: ' + k); STANDARD[k] = +v; }
   const t0 = Date.now();
   if (has('ladder')) {
-    const rows = LADDER.map((skill) => simulate({ games, skill, seed, difficulty }));
+    const rows = LADDER.map((skill) => simulate({ games, skill, seed, difficulty, rotate }));
     if (has('json')) console.log(JSON.stringify(rows.map((r) => ({ skill: r.skill, ballAvg: r.ballAvg, sideShare: r.sideShare, scoreMedian: r.scoreMedian, reachShare: r.reachShare }))));
     else {
       console.log('skill  ball avg  median   side drains  score median   modes reached (' + MODES.map((m) => m.short.toLowerCase()).join(' ') + ')  arlington');
       for (const r of rows) console.log(`${r.skill.toFixed(2)}   ${r.ballAvg.toFixed(1).padStart(6)} s ${r.ballMedian.toFixed(1).padStart(6)}   ${(r.sideShare * 100).toFixed(0).padStart(5)}%     ${Math.round(r.scoreMedian).toLocaleString().padStart(10)}   ${MODES.map((m) => (r.reachShare[m.id] * 100).toFixed(0).padStart(3) + '%').join(' ')}   ${(r.reachShare.arlington * 100).toFixed(0)}%`);
     }
   } else {
-    const r = simulate({ games, skill: +arg('skill', 0.8), seed, difficulty });
+    const r = simulate({ games, skill: +arg('skill', 0.8), seed, difficulty, rotate });
     if (has('json')) console.log(JSON.stringify(r));
     else { console.log(report(r)); const top = Object.entries(r.cues).sort((a, b) => b[1] - a[1]); console.log('callouts: ' + top.slice(0, 30).map(([k, v]) => `${k}x${v}`).join(' | ')); }
     const misses = verdict(r);

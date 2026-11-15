@@ -119,12 +119,12 @@ const cntArr = (v, len) => Array.from({ length: len }, (_, i) => (Array.isArray(
 const dateKey = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 export function loadStats() {
   const s = store.get('stats', null), d = emptyTally();
-  if (!isObj(s) || s.v !== 1) return { v: 1, ...d, best: { easy: 0, standard: 0, expert: 0 }, earned: {} };
+  if (!isObj(s) || s.v !== 1) return { v: 1, ...d, started: 0, best: { easy: 0, standard: 0, expert: 0 }, earned: {} };
   const earned = {};
   if (isObj(s.earned)) for (const g of GOALS) { const when = dateKey(s.earned[g.id]); if (when) earned[g.id] = when; }
   const b = isObj(s.best) ? s.best : {};
   return { v: 1, games: cnt(s.games), score: cnt(s.score), skillShots: cnt(s.skillShots), baths: cnt(s.baths), rows: cnt(s.rows), boils: cnt(s.boils), jackpots: cnt(s.jackpots), wizards: cnt(s.wizards),
-    extraBalls: cnt(s.extraBalls), mbs: cntArr(s.mbs, 3), modeWins: cntArr(s.modeWins, 6), best: { easy: cnt(b.easy), standard: cnt(b.standard), expert: cnt(b.expert) }, earned };
+    extraBalls: cnt(s.extraBalls), started: cnt(s.started), mbs: cntArr(s.mbs, 3), modeWins: cntArr(s.modeWins, 6), best: { easy: cnt(b.easy), standard: cnt(b.standard), expert: cnt(b.expert) }, earned };
 }
 export function saveStats(s) { return store.set('stats', s); }
 

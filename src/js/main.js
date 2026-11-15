@@ -3,7 +3,7 @@
 import { compileTable } from './sim/table.js';
 import { spec } from './sim/table-spa-city.js';
 import { TICK, autoPlunge, addBall, LAYER, removeBall } from './sim/physics.js';
-import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api, LADDER } from './sim/rules.js';
+import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api, LADDER, MODES, nextModeIndex } from './sim/rules.js';
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
 import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
@@ -160,7 +160,13 @@ app.start = (resume = null, o = {}) => {
   G = createGame(T, { seed: daily ? dailySeed(daily) : TEST ? 1 : (Date.now() & 0xffffff) });
   G.daily = daily; G.earnedNow = [];
   const fixed = daily && !resume ? DAILY_OPTS : null;
-  newGame(G, { balls: fixed ? fixed.balls : resume ? resume.player.ballsPerGame : app.settings.balls, practice: fixed ? fixed.practice : resume ? resume.practice : app.settings.practice, difficulty: fixed ? fixed.difficulty : resume ? resume.difficulty : app.settings.difficulty });
+  // the ladder starts at a different mode each game (CL-02): by the count of games started, or by the date on a daily table; a resumed game has its own
+  let first = null;
+  if (!resume) {
+    if (daily) first = dailySeed(daily) % 6;
+    else if (!TEST || window.__game.ladder) { first = app.stats.started % 6; app.stats.started++; saveStats(app.stats); }
+  }
+  newGame(G, { firstMode: first, balls: fixed ? fixed.balls : resume ? resume.player.ballsPerGame : app.settings.balls, practice: fixed ? fixed.practice : resume ? resume.practice : app.settings.practice, difficulty: fixed ? fixed.difficulty : resume ? resume.difficulty : app.settings.difficulty });
   if (resume) {
     mergeKnown(G.player, resume.player); mergeKnown(G.f, resume.features);
     G.f.boilUntil = 0;   // a sim-clock time from the saved game: the clock starts again at 0
@@ -326,7 +332,7 @@ function routeCues() {
       case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
       case 'mb': if (!demo) { startMusic(c.on ? mbScene(c.kind) : (G.mode ? 'mode' : 'main'), !c.on && G.mode ? G.mode.id : null); mixState(); } break;
-      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty, G.daily); } break;
+      case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. ' + (G.player.ball === 1 && !G.player.score ? 'First mode: ' + MODES[nextModeIndex(G.f)].name.toLowerCase() + '. ' : '') + 'Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty, G.daily); } break;
       case 'bonus': if (!demo) announce('Ball ' + G.player.ball + ' over. Bonus ' + fmt(c.total) + '. Score ' + fmt(G.player.score)); break;
       case 'over': if (!demo) { announce('Game over. Final score ' + fmt(c.score)); gameOverFlow(c); } else setTimeout(() => demo && startDemo(), 1500); break;
       case 'tilt': effects.push({ k: 'tilt', t: now() }); break;
@@ -519,7 +525,7 @@ function render(alpha, still = false) {
   setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
   setText('#modeline', demo ? '' : (G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : G.mode.id[0].toUpperCase() + G.mode.id.slice(1)} · ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak', valley: 'Valley of the Vapors' }[G.mb.kind] : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`) + saveLeft);   // fact: raid
   const showLaunch = !demo && !paused && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150);
-  const mg = demo ? '' : G.f.modesPlayed.map((p, i) => ((G.mode && G.mode.i === i) || (G.mb && G.mb.kind === 'valley') ? 'on' : G.f.modesWon[i] ? 'won' : p ? 'played' : '')).join(',');
+  const mg = demo ? '' : G.f.modesPlayed.map((p, i) => ((G.mode && G.mode.i === i) || (G.mb && G.mb.kind === 'valley') ? 'on' : G.f.modesWon[i] ? 'won' : p ? 'played' : !G.mode && !G.mb && i === nextModeIndex(G.f) ? 'next' : '')).join(',');
   if (mg !== uiCache.mg) { uiCache.mg = mg; const cls = mg.split(','); document.querySelectorAll('#modegrid li').forEach((li, i) => { li.className = cls[i] || ''; }); }
   if (showLaunch !== uiCache.launch) { $('#b-launch').classList.toggle('ready', showLaunch); uiCache.launch = showLaunch; }
   const pw = (G.w.plunger.pull / G.w.plunger.maxPull).toFixed(2);
@@ -529,6 +535,7 @@ function render(alpha, still = false) {
 // ------------------------------------------------------------------------------------------------- hooks
 window.__game = {
   paused: false,
+  ladder: false,   // tests: rotate the first mode of each game as a player's games do; off under test so a game starts at Soak
   demoRestMs: null,   // tests: how long (ms) the title may sit untouched before the demo rests; null is the usual 30 s, and never under test
   overDelay: null,   // tests: how long (ms) after the last ball the entry or game-over card waits; null is the usual delay
   overPending() { return !!overTimer; },

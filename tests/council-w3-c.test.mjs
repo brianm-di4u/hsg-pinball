@@ -4,7 +4,9 @@
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGovernor, GOV } from '../src/js/gfx/view3d.js';
-import { createGame, newGame, tick, api, nextModeIndex, LADDER } from '../src/js/sim/rules.js';
+import { createGame, newGame, tick, api, nextModeIndex, LADDER, MODES } from '../src/js/sim/rules.js';
+import { simulate, verdict, TARGETS } from '../tools/balance.mjs';
+import { dailySeed } from '../src/js/progress.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -286,6 +288,102 @@ export const tests = [
       await t.tap(c);
       await t.waitFrames(6);
       t.equal((await t.state()).screen, 'pause', 'a tap on Menu still pauses');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- CL-02
+  {
+    name: 'CL-02 a game starts its ladder at the mode it is given and the order after it is unchanged; the display names the first mode',
+    node: true,
+    async run(t) {
+      for (let k = 0; k < 6; k++) {
+        const F = fresh(30 + k, { firstMode: k });
+        t.equal(F.f.nextMode, k, 'the ladder starts at place ' + k);
+      }
+      const G = createGame(T, { seed: 40 }); newGame(G, { seed: 40, firstMode: 4 });
+      const shown = G.cues.filter((c) => c.k === 'dmd').map((c) => c.text + '|' + c.sub);
+      t.expect(shown.includes('FIRST MODE|TUB RACE'), 'the display says FIRST MODE, TUB RACE: ' + shown.join(' / '));
+      const order = [];
+      for (let n = 0; n < 6; n++) { api.startMode(G); order.push(G.mode.i); api.endMode(G, true); }
+      t.equal(order.join(), '4,5,0,1,2,3', 'the six modes follow in the old order, round from the first');
+      const D = createGame(T, { seed: 41 }); newGame(D, { seed: 41 });
+      t.equal(D.f.nextMode, 0, 'with no start given the ladder begins at Soak, as it did');
+      t.expect(!D.cues.some((c) => c.k === 'dmd' && c.text === 'FIRST MODE'), 'and says nothing about it');
+    },
+  },
+  {
+    name: 'CL-02 over 60 consecutive bot games on Standard every mode is reached in at least 10% of them, with the side drains unchanged',
+    node: true,
+    async run(t) {
+      const rot = simulate({ games: 60, skill: 0.8, seed: 1, rotate: true });
+      const fix = simulate({ games: 60, skill: 0.8, seed: 1, rotate: false });
+      const lows = Object.entries(rot.reachShare).filter(([k, v]) => MODES.some((m) => m.id === k) && v < TARGETS.rotatedReachMin).map(([k]) => k);
+      t.expect(lows.length === 0, 'every mode is reached in at least 10% of games: ' + MODES.map((m) => m.id + ' ' + Math.round(rot.reachShare[m.id] * 100) + '%').join(', '));
+      t.expect(MODES.some((m) => fix.reachShare[m.id] < TARGETS.rotatedReachMin), 'while with every game starting at Soak some mode is not (the thing this fixes): coaster ' + Math.round(fix.reachShare.coaster * 100) + '%');
+      t.expect(Math.abs(rot.sideShare - fix.sideShare) < 0.03 && rot.sideShare < TARGETS.sideMax, 'side drains are unchanged: ' + (rot.sideShare * 100).toFixed(1) + '% against ' + (fix.sideShare * 100).toFixed(1) + '%');
+      t.expect(rot.ballAvg >= TARGETS.ballMin && rot.ballAvg <= TARGETS.ballMax, 'the ball time stays inside its target: ' + rot.ballAvg.toFixed(1) + ' s');
+      t.expect(!verdict(rot).some((m) => !/arlington/.test(m)), 'the balance verdict misses nothing but the Arlington, as before: ' + verdict(rot).join('; '));
+    },
+  },
+  {
+    name: 'CL-02 each game a player starts begins at the next mode; the count is saved; a daily table takes its first mode from the date; a resumed game keeps its own',
+    async run(t) {
+      const ladderOn = () => t.page.evaluate(() => { window.__game.ladder = true; });
+      const startedCount = () => t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:stats')).started);
+      await t.page.evaluate(() => localStorage.clear());
+      await t.page.reload(); await t.waitIdle(30000);
+      await ladderOn();
+      const first = async () => { await t.game('scene', 'game'); return (await t.state()).features.nextMode; };
+      const seq = [];
+      for (let i = 0; i < 7; i++) seq.push(await first());
+      t.equal(seq.join(), '0,1,2,3,4,5,0', 'seven games start at consecutive modes and come round');
+      t.equal(await startedCount(), 7, 'the count of games started is saved with the records');
+      await t.page.reload(); await t.waitIdle(30000);
+      await ladderOn();
+      t.equal(await first(), 1, 'and after a reload the eighth game starts at place 1');
+      // the daily table: from the date, the same for everyone that day, and it does not use up the count
+      const dayMode = async (d) => { await t.game('setToday', d); await t.game('startDaily'); return (await t.state()).features.nextMode; };
+      const want = (d) => dailySeed(d) % 6;
+      const dates = ['2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18'];
+      for (const d of dates) t.equal(await dayMode(d), want(d), 'the daily table of ' + d + ' starts at place ' + want(d));
+      t.equal(await dayMode(dates[0]), want(dates[0]), 'and starting that day again gives the same one');
+      t.expect(new Set(dates.map(want)).size > 1, 'the dates give more than one first mode');
+      await t.game('setToday', null);
+      t.equal(await startedCount(), 8, 'the daily games did not change the count');
+      // a resumed game keeps the ladder it started with
+      await first();
+      await t.game('setState', { features: { nextMode: 4 }, player: { ball: 2, score: 5000 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      t.equal(await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:resume')).features.nextMode), 4, 'the saved game holds its ladder place');
+      const started = await startedCount();
+      await t.page.reload(); await t.waitIdle(30000);
+      await ladderOn();
+      await t.page.click('#b-continue'); await t.waitFrames(5);
+      t.equal((await t.state()).features.nextMode, 4, 'Continue picks the ladder up where it was');
+      t.equal(await startedCount(), started, 'and does not count as a new game');
+      await t.page.evaluate(() => localStorage.clear());
+    },
+  },
+  {
+    name: 'CL-02 the first mode is shown on the display before the first ball and marked in the mode list',
+    async run(t) {
+      await t.page.evaluate(() => localStorage.clear());
+      await t.page.reload(); await t.waitIdle(30000);
+      await t.page.evaluate(() => { localStorage.setItem('hsg-pinball:stats', JSON.stringify({ v: 1, started: 3 })); });
+      await t.page.reload(); await t.waitIdle(30000);
+      await t.page.evaluate(() => { window.__game.ladder = true; });
+      await t.game('scene', 'game');
+      const s = await t.state();
+      t.equal(s.features.nextMode, 3, 'the fourth game starts at Tower Climb');
+      t.expect(s.callouts.includes('FIRST MODE'), 'the display carries FIRST MODE: ' + s.callouts.join(' / '));
+      t.expect(s.ballsInPlay === 1 && !s.player.score, 'before the first ball is plunged');
+      if (t.viewport === 'desktop') {
+        const cls = await t.page.evaluate(() => [...document.querySelectorAll('#modegrid li')].map((li) => li.className));
+        t.equal(cls.join(), ',,,next,,', 'the mode list marks Tower as next: ' + cls.join('|'));
+      }
+      await t.page.waitForTimeout(2400);
+      await shot(t, 'CL-02-first-mode');
+      await t.page.evaluate(() => localStorage.clear());
     },
   },
 ];

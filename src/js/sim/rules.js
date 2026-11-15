@@ -118,7 +118,9 @@ function score(G, n, where) {
 function after(G, secs, fn) { G.timers.push({ at: G.t + secs, fn }); }
 
 // ------------------------------------------------------------------------------------------------- game flow
-export function newGame(G, { balls = G.settings.balls, practice = G.settings.practice, difficulty = G.settings.difficulty, seed } = {}) {
+// firstMode (CL-02): the place on the ladder the Vapors starts at (0 to 5); the order after it is unchanged. Left out, the ladder starts at
+// Soak and the display does not announce it; the page rotates it from the player's game count, and a daily table takes it from the date.
+export function newGame(G, { balls = G.settings.balls, practice = G.settings.practice, difficulty = G.settings.difficulty, seed, firstMode = null } = {}) {
   if (seed != null) { G.rng = makeRng(seed); G.seedValue = seed; }
   G.settings.balls = balls; G.settings.practice = practice;
   G.difficulty = DIFFICULTIES.includes(difficulty) ? difficulty : 'standard';   // fixed for the whole game, whatever Settings says later
@@ -126,7 +128,9 @@ export function newGame(G, { balls = G.settings.balls, practice = G.settings.pra
   G.timers = []; G.cues.length = 0;
   resetPlayer(G);
   G.scene = 'game';
+  if (firstMode != null) G.f.nextMode = ((Math.floor(firstMode) % 6) + 6) % 6;
   dmd(G, 'SPA CITY', 'BALL 1', 1800, 2);
+  if (firstMode != null) dmd(G, 'FIRST MODE', MODES[G.f.nextMode].name, 1800, 2);
   sound(G, 'start');
   serve(G);
 }
