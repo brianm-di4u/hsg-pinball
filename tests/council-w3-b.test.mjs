@@ -294,4 +294,18 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S2-06
+  {
+    name: 'S2-06 pinch zoom is allowed on the menus and dialogs, and the table and Launch button keep their touches for the game',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      const meta = await t.page.evaluate(() => document.querySelector('meta[name=viewport]').content);
+      t.expect(!/user-scalable\s*=\s*(no|0)/.test(meta) && !/maximum-scale/.test(meta), 'the viewport does not forbid scaling: ' + meta);
+      const ta = await t.page.evaluate(() => ({ body: getComputedStyle(document.body).touchAction, table: getComputedStyle(document.querySelector('#table')).touchAction, launch: getComputedStyle(document.querySelector('#b-launch')).touchAction, screens: getComputedStyle(document.querySelector('#screens')).touchAction }));
+      t.expect(/pinch-zoom/.test(ta.body) || ta.body === 'manipulation', 'the page lets a pinch through: ' + ta.body);
+      t.equal(ta.table, 'none', 'the table takes every touch');
+      t.equal(ta.launch, 'none', 'and so does Launch');
+    },
+  },
+
 ];
