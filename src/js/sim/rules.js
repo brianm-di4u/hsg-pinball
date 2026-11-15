@@ -22,7 +22,7 @@ export const STANDARD = {
   saveSecsMulti: 15,    // ... after a multiball starts (unchanged)
   kickbacks: 3,         // outlane kickbacks per side per ball; the ball is returned instead of draining (was 0: no kickback)
   nudge: 260,           // sideways nudge, mm/s added to every ball (unchanged)
-  bobDecay: 1.2,        // how fast the nudge meter falls, per second (unchanged)
+  bobDecay: 0.9,        // how fast the nudge meter falls, per second (was 1.2, S1-19: a nudge every 0.9 s never tilted; now it tilts after about 30. Easy is 1.6, Expert 0.8)
   tiltAfter: 2,         // warnings given before the next one tilts the table: the third is a tilt (unchanged)
 };
 export const DIFFICULTY = {

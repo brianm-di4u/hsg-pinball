@@ -5,6 +5,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { compileTable } from '../src/js/sim/table.js';
+import { spec } from '../src/js/sim/table-spa-city.js';
+import { createGame, newGame, tick, nudge, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
+import { autoPlunge } from '../src/js/sim/physics.js';
+import { simulate, TARGETS } from '../tools/balance.mjs';
+
+const T = compileTable(spec);
+const fresh = (seed = 1, o = {}) => { const G = createGame(T, { seed }); G.settings.difficulty = o.difficulty || 'standard'; newGame(G, { seed, ...o }); G.cues.length = 0; return G; };
+const run = (G, secs) => { for (let i = 0; i < Math.round(secs * 120); i++) tick(G); };
+const launched = (G) => { autoPlunge(G.w, 0.9); run(G, 3); };
+// how many nudges, `gap` seconds apart, before the table tilts (null if it never does within 80)
+const nudgesToTilt = (diff, gap) => { const G = fresh(4, { difficulty: diff }); launched(G); let n = 0; while (!G.player.tilted && n < 80) { nudge(G, 'left'); n++; run(G, gap); } return G.player.tilted ? n : null; };
+
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
@@ -50,6 +63,32 @@ export const tests = [
       t.expect(v.overflow <= 0, 'and still fits: ' + v.overflow);
       await t.checkLayout();
       await shot(t, 'S2-02-status-strip');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S1-19
+  {
+    name: 'S1-19 on Standard a nudge every 0.9 s now tilts the table in time, one every 1.5 s is still safe, and Easy and Expert keep their order',
+    node: true,
+    async run(t) {
+      const row = (d) => ({ fast: nudgesToTilt(d, 0.05), steady: nudgesToTilt(d, 0.9), slow: nudgesToTilt(d, 1.5) });
+      const e = row('easy'), s = row('standard'), x = row('expert');
+      t.log('nudges to tilt: ' + JSON.stringify({ easy: e, standard: s, expert: x }));
+      t.expect(s.steady !== null && s.steady <= 40, 'a nudge every 0.9 s tilts Standard within 40 nudges: ' + s.steady);
+      t.equal(s.slow, null, 'a nudge every 1.5 s is still safe on Standard');
+      t.expect(e.steady === null, 'Easy is still forgiving at 0.9 s');
+      t.expect(x.steady !== null && x.steady < s.steady, 'Expert tilts sooner than Standard at 0.9 s: ' + x.steady + ' against ' + s.steady);
+      t.expect(e.fast > s.fast && s.fast > x.fast, 'in a burst Easy takes the most nudges and Expert the fewest: ' + [e.fast, s.fast, x.fast].join(', '));
+      t.equal(STANDARD.bobDecay, 0.9, 'the constant says 0.9 (it was 1.2)');
+    },
+  },
+  {
+    name: 'S1-19 the bot, which spaces its nudges 1.4 s apart, still never tilts a game on Standard',
+    node: true,
+    async run(t) {
+      // 20 games, skill 0.8, seed 1: the bot nudges at most once in 1.4 s, so its meter falls faster than it climbs
+      const r = simulate({ games: 20, skill: 0.8, seed: 1, rotate: true });
+      t.equal(r.tilts, 0, 'no tilt in 20 bot games: ' + r.tilts);
+      t.expect(r.ballAvg >= TARGETS.ballMin && r.ballAvg <= TARGETS.ballMax, 'the ball average stays in its target: ' + r.ballAvg.toFixed(1));
     },
   },
 ];
