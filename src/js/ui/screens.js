@@ -277,7 +277,7 @@ export function createScreens(root, app) {
       </section>`);
       on('#b-back', () => S.title());
     },
-    over(score, match, won, res) {
+    over(score, match, won, res, practice) {
       current = 'over';
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="o-h">
         <div class="title-art" aria-hidden="true"></div>
@@ -285,6 +285,7 @@ export function createScreens(root, app) {
         <p class="big-score">${fmt(score)}</p>
         <p>Match <b>${String(match).padStart(2, '0')}</b>${won ? ' · <b class="won">Match! Free game</b>' : ''}</p>
         ${summary(res, false)}
+        ${practice ? '<p class="small">Practice game: not ranked</p>' : ''}
         <div class="menu">
           <button type="button" id="b-again" class="btn primary" autofocus>Play again</button>
           <button type="button" id="b-title" class="btn">Title</button>

@@ -308,4 +308,30 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S2-18
+  {
+    name: 'S2-18 a practice game that ends does not go on the high-score table and says it was not ranked; a real one still does',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      const ending = async (practice) => {
+        await t.page.evaluate(() => { localStorage.clear(); });
+        await t.page.reload(); await t.waitIdle(30000);
+        await t.game('newGame', { balls: 3, seed: 5, practice });
+        await t.game('setState', { player: { ball: 3, score: 7777777, tilted: true }, ball: { saveUntil: 0 } });
+        await t.game('act', 'placeBall', 242, 60, 0, -1500);
+        await t.game('step', 600);
+      };
+      await ending(true);
+      await t.page.waitForSelector('#b-again');
+      t.expect(/Practice game: not ranked/.test(await t.page.locator('.screen').textContent()), 'the game-over card says it was not ranked');
+      t.equal(await t.page.locator('#b-ok').count(), 0, 'no initials entry');
+      t.equal((await t.state()).scores.some((r) => r.score === 7777777), false, 'and the table does not hold the score');
+      await shot(t, 'S2-18-practice-game-over');
+      await t.checkLayout();
+      await ending(false);
+      await t.page.waitForSelector('#b-ok');
+      t.expect(true, 'a real game with the same score still asks for initials');
+    },
+  },
+
 ];

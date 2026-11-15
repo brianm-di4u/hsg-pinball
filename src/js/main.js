@@ -382,8 +382,9 @@ function gameOverFlow(c) {
   const res = recordGame(c);
   overTimer = setTimeout(() => {
     overTimer = 0;
-    if (qualifies(c.score, loadScores(c.balls))) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty, c.balls); screens.scores('over', i, c.balls); }, res);
-    else screens.over(c.score, c.match, c.won, res);
+    // a practice game (an endless ball save) is not ranked: no entry on the table, and the game-over card says so
+    if (!G.settings.practice && qualifies(c.score, loadScores(c.balls))) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty, c.balls); screens.scores('over', i, c.balls); }, res);
+    else screens.over(c.score, c.match, c.won, res, G.settings.practice);
   }, window.__game.overDelay ?? (TEST ? 50 : 2600));
 }
 
@@ -508,8 +509,8 @@ function render(alpha, still = false) {
 // ------------------------------------------------------------------------------------------------- hooks
 window.__game = {
   paused: false,
-  overDelay: null,   // tests: how long (ms) after the last ball the entry or game-over card waits; null is the usual delay
   demoRestMs: null,   // tests: how long (ms) the title may sit untouched before the demo rests; null is the usual 30 s, and never under test
+  overDelay: null,   // tests: how long (ms) after the last ball the entry or game-over card waits; null is the usual delay
   overPending() { return !!overTimer; },
   slowmo: false,   // tests: let the ball-save slow motion run (it is off under test so timing stays exact)
   seed(n) { G.rng = createGame(T, { seed: n }).rng; G.seedValue = n; return n; },
