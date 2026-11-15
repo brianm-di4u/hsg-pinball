@@ -156,13 +156,13 @@ function autoLaunch(G, delay = 0.7, strength = 0.82) {
 function onDrain(G, ballId) {
   const b = G.w.balls.find((q) => q.id === ballId);
   if (b) removeBall(G.w, b);
-  sound(G, 'drain');
   const left = ballsInPlay(G);
   if (!G.player.tilted && (G.t < G.ball.saveUntil || (G.settings.practice && left === 0))) {
-    dmd(G, 'BALL SAVED', '', 1400, 3); sound(G, 'save'); cue(G, { k: 'slowmo', ms: 500 });
+    dmd(G, 'BALL SAVED', '', 1400, 3); sound(G, 'save'); cue(G, { k: 'slowmo', ms: 500, others: left });   // a saved ball gets only the relief cue, not the drain under it
     autoLaunch(G, 0.9);
     return;
   }
+  sound(G, 'drain');
   if (left >= 2) return;
   if (left === 1) { if (G.mb) endMultiball(G); return; }
   // last ball gone

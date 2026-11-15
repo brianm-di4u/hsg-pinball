@@ -267,7 +267,7 @@ function routeCues() {
       case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
       case 'sound': if (!demo) sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); break;   // pan by where it happened (the cue carries n and m for ladders and countdowns)
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
-      case 'slowmo': if (!reducedMotion() && !TEST) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
+      case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
       case 'mb': if (!demo) { startMusic(c.on ? mbScene(c.kind) : (G.mode ? 'mode' : 'main'), !c.on && G.mode ? G.mode.id : null); mixState(); } break;
       case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty, G.daily); } break;
@@ -465,6 +465,7 @@ function render(alpha) {
 // ------------------------------------------------------------------------------------------------- hooks
 window.__game = {
   paused: false,
+  slowmo: false,   // tests: let the ball-save slow motion run (it is off under test so timing stays exact)
   seed(n) { G.rng = createGame(T, { seed: n }).rng; G.seedValue = n; return n; },
   getState() {
     const s = gameState(G);
