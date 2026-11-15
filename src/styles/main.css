@@ -161,9 +161,9 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   .dmd-frame { padding: 5px; border-radius: 6px; }
   .info .controls-hint { display: none; }
   .score-line { display: none; }
-  .buttons { flex-direction: row; }
-  #b-menu { position: fixed; left: 13vw; bottom: 6px; z-index: 5; height: 46px; background: rgba(30, 26, 48, 0.78); }   /* over the apron: the DMD gets the full width */
-  #b-mute { position: fixed; left: calc(13vw + 62px); bottom: 6px; z-index: 5; height: 46px; background: rgba(30, 26, 48, 0.78); }
+  /* Menu and the speaker stack beside the display (S1-08): the bottom of the screen, under both thumbs, is left to the flippers and Launch (it was Menu over the left apron) */
+  .buttons { flex-direction: column; gap: 6px; flex: none; }
+  #b-menu, #b-mute { position: static; width: 44px; height: 44px; min-width: 44px; padding: 0; justify-content: center; }
   .btn.launch { position: fixed; right: 13vw; bottom: 6px; z-index: 5; flex: none; width: 92px; height: 46px; visibility: hidden; background: rgba(30, 26, 48, 0.78); }   /* over the apron, clear of the shooter lane */
   .btn.launch.ready { visibility: visible; }
   .btn.icon .lbl { display: none; }

@@ -252,4 +252,40 @@ export const tests = [
       await t.page.evaluate(() => localStorage.removeItem('cores'));
     },
   },
+  // ---------------------------------------------------------------------------------------------- S1-08
+  {
+    name: 'S1-08 on a phone in portrait Menu and the speaker sit beside the display, and the bottom fifth of the screen is left to the flippers and Launch',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.waitFrames(8);
+      for (const [w, h] of [[390, 844], [360, 640], [375, 667]]) {
+        await t.page.setViewportSize({ width: w, height: h });
+        await t.waitFrames(6);
+        const m = await t.page.evaluate(() => {
+          const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+          return { menu: r('#b-menu'), mute: r('#b-mute'), dmd: r('.dmd-frame'), launch: r('#b-launch'), table: r('#table'), vw: innerWidth, vh: innerHeight };
+        });
+        const at = w + 'x' + h;
+        for (const k of ['menu', 'mute']) {
+          const b = m[k];
+          t.expect(b.r - b.l >= 44 && b.b - b.t >= 44, at + ' ' + k + ' is at least 44 px: ' + Math.round(b.r - b.l) + 'x' + Math.round(b.b - b.t));
+          t.expect(b.b <= m.vh * 0.5, at + ' ' + k + ' is in the top half, not under a thumb: bottom ' + Math.round(b.b));
+          t.expect(b.l >= m.dmd.r - 0.5 && b.r <= m.vw + 0.5, at + ' ' + k + ' sits beside the display, not over it');
+          t.expect(b.b <= m.table.t + 0.5, at + ' ' + k + ' is above the table, in the display row');
+        }
+        t.expect(m.table.t <= 150, at + ': the table starts no lower than it did (150 px): ' + Math.round(m.table.t));
+        t.expect(m.dmd.r - m.dmd.l >= 200, at + ': the display keeps at least 200 px: ' + Math.round(m.dmd.r - m.dmd.l));
+        t.expect(m.launch.l > m.vw * 0.5 && m.launch.t > m.vh * 0.8, at + ' Launch stays at the bottom right');
+        if (w === 390) await shot(t, 'S1-08-menu-top');
+      }
+      await t.page.setViewportSize({ width: 390, height: 844 });
+      await t.waitFrames(4);
+      const c = await t.page.evaluate(() => { const b = document.querySelector('#b-menu').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; });
+      await t.tap(c);
+      await t.waitFrames(6);
+      t.equal((await t.state()).screen, 'pause', 'a tap on Menu still pauses');
+    },
+  },
 ];
