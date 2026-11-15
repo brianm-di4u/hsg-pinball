@@ -249,6 +249,7 @@ export const tests = [
       await t.game('scene', 'title');
       const frame = async (key) => { const k = ATTRACT_FACTS.indexOf(key) + 2; await t.game('act', 'clock', (k * 4 + 1) * 1000); await t.waitFrames(6); return t.page.locator('#dmd').screenshot({ path: path.join(SHOTS, 'S4-05-attract-' + key + '-' + t.viewport + '.png') }); };
       fs.mkdirSync(SHOTS, { recursive: true });
+      t.expect(ATTRACT_FACTS.includes('park') && ATTRACT_FACTS.includes('madden'), 'both lines are in the attract rotation');
       const a = await frame('park'), b = await frame('madden');
       t.expect(a.length > 1500 && b.length > 1500 && !a.equals(b), 'the display draws two different attract screens');
       await t.game('act', 'clock', null);
