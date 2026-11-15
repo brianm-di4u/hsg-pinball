@@ -46,6 +46,10 @@ export const ROUND = {
 const roundOf = (G) => Math.min(ROUND.max, G.f.round || 0);
 const worth = (G, n) => Math.round(n * (1 + ROUND.value * roundOf(G)));   // a mode's score for round 0 is n itself
 const goalFor = (G, id, base) => Math.min(Math.max(base, ROUND.goalMax[id] || base), base + ROUND.goal * roundOf(G));
+// Derby Day's rivals (S3-07). Each runs at base + spread x a fresh random number, in percent a second, and each has one
+// surge of surgeRate more for surgeSecs, starting somewhere in surgeFrom to surgeTo seconds after the flag drops, and runs
+// the whole race at its own pace: its speed is multiplied by 1 plus or minus paceVar, drawn once when the flag drops.
+export const DERBY = { base: 1.5, spread: 1.2, surgeRate: 4, surgeSecs: 3, surgeFrom: 6, surgeTo: 34, paceVar: 0.4 };   // base 1.25, surgeRate 0 and paceVar 0 were the values before S3-07
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
 export const EB_CAP = 2;   // extra balls a game can pay out, from the Fifth Season meter, the Vapors reel and the mode count together (S3-06: there was no limit)
 const ebOpen = (G) => G.player.eb < EB_CAP;
@@ -541,7 +545,7 @@ function startMode(G, forceIdx) {
   G.mode = { i, id: M.id, t0: G.t + 2.2, end: G.t + 2.2 + M.dur + ROUND.time * roundOf(G), progress: 0, need: 0, phase: 1, lit: [], data: {} };
   const m = G.mode;
   if (M.id === 'soak') { m.need = goalFor(G, 'soak', 6); m.lit = [G.rng.int(8)]; m.data.nextMove = m.t0 + 3; }
-  if (M.id === 'derby') { m.need = 100; m.data.horses = [0, 0, 0, 0]; m.data.rank = 3; m.data.names = ['YOU', 'SODA POP', 'MISS VAPOR', 'RED TILE']; }
+  if (M.id === 'derby') { m.need = 100; m.data.horses = [0, 0, 0, 0]; m.data.rank = 3; m.data.pace = [0, 1, 2].map(() => 1 + DERBY.paceVar * (2 * G.rng.next() - 1)); m.data.surge = [0, 1, 2].map(() => m.t0 + DERBY.surgeFrom + G.rng.next() * (DERBY.surgeTo - DERBY.surgeFrom)); m.data.names = ['YOU', 'SODA POP', 'MISS VAPOR', 'RED TILE']; }
   if (M.id === 'raid') { m.need = goalFor(G, 'raid', 3); m.lit = pickN(G, 8, m.need); m.data.value = worth(G, 200000); }
   if (M.id === 'tower') m.need = goalFor(G, 'tower', 3);
   if (M.id === 'tub') { m.need = goalFor(G, 'tub', 5); m.data.want = ''; }
@@ -618,12 +622,19 @@ function tickMode(G) {
   if (M.id === 'soak' && G.t > m.data.nextMove) { m.lit = [nextLit(G, m.lit[0])]; m.data.nextMove = G.t + 3; }
   if (M.id === 'derby') {
     const h = m.data.horses;
-    for (let k = 1; k < 4; k++) h[k] = Math.min(100, h[k] + (1.25 + G.rng.next() * 1.2) * (1 + ROUND.rivals * roundOf(G)) * TICK);
+    for (let k = 1; k < 4; k++) {
+      const surging = G.t >= m.data.surge[k - 1] && G.t < m.data.surge[k - 1] + DERBY.surgeSecs;
+      h[k] = Math.min(100, h[k] + (DERBY.base + G.rng.next() * DERBY.spread + (surging ? DERBY.surgeRate : 0)) * m.data.pace[k - 1] * (1 + ROUND.rivals * roundOf(G)) * TICK);
+    }
     const rank = h.slice(1).filter((x) => x > h[0]).length;
     if (rank > (m.data.rank || 0)) sound(G, 'rivalPass', 1, null);   // a rival goes by
     m.data.rank = rank;
     if (h[0] >= 100) { const first = h.slice(1).every((x) => x < 100); score(G, worth(G, first ? 150000 : 50000)); dmd(G, first ? 'YOU WIN THE DERBY' : 'YOU PLACED', fact('derby1936'), 2200, 3); return endMode(G, first); }
-    if (h.slice(1).some((x) => x >= 100) && h[0] < 100) { dmd(G, 'BEATEN AT THE WIRE', '', 1600, 2); return endMode(G, false); }
+    if (h.slice(1).some((x) => x >= 100) && h[0] < 100) {
+      // a rival has crossed the line first: second place (that one rival alone ahead) still pays, otherwise the race is lost
+      if (rank === 1) { score(G, worth(G, 50000)); dmd(G, 'YOU PLACED 2ND', fact('derby1936'), 2200, 3); } else dmd(G, 'BEATEN AT THE WIRE', '', 1600, 2);
+      return endMode(G, false);
+    }
   }
   if (M.id === 'raid' && m.phase === 2) m.data.value = Math.max(worth(G, 50000), m.data.value - worth(G, 16000) * TICK);
   // the clock is heard: a tick that speeds up as the Raid hurry-up value falls, and in the last five seconds of any mode a tick a second
@@ -726,6 +737,7 @@ function endMultiball(G) {
 
 // ------------------------------------------------------------------------------------------------- player input
 export function flipper(G, side, down, at) {
+  if (down && G.scene === 'bonus' && skipBonus(G)) return;   // before the tilt check: a tilted ball's NO BONUS can be skipped too
   if (G.player.tilted && down) return;
   if (at != null) queueInput(G.w, at, (w) => setFlipper(w, side, down), side);
   else setFlipper(G.w, side, down);
@@ -737,7 +749,6 @@ export function plunger(G, holding) {
   if (G.scene !== 'game') return;
   const was = G.w.plunger.holding;
   setPlunger(G.w, holding);
-  if (down && G.scene === 'bonus' && skipBonus(G)) return;   // before the tilt check: a tilted ball's NO BONUS can be skipped too
   if (!holding && was) sound(G, 'plunger', 1, SHOOTER.x);
 }
 

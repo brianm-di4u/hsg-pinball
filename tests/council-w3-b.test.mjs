@@ -375,4 +375,50 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S3-07
+  {
+    name: 'S3-07 a player who makes no shots is beaten at the wire or placed, and a quick six shots still wins the Derby',
+    node: true,
+    async run(t) {
+      // fixed seeds: the same twenty races every run
+      let lost = 0, won = 0;
+      for (let s = 1; s <= 20; s++) {
+        const G = fresh(s); for (const b of [...G.w.balls]) removeBall(G.w, b);
+        api.startMode(G, 1);
+        for (let i = 0; i < 60 * 120 && G.mode; i++) { tick(G); for (const c of G.cues) if (c.k === 'dmd' && /BEATEN|PLACED/.test(c.text)) lost++; G.cues.length = 0; }
+        const F = fresh(s); for (const b of [...F.w.balls]) removeBall(F.w, b);
+        api.startMode(F, 1);
+        const m = F.mode; let shots = 0, res = null;
+        for (let i = 0; i < 60 * 120 && F.mode && !res; i++) {
+          if (shots < 6 && F.t >= m.t0 + (shots + 1) * 4) { m.data.horses[0] = Math.min(100, m.data.horses[0] + 18); shots++; }
+          tick(F);
+          for (const c of F.cues) if (c.k === 'dmd' && /YOU WIN/.test(c.text)) res = 'win';
+          F.cues.length = 0;
+        }
+        if (res === 'win') won++;
+      }
+      t.expect(lost >= 16, 'with no shots a rival wins the race (BEATEN or PLACED) in most of the 20 seeded races (the other few run out the clock): ' + lost);
+      t.equal(won, 20, 'six shots in 24 s win the race on every one of the 20 seeds');
+    },
+  },
+  {
+    name: 'S3-07 the placings: first pays 150,000, second 50,000, and third or worse nothing',
+    node: true,
+    async run(t) {
+      const race = (setup) => {
+        const G = fresh(9); for (const b of [...G.w.balls]) removeBall(G.w, b);
+        api.startMode(G, 1); run(G, 2.3); G.cues.length = 0;
+        const before = G.player.score, h = G.mode.data.horses; setup(h);
+        tick(G);
+        return { dmd: texts(G), pts: G.player.score - before };
+      };
+      let r = race((h) => { h[0] = 100; });
+      t.expect(r.dmd.includes('YOU WIN THE DERBY') && r.pts === 150000, 'first: ' + r.dmd.join(',') + ' ' + r.pts);
+      r = race((h) => { h[0] = 90; h[1] = 100; h[2] = 50; h[3] = 50; });
+      t.expect(r.dmd.includes('YOU PLACED 2ND') && r.pts === 50000, 'one rival across first, the player second: ' + r.dmd.join(',') + ' ' + r.pts);
+      r = race((h) => { h[0] = 40; h[1] = 100; h[2] = 60; h[3] = 50; });
+      t.expect(r.dmd.includes('BEATEN AT THE WIRE') && r.pts === 0, 'two rivals ahead: beaten, no points: ' + r.dmd.join(',') + ' ' + r.pts);
+    },
+  },
+
 ];
