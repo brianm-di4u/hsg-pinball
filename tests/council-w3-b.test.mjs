@@ -334,4 +334,45 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S3-06
+  {
+    name: 'S3-06 the Fifth Season meter rests while an extra ball is lit, and a collected one starts it from nothing',
+    node: true,
+    async run(t) {
+      const G = fresh(3);
+      for (let i = 0; i < 8; i++) hit(G, 'spinner');
+      t.expect(G.f.ebLit && G.f.fifth === 0, 'the meter lights the extra ball at 300 spins and resets: lit ' + G.f.ebLit + ', meter ' + G.f.fifth);
+      for (let i = 0; i < 10; i++) hit(G, 'spinner');
+      t.equal(G.f.fifth, 0, 'while it is lit more spins do not fill the meter');
+      G.f.ebLit = false; G.player.eb = 1;
+      hit(G, 'spinner');
+      t.expect(!G.f.ebLit && G.f.fifth === 40, 'after it is collected one more spin does not light another: meter ' + G.f.fifth);
+      const H = fresh(3); H.f.ebLit = true; H.f.fifth = 250;
+      api.startMode(H, 1); H.f.ebLit = true; H.f.fifth = 250;
+      // collect at the Vapors
+      H.mode = null; H.mb = null; H.f.grandSoakLit = false; H.f.wizardLit = false;
+      H.w.events.push({ t: 'hit', sw: H.T.sw.vapors, speed: 1000, dir: 1, ball: (H.w.balls[0] || {}).id });
+      tick(H);
+      t.expect(H.player.extraBalls === 1 && !H.f.ebLit && H.f.fifth === 0, 'collecting resets the meter: extra balls ' + H.player.extraBalls + ', meter ' + H.f.fifth);
+    },
+  },
+  {
+    name: 'S3-06 a game pays at most two extra balls: the meter, the mode count and the Vapors reel stop lighting one',
+    node: true,
+    async run(t) {
+      const G = fresh(4); G.player.eb = 2;
+      for (let i = 0; i < 20; i++) hit(G, 'spinner');
+      t.expect(!G.f.ebLit && G.f.fifth === 0, 'at the limit the meter neither fills nor lights: lit ' + G.f.ebLit + ', meter ' + G.f.fifth);
+      const picks = new Set();
+      for (let i = 0; i < 400; i++) picks.add(mystery(G));
+      t.expect(!picks.has('eb') && picks.size >= 5, 'the Vapors reel never draws the extra ball: ' + [...picks].join(','));
+      const H = fresh(5); H.player.eb = 2;
+      for (const i of [0, 1, 2]) { api.startMode(H, i); api.endMode(H, false); }
+      t.expect(!H.f.ebLit, 'three modes played light no extra ball at the limit');
+      const K = fresh(6);
+      for (const i of [0, 1, 2]) { api.startMode(K, i); api.endMode(K, false); }
+      t.expect(K.f.ebLit, 'and below the limit they still do');
+    },
+  },
+
 ];

@@ -47,6 +47,8 @@ const roundOf = (G) => Math.min(ROUND.max, G.f.round || 0);
 const worth = (G, n) => Math.round(n * (1 + ROUND.value * roundOf(G)));   // a mode's score for round 0 is n itself
 const goalFor = (G, id, base) => Math.min(Math.max(base, ROUND.goalMax[id] || base), base + ROUND.goal * roundOf(G));
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
+export const EB_CAP = 2;   // extra balls a game can pay out, from the Fifth Season meter, the Vapors reel and the mode count together (S3-06: there was no limit)
+const ebOpen = (G) => G.player.eb < EB_CAP;
 export const SPRINGS = ['DISPLAY SPRING', 'SPRING NO. 46', 'HOT WATER CASCADE'];
 const SHOOTER = { x: 498.5, y: 104 };
 const MAJOR = { rampMade: 'R', orbitTop: 'L', reserve: 'R' };
@@ -404,12 +406,13 @@ function bathhouse(G, i, e) {
 function spinner(G, e) {
   const f = G.f;
   const spins = Math.max(1, Math.min(40, Math.round(e.speed / 70)));
-  f.spins += spins; f.fifth += spins;
+  f.spins += spins;
+  if (!f.ebLit && ebOpen(G)) f.fifth += spins;   // the meter rests while an extra ball waits to be collected, and once the game's limit is reached
   score(G, 100 * spins);
   cue(G, { k: 'spin', n: spins, dir: e.dir });
   sound(G, 'spinner', Math.min(1, spins / 20));
   if (G.mode && G.mode.id === 'coaster') modeEvent(G, 'spin', spins);
-  if (f.fifth >= 300 && !f.ebLit) { f.fifth = 0; f.ebLit = true; dmd(G, 'FIFTH SEASON', 'EXTRA BALL IS LIT', 2000, 3); sound(G, 'lit', 1, null, { n: 1 }); }
+  if (f.fifth >= 300 && !f.ebLit && ebOpen(G)) { f.fifth = 0; f.ebLit = true; dmd(G, 'FIFTH SEASON', 'EXTRA BALL IS LIT', 2000, 3); sound(G, 'lit', 1, null, { n: 1 }); }
 }
 
 function major(G, name) {
@@ -474,7 +477,7 @@ function vapors(G, e) {
   if (f.wizardLit && !G.mb) { startValley(G); return kick(2.4); }
   if (f.grandSoakLit && !G.mb) { startGrandSoak(G); return kick(2.0); }
   if (f.ebLit) {
-    f.ebLit = false; G.player.extraBalls++; G.player.eb++;
+    f.ebLit = false; f.fifth = 0; G.player.extraBalls++; G.player.eb++;
     dmd(G, 'EXTRA BALL', '', 2200, 3, 'eb'); sound(G, 'extraBall'); show(G, 'eb', 1500); return kick(2.0);
   }
   if (!G.mode && !G.mb) { startMode(G); return kick(2.2); }
@@ -483,9 +486,12 @@ function vapors(G, e) {
 }
 
 export function mystery(G, forced) {
-  const total = MYSTERY.reduce((a, m) => a + m.w, 0);
   let m = forced ? MYSTERY.find((q) => q.id === forced) : null;
-  if (!m) { let r = G.rng.next() * total; m = MYSTERY.find((q) => (r -= q.w) < 0) || MYSTERY[0]; }
+  if (!m) {
+    // the extra ball is left out of the draw once it is lit or the game has had its limit
+    const pool = G.f.ebLit || !ebOpen(G) ? MYSTERY.filter((q) => q.id !== 'eb') : MYSTERY;
+    let r = G.rng.next() * pool.reduce((a, q) => a + q.w, 0); m = pool.find((q) => (r -= q.w) < 0) || pool[0];
+  }
   const reels = [G.rng.pick(REEL), G.rng.pick(REEL), G.rng.pick(REEL)];
   const f = G.f;
   switch (m.id) {
@@ -642,7 +648,7 @@ function endMode(G, won) {
   cue(G, { k: 'mode', id: m.id, on: false, won });
   sound(G, won ? 'modeWon' : 'modeEnd');
   const played = f.modesPlayed.reduce((a, b) => a + b, 0);
-  if (played === 3 && !f.ebLitByModes) { f.ebLitByModes = true; f.ebLit = true; after(G, 2.3, () => { dmd(G, 'EXTRA BALL IS LIT', 'AT THE VAPORS', 1600, 2); sound(G, 'lit', 1, null, { n: 1 }); }); }
+  if (played === 3 && !f.ebLitByModes) { f.ebLitByModes = true; if (ebOpen(G)) { f.ebLit = true; after(G, 2.3, () => { dmd(G, 'EXTRA BALL IS LIT', 'AT THE VAPORS', 1600, 2); sound(G, 'lit', 1, null, { n: 1 }); }); } }
   if (played === 6 && !f.wizardLit) { f.wizardLit = true; after(G, 2.3, () => { dmd(G, 'VALLEY OF THE VAPORS', 'IS LIT AT THE VAPORS', 2200, 3); sound(G, 'lit', 1, null, { n: 2 }); }); }
 }
 
@@ -731,13 +737,13 @@ export function plunger(G, holding) {
   if (G.scene !== 'game') return;
   const was = G.w.plunger.holding;
   setPlunger(G.w, holding);
+  if (down && G.scene === 'bonus' && skipBonus(G)) return;   // before the tilt check: a tilted ball's NO BONUS can be skipped too
   if (!holding && was) sound(G, 'plunger', 1, SHOOTER.x);
 }
 
 export function plungerCancel(G) { cancelPlunger(G.w); }
 
 export function nudge(G, dir) {
-  if (down && G.scene === 'bonus' && skipBonus(G)) return;   // before the tilt check: a tilted ball's NO BONUS can be skipped too
   if (G.scene !== 'game' || G.player.tilted) return;
   const n = tune(G).nudge, v = { left: [-n, 60], right: [n, 60], up: [0, 300] }[dir] || [0, 300];
   physNudge(G.w, v[0], v[1]);
