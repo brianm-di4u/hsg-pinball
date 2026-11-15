@@ -5,6 +5,27 @@ import { K, BALL_R } from '../sim/physics.js';
 export function createView2D(canvas, T, lamps) {
   const ctx = canvas.getContext('2d');
   let W = 0, H = 0, s = 1, ox = 0, oy = 0, dpr = 1;
+  // The playfield painting the 3D table wears, drawn under the flat parts so the light tier is the same place (S4-09). It is
+  // painted once into a canvas at the current size, with the 3D table's night grade, and that canvas is what each frame draws.
+  let paint = null, paintImg = null, paintFor = '';
+  const ensurePaint = () => {
+    const uri = typeof window !== 'undefined' && window.__PB_ART && window.__PB_ART['pf-full'];
+    if (!uri) return null;
+    if (!paintImg) { paintImg = new Image(); paintImg.onload = () => { paintFor = ''; }; paintImg.src = uri; }
+    if (!paintImg.complete || !paintImg.naturalWidth) return null;
+    const w = Math.round(T.width * s), h = Math.round(T.height * s), key = w + 'x' + h;
+    if (w < 2 || h < 2) return null;
+    if (paint && paintFor === key) return paint;
+    paint = document.createElement('canvas'); paint.width = w; paint.height = h; paintFor = key;
+    const g = paint.getContext('2d'), k = s;
+    g.beginPath(); g.moveTo(10 * k, h); g.lineTo(10 * k, h - 830 * k); g.arc(264 * k, h - 830 * k, 254 * k, Math.PI, 0); g.lineTo(518 * k, h); g.closePath(); g.clip();
+    g.drawImage(paintImg, 0, 0, w, h);
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = '#b3a9cc'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over';   // the night grade of gfx/playfield.js
+    const dk = g.createLinearGradient(0, 0, 0, h);
+    dk.addColorStop(0, 'rgba(10,8,20,0.12)'); dk.addColorStop(0.5, 'rgba(10,8,20,0.17)'); dk.addColorStop(1, 'rgba(10,8,20,0.32)');   // the painting is already graded: a light shade for the flat parts to read against
+    g.fillStyle = dk; g.fillRect(0, 0, w, h);
+    return paint;
+  };
   const view = {
     kind: '2d',
     resize(w, h, ratio = 1) {
@@ -13,6 +34,7 @@ export function createView2D(canvas, T, lamps) {
       s = Math.min(w / T.width, h / T.height) * ratio;
       ox = (canvas.width - T.width * s) / 2; oy = (canvas.height - T.height * s) / 2;
     },
+    hasArt() { return !!ensurePaint(); },
     toScreen(x, y) { return [(ox + x * s) / dpr, (oy + (T.height - y) * s) / dpr]; },
     draw(G, alpha, lampOn, interp, opts = {}) {
       const X = (x) => ox + x * s, Y = (y) => oy + (T.height - y) * s;
@@ -24,6 +46,8 @@ export function createView2D(canvas, T, lamps) {
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(X(10), Y(0)); ctx.lineTo(X(10), Y(830));
       ctx.arc(X(264), Y(830), 254 * s, Math.PI, 0); ctx.lineTo(X(518), Y(0)); ctx.closePath(); ctx.fill();
+      const art = ensurePaint();
+      if (art) ctx.drawImage(art, ox, oy);
       // lamps
       for (const l of lamps) {
         const v = lampOn[l.name] || 0;

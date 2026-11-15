@@ -299,6 +299,30 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S4-09
+  {
+    name: 'S4-09 the flat 2D table is painted with the same playfield picture as the 3D table',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.game('applySettings', { tier: '2d' });
+      await t.game('scene', 'game');
+      await t.page.waitForFunction(() => window.__game.art2d(), null, { timeout: 15000 });
+      t.equal((await t.state()).view, '2d', 'the flat table is the one showing');
+      // distinct colours (quantised) over a grid of the table: a plain gradient has a handful, a painting has many. Taken over several frames.
+      const colours = async () => t.page.evaluate(() => {
+        const c = document.querySelector('#c2d'), g = c.getContext('2d'), seen = new Set();
+        for (let i = 1; i < 24; i++) for (let j = 1; j < 24; j++) { const d = g.getImageData(Math.round(c.width * i / 24), Math.round(c.height * j / 24), 1, 1).data; seen.add((d[0] >> 4) + ',' + (d[1] >> 4) + ',' + (d[2] >> 4)); }
+        return seen.size;
+      });
+      const counts = [];
+      for (let i = 0; i < 3; i++) { await t.game('step', 5); counts.push(await colours()); }
+      t.log('distinct colours', counts.join(','));
+      t.expect(Math.min(...counts) >= 40, 'a painted table, in every frame: ' + counts.join(', '));
+      await shot(t, 'S4-09-flat-table-painted');
+      await t.game('applySettings', { tier: 'auto' });
+    },
+  },
+
   // ---------------------------------------------------------------------------------------------- S5-08
   {
     name: 'S5-08 a saved ball plays only the save cue; a lost ball plays only the drain cue',

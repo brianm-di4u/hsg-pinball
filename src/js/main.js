@@ -499,6 +499,7 @@ window.__game = {
   nameInfo() { return view && view.nameInfo ? view.nameInfo() : null; },
   labelInfo() { return view && view.labelInfo ? view.labelInfo() : null; },
   labelLayer() { return !!(view && view.labelInfo && view.labelInfo().length); },
+  art2d() { return !!(view2d && view2d.hasArt()); },
   highlight() { return view && view.highlightInfo ? view.highlightInfo() : null; },
   viewScreen(x, y, h = 0) { return view.toScreen(x, y, h); },
   viewScale(x, y) { const a = view.toScreen(x, y), b = view.toScreen(x + 100, y); return Math.hypot(b[0] - a[0], b[1] - a[1]) / 100; },
