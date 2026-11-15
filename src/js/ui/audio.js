@@ -17,10 +17,22 @@ let cx = null, dst = null, roll = null;
 // who turns the effects off keeps the music, as before the ambience was added.
 const musicOn = () => audio.music;
 // the bus levels the settings give: the Effects and Music sliders scale what the switches allow; a mute (the M key, the speaker button) closes the master for the session
-const sfxLevel = () => (audio.on ? 0.9 * audio.sfxVol : 0);
+const SFX_LEVEL = 0.9;   // the effects bus with its slider at the maximum
+const DEFAULT_VOLUME = 0.8;   // the master volume a new player starts with
+const sfxLevel = () => (audio.on ? SFX_LEVEL * audio.sfxVol : 0);
 const musicLevel = () => (musicOn() ? MUSIC_LEVEL * audio.musicVol : 0);
 const masterLevel = () => (audio.muted ? 0 : audio.vol);
 const ambOn = () => audio.ambience;
+
+// The master volume and the compressor in front of the speakers, on any context: the live one, or an offline one that renders a
+// piece or a cue for a test. vol is the master volume (the Volume slider; 0.8 by default, 1 at its maximum).
+function masterChain(c, dest, vol) {
+  const m = c.createGain(); m.gain.value = vol;
+  const comp = c.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+  m.connect(comp).connect(dest);
+  return m;
+}
 
 export function unlock() {
   if (audio.ctx) { if (audio.ctx.state === 'suspended' && !audio.hold) audio.ctx.resume(); return; }
@@ -28,10 +40,7 @@ export function unlock() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = (audio.ctx = new AC()); cx = c;
-    const comp = c.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
-    master = c.createGain(); master.gain.value = masterLevel();
-    master.connect(comp).connect(c.destination);
+    master = masterChain(c, c.destination, masterLevel());
     sfxBus = c.createGain(); sfxBus.gain.value = sfxLevel(); sfxBus.connect(master);
     // a short generated room impulse for a little space
     const len = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, len, c.sampleRate);
@@ -248,14 +257,12 @@ export function audioNow() {
 export function audioList() { return { music: Object.keys(SCORES), ambience: Object.keys(SCENES) }; }
 // Renders one piece or scene by itself at the level the game ships (default volume, the same compressor) on an
 // OfflineAudioContext and measures it. It never touches the live audio or the settings.
-export function audioRender(name, seconds = 60, wav = false, intensity = 0) {
+// vol is the master volume to render at (CL-01); it defaults to the one the game starts with.
+export function audioRender(name, seconds = 60, wav = false, intensity = 0, vol = DEFAULT_VOLUME) {
   const music = SCORES[name], scene = SCENES[name];
   if (!music && !scene) return Promise.reject(new Error('unknown piece: ' + name));
   return measureAudio((oc, dest) => {
-    const m = oc.createGain(); m.gain.value = 0.8;
-    const comp = oc.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
-    m.connect(comp).connect(dest);
+    const m = masterChain(oc, dest, vol);
     const kit = makeAudioKit(oc, m, { seed: 7, music: MUSIC_LEVEL, ambience: AMBIENCE_LEVEL });
     if (music) { kit.music.intensity(intensity); kit.music.play(music, { at: 0, fade: 0.02 }); }
     else { kit.amb.set('steam', intensity); kit.amb.set('crowd', intensity); kit.amb.play(scene, { at: 0, fade: 0.02 }); }
@@ -317,17 +324,16 @@ export function setRoll(balls, width, on) {
 // ------------------------------------------------------------------------------------------------- test hooks for cues
 // Renders one cue (or the roll voice) by itself through the same chain the game ships (sfx bus 0.9, default volume 0.8,
 // the same compressor), on an OfflineAudioContext. It never touches the live audio or the settings.
-function offlineChain(oc, dest) {
-  const m = oc.createGain(); m.gain.value = 0.8;
-  const comp = oc.createDynamicsCompressor();
-  comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
-  m.connect(comp).connect(dest);
-  const bus = oc.createGain(); bus.gain.value = 0.9; bus.connect(m);
+function offlineChain(oc, dest, vol = DEFAULT_VOLUME) {
+  const m = masterChain(oc, dest, vol);
+  const bus = oc.createGain(); bus.gain.value = SFX_LEVEL; bus.connect(m);
   return { m, bus };
 }
-export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, wav = false } = {}) {
+// vol: the master volume to render at (CL-01: 1 is the slider at its maximum). under: the name of a piece of music to play, at full
+// intensity with its ambience bed, underneath the cue (the busiest moment of the game); with: more cues struck at the same moment.
+export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, wav = false, vol = DEFAULT_VOLUME, under = null, with: also = [] } = {}) {
   return measureAudio((oc, dest) => {
-    const { m: mg, bus } = offlineChain(oc, dest);
+    const { m: mg, bus } = offlineChain(oc, dest, vol);
     const keep = [cx, sfxBus, verb, noiseBuf, dst];
     try {
       cx = oc; sfxBus = bus; dst = bus;
@@ -338,7 +344,14 @@ export function cueRender(name, { v = 1, pan = 0, n = 0, m = 0, seconds = 2.5, w
       noiseBuf = oc.createBuffer(1, oc.sampleRate, oc.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       if (pan && oc.createStereoPanner) { const p = oc.createStereoPanner(); p.pan.value = pan; p.connect(bus); dst = p; }
-      synth(name, Math.max(0.15, Math.min(1, v)), 0.05, { n, m });
+      let at = 0.05;
+      if (under && SCORES[under]) {
+        const kit = makeAudioKit(oc, mg, { seed: 7, music: MUSIC_LEVEL, ambience: AMBIENCE_LEVEL });
+        kit.music.intensity(1); kit.music.play(SCORES[under], { at: 0, fade: 0.02 });
+        const bed = SCENES[AMBIENCE_FOR[under]]; if (bed) kit.amb.play(bed, { at: 0, fade: 0.02 });
+        kit.scheduleUntil(seconds); at = 2;
+      }
+      for (const cue of [name, ...also]) synth(cue, Math.max(0.15, Math.min(1, v)), at, { n, m });
     } finally { [cx, sfxBus, verb, noiseBuf, dst] = keep; }
     return null;
   }, seconds, { wav });

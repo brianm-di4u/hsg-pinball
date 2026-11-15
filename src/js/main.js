@@ -589,7 +589,7 @@ window.__game = {
   setToday(d) { setToday(d); return todayKey(); },
   startDaily() { app.startDaily(); return G.daily; },
   audioList() { return audioList(); },
-  audioRender(name, seconds, wantWav, intensity) { return audioRender(name, seconds, wantWav, intensity); },
+  audioRender(name, seconds, wantWav, intensity, vol) { return audioRender(name, seconds, wantWav, intensity, vol); },
   cueRender(name, opts) { return cueRender(name, opts); },
   rollRender(seconds, wantWav) { return rollRender(seconds, wantWav); },
   isIdle() { return !loading && (!view || !view.busy || !view.busy()); },
