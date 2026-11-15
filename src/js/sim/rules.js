@@ -609,7 +609,7 @@ function modeEvent(G, kind, arg) {
     } else if (m.phase === 2 && kind === 'vapors') {
       const v = score(G, Math.round(m.data.value / 1000) * 1000);
       dmd(G, 'RAID COMPLETE', fmt(v), 2200, 3, 'jackpot');
-      const slots = fact(f.modeWins[2] % 2 ? 'slots111' : 'slots');   // S4-05: the two slot-machine facts take turns, and now they are shown
+      const slots = fact(G.f.modeWins[2] % 2 ? 'slots111' : 'slots');   // S4-05: the two slot-machine facts take turns, and now they are shown
       cue(G, { k: 'fact', text: slots });
       after(G, 2.4, () => dmd(G, 'AFTER THE RAID', slots, 1800, 1));
       endMode(G, true);

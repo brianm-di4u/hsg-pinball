@@ -236,7 +236,15 @@ export const tests = [
       const D = fresh(3); launched(D); D.cues.length = 0;
       api.startMode(D, 2); run(D, 5);
       t.equal(JSON.stringify(subs(D, 'THE CLUBS')), JSON.stringify([FACTS.ohio.text]), 'the Raid names the Ohio club among those raided');
-      // the boil and the Arlington take turns between two lines
+      // finishing the Raid shows a slot fact after the payout, the two facts taking turns from one finished Raid to the next
+      const finish = (G) => { G.ball.saveUntil = G.t + 100; api.startMode(G, 2); run(G, 2.4); G.cues.length = 0; G.mode.phase = 2; G.mode.data.value = 100000; G.w.events.push({ t: 'hit', sw: T.sw.vapors, speed: 500, dir: 1, ball: G.w.balls[0].id }); tick(G); run(G, 3); return subs(G, 'AFTER THE RAID'); };
+      const R1 = fresh(5); launched(R1);
+      const first = finish(R1);
+      t.equal(JSON.stringify(first), JSON.stringify([FACTS.slots.text]), 'the first Raid won ends with the slots crushed and burned: ' + JSON.stringify(first));
+      const R2 = fresh(5); launched(R2); R2.f.modeWins[2] = 1;   // one Raid already won this game
+      const second = finish(R2);
+      t.equal(JSON.stringify(second), JSON.stringify([FACTS.slots111.text]), 'the next one ends with the 111 slots seized: ' + JSON.stringify(second));
+      // the boil takes turns between two lines
       const B = fresh(4); launched(B); B.cues.length = 0;
       const boil = []; for (const k of [0, 1]) { B.f.springTemp = 142; B.f.boilUntil = 0; hit(B, 'bumper1'); boil.push(...subs(B, 'THE SPRINGS BOIL')); run(B, 1); }
       t.equal(JSON.stringify(boil), JSON.stringify([FACTS.temp.text, FACTS.deep.text]), 'the springs boil twice, with a different line each time: ' + JSON.stringify(boil));

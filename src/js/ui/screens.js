@@ -80,9 +80,10 @@ export function createScreens(root, app) {
         <div class="menu">
           ${app.canContinue() ? '<button type="button" id="b-continue" class="btn primary" autofocus>Continue game</button>' : ''}
           <button type="button" id="b-play" class="btn${app.canContinue() ? '' : ' primary'}"${app.canContinue() ? '' : ' autofocus'}>Play</button>
-          <div class="pair"><button type="button" id="b-daily" class="btn">Daily table</button><button type="button" id="b-credits" class="btn">Credits</button></div>
+          <button type="button" id="b-daily" class="btn">Daily table</button>
           <div class="pair"><button type="button" id="b-scores" class="btn">High scores</button><button type="button" id="b-records" class="btn">Records</button></div>
           <div class="pair"><button type="button" id="b-help" class="btn">How to play</button><button type="button" id="b-settings" class="btn">Settings</button></div>
+          <button type="button" id="b-credits" class="btn">Credits</button>
         </div>
         <p class="hint">${app.touch ? 'Tap the left or right side to flip · hold Launch to plunge' : customKeys() ? `${keyName(KEYS.flipL[0])} and ${keyName(KEYS.flipR[0])} to flip · hold ${keyName(KEYS.plunge[0])} to plunge` : 'Z and / (or Shift) to flip · hold Space to plunge'}</p>
         <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
