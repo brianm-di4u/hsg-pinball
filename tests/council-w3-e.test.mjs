@@ -41,6 +41,19 @@ const brightness = (wav) => {
   const m = Math.min(n, Math.round(rate * 0.15)); let z = 0; for (let i = 1; i < m; i++) if ((L(i) < 0) !== (L(i - 1) < 0)) z++;
   return { zcr: z / (m / rate) };
 };
+// how long a render takes to fall under a tenth of its loudest 20 ms, and the colour of its first 300 ms
+const shape = (wav) => {
+  const b = Buffer.from(wav, 'base64'), rate = b.readUInt32LE(24), n = (b.length - 44) / 4, L = (i) => b.readInt16LE(44 + i * 4) / 32768;
+  const m = Math.min(n, Math.round(rate * 0.3)); let z = 0; for (let i = 1; i < m; i++) if ((L(i) < 0) !== (L(i - 1) < 0)) z++;
+  const w = Math.round(rate * 0.02), env = []; for (let i = 0; i + w <= n; i += w) { let e = 0; for (let k = 0; k < w; k++) e += L(i + k) ** 2; env.push(Math.sqrt(e / w)); }
+  const mx = Math.max(...env); let last = 0; env.forEach((e, i) => { if (e > mx * 0.1) last = i; });
+  return { zcr: z / (m / rate), dur: (last + 1) * 0.02 };
+};
+const ceremony = async (t, name, reps = 5) => {
+  const peaks = [], zcrs = [], durs = [];
+  for (let k = 0; k < reps; k++) { const r = await cue(t, name, { seconds: 3.5, wav: true }); const s = shape(r.wav); peaks.push(r.peak); zcrs.push(s.zcr); durs.push(s.dur); }
+  return { peak: median(peaks), zcr: median(zcrs), dur: median(durs) };
+};
 const impactStats = async (t, name, opts, reps = 7) => {
   const peaks = [], zcrs = [];
   for (let k = 0; k < reps; k++) { const r = await cue(t, name, { ...opts, seconds: 1, wav: true }); peaks.push(r.peak); zcrs.push(brightness(r.wav).zcr); }
@@ -325,6 +338,28 @@ export const tests = [
       // a collision is a chance of about one in a few hundred per pair, so three or more among twelve is far under one in ten thousand)
       const rep = await impactStats(t, 'flipHit', { v: 1 }, 12);
       t.expect(new Set(rep.peaks).size >= 10, 'repeats differ: ' + JSON.stringify(rep.peaks));
+    },
+  },
+
+  // ---------------------------------------------------------------------------------------------- S4-19
+  {
+    name: 'S4-19 each ceremony has its own voice and sits in the cue range: the pairs that shared a recipe now differ in colour or length',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.waitForFunction(() => window.__game && window.__game.cueRender, null, { timeout: 60000 });
+      // median peaks before this item, at the default volume: skill 0.079, jackpot 0.078, superJackpot 0.075, complete 0.104, modeWon 0.104,
+      // multiball 0.062, wizard 0.062, extraBall 0.103, shootAgain 0.102 (a bumper was 0.22)
+      const names = ['skill', 'jackpot', 'superJackpot', 'complete', 'modeWon', 'multiball', 'wizard', 'extraBall', 'shootAgain'], S = {};
+      for (const n of names) S[n] = await ceremony(t, n);
+      t.log(names.map((n) => `${n} ${S[n].peak} (colour ${Math.round(S[n].zcr)}, length ${S[n].dur.toFixed(2)} s)`).join('; '));
+      for (const n of names) t.expect(S[n].peak >= 0.2 && S[n].peak <= 0.45, n + ' peaks in the cue range (median of 5): ' + S[n].peak);
+      for (const [a, b] of [['skill', 'jackpot'], ['complete', 'modeWon'], ['multiball', 'wizard'], ['extraBall', 'shootAgain']]) {
+        const x = S[a], y = S[b], r = (p, q) => Math.max(p, q) / Math.min(p, q);
+        t.expect(r(x.zcr, y.zcr) >= 1.2 || r(x.dur, y.dur) >= 1.3, a + ' and ' + b + ' no longer sound alike (colour ' + Math.round(x.zcr) + ' / ' + Math.round(y.zcr) + ', length ' + x.dur.toFixed(2) + ' / ' + y.dur.toFixed(2) + ')');
+      }
+      t.expect(S.wizard.dur > S.skill.dur * 2.5, 'the wizard rings far longer than a skill shot');
+      // louder than the bumper, as the finding asked (a bumper peaks near 0.24)
+      t.expect(S.jackpot.peak > 0.24 && S.skill.peak > 0.24, 'a jackpot and a skill shot are louder than a bumper hit');
     },
   },
 ];
