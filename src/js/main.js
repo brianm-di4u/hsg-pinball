@@ -408,15 +408,19 @@ function recordGame(c) {
   return res;
 }
 
+// what the game just played did, for the game-over card (S4-04)
+const didOf = () => { const f = G.f; return { wins: f.modeWins.reduce((a, b) => a + b, 0), rows: f.rowsDone, tower: f.towerLevel, skill: G.player.skillShots, jackpots: f.jackpots || 0, valley: f.mbs[2] || 0, extra: G.player.eb || 0, boils: f.boils || 0 }; };
+
 function gameOverFlow(c) {
   clearResume();
+  const did = didOf();
   startMusic('results'); musicIntensity(0);
   const res = recordGame(c);
   overTimer = setTimeout(() => {
     overTimer = 0;
     // a practice game (an endless ball save) is not ranked: no entry on the table, and the game-over card says so
     if (!G.settings.practice && qualifies(c.score, loadScores(c.balls))) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty, c.balls); screens.scores('over', i, c.balls); }, res);
-    else screens.over(c.score, c.match, c.won, res, G.settings.practice);
+    else screens.over(c.score, c.match, c.won, res, G.settings.practice, did);
   }, window.__game.overDelay ?? (TEST ? 50 : 2600));
 }
 
@@ -598,9 +602,10 @@ window.__game = {
     else if (name === 'settings') screens.settings('title');
     else if (name === 'help') screens.help('title');
     else if (name === 'scores') screens.scores('title');
+    else if (name === 'credits') screens.credits('title');
     else if (name === 'records') screens.records('title');
     else if (name === 'pause') { if (demo) app.start(); pause(); }
-    else if (name === 'over') { if (demo) app.start(); api.endMode(G, false); G.scene = 'over'; screens.over(G.player.score, 0, false); }
+    else if (name === 'over') { if (demo) app.start(); api.endMode(G, false); G.scene = 'over'; screens.over(G.player.score, 0, false, null, false, didOf()); }
     return screens.current || G.scene;
   },
   newGame(o = {}) { if (o.balls) app.settings.balls = o.balls; if (o.difficulty) app.settings.difficulty = o.difficulty; app.start(); if (o.seed != null) { G = createGame(T, { seed: o.seed }); newGame(G, { balls: o.balls || 3, practice: !!o.practice, difficulty: app.settings.difficulty, seed: o.seed }); dmd.queue.length = 0; dmd.cur = null; } return true; },

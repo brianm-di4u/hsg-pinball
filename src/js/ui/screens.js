@@ -32,6 +32,22 @@ function summary(res, compact) {
   return '<div class="summary">' + lines.join('') + '</div>';
 }
 
+// what this game did, from its own tallies: only the things that happened (S4-04)
+function didLine(d) {
+  if (!d) return '';
+  const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+  const parts = [];
+  if (d.wins) parts.push(plural(d.wins, 'mode won', 'modes won'));
+  if (d.rows) parts.push(plural(d.rows, 'Bathhouse Row', 'Bathhouse Rows'));
+  if (d.tower) parts.push('tower level ' + d.tower);
+  if (d.skill) parts.push(plural(d.skill, 'skill shot', 'skill shots'));
+  if (d.jackpots) parts.push(plural(d.jackpots, 'jackpot', 'jackpots'));
+  if (d.valley) parts.push('the Valley of the Vapors');
+  if (d.extra) parts.push(plural(d.extra, 'extra ball', 'extra balls'));
+  if (d.boils) parts.push(plural(d.boils, 'boil', 'boils'));
+  return parts.length ? '<p class="did" id="o-did">This game: ' + parts.join(' · ') + '</p>' : '';
+}
+
 export function createScreens(root, app) {
   let current = null;
   // with storage blocked (a private window, site data switched off) nothing the player earns is kept: say so
@@ -64,7 +80,7 @@ export function createScreens(root, app) {
         <div class="menu">
           ${app.canContinue() ? '<button type="button" id="b-continue" class="btn primary" autofocus>Continue game</button>' : ''}
           <button type="button" id="b-play" class="btn${app.canContinue() ? '' : ' primary'}"${app.canContinue() ? '' : ' autofocus'}>Play</button>
-          <button type="button" id="b-daily" class="btn">Daily table</button>
+          <div class="pair"><button type="button" id="b-daily" class="btn">Daily table</button><button type="button" id="b-credits" class="btn">Credits</button></div>
           <div class="pair"><button type="button" id="b-scores" class="btn">High scores</button><button type="button" id="b-records" class="btn">Records</button></div>
           <div class="pair"><button type="button" id="b-help" class="btn">How to play</button><button type="button" id="b-settings" class="btn">Settings</button></div>
         </div>
@@ -76,10 +92,26 @@ export function createScreens(root, app) {
       on('#b-continue', () => app.continueGame());
       on('#b-play', () => app.start());
       on('#b-daily', () => app.startDaily());
+      on('#b-credits', () => S.credits('title'));
       on('#b-records', () => S.records('title'));
       on('#b-help', () => S.help('title'));
       on('#b-scores', () => S.scores('title'));
       on('#b-settings', () => S.settings('title'));
+    },
+    // who made it and where the facts come from: only what the game's own About text and the research notes already say (S4-04)
+    credits(back) {
+      current = 'credits';
+      el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="c-h">
+        <h2 id="c-h">Credits</h2>
+        <div class="credits">
+          <p><b>Spa City Pinball</b> is an original game in the open-source Hot Springs Games collection (MIT licence).</p>
+          <p>The table, the sounds and the music are made in code. Nothing is loaded from the network.</p>
+          <p>The town facts come from the collection's research notes, with "about" or "reportedly" where sources disagree.</p>
+          <p>Real places appear as historical setting. There is no affiliation with, or endorsement by, any business. Horses, riders and characters are fictional.</p>
+        </div>
+        <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>Back</button></div>
+      </section>`);
+      on('#b-back', () => (back === 'pause' ? S.pause() : S.title()));
     },
     pause() {
       current = 'pause';
@@ -291,7 +323,7 @@ export function createScreens(root, app) {
       </section>`);
       on('#b-back', () => S.title());
     },
-    over(score, match, won, res, practice) {
+    over(score, match, won, res, practice, did) {
       current = 'over';
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="o-h">
         <div class="title-art" aria-hidden="true"></div>
@@ -299,6 +331,7 @@ export function createScreens(root, app) {
         <p class="big-score">${fmt(score)}</p>
         <p>Match <b>${String(match).padStart(2, '0')}</b>${won ? ' · <b class="won">Match! Free game</b>' : ''}</p>
         <p class="small" id="o-match">Match: a score that ends in ${String(match).padStart(2, '0')} wins a free game.</p>
+        ${didLine(did)}
         ${summary(res, false)}
         ${practice ? '<p class="small">Practice game: not ranked</p>' : ''}
         <div class="menu">

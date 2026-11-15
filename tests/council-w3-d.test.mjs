@@ -385,4 +385,44 @@ export const tests = [
       await t.checkLayout();
     },
   },
+  // ---------------------------------------------------------------------------------------------- S4-04
+  {
+    name: 'S4-04 the game-over card says what the game did, and says nothing when it did nothing',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('setState', { player: { skillShots: 1 }, features: { modeWins: [1, 0, 1, 0, 0, 0], rowsDone: 2, towerLevel: 3, jackpots: 1 } });
+      await t.game('scene', 'over');
+      await t.page.waitForSelector('#o-did');
+      t.equal((await t.page.textContent('#o-did')).trim(), 'This game: 2 modes won · 2 Bathhouse Rows · tower level 3 · 1 skill shot · 1 jackpot', 'what the game did, only what happened');
+      await t.checkLayout();
+      await shot(t, 'S4-04-game-over-summary');
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('scene', 'over');
+      await t.page.waitForSelector('#o-h');
+      t.equal(await t.page.locator('#o-did').count(), 0, 'a game that did nothing has no such line');
+    },
+  },
+  {
+    name: 'S4-04 the title has a Credits card that says where the game and its facts come from, and Back returns to the title',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'title');
+      await t.page.waitForSelector('#b-credits');
+      await shot(t, 'S4-04-title-credits-button');
+      const box = await t.page.evaluate(() => { const b = document.querySelector('#b-credits').getBoundingClientRect(), c = document.querySelector('.screen').getBoundingClientRect(); return [b.width >= 44 && b.height >= 44, b.left >= c.left && b.right <= c.right, b.bottom <= innerHeight]; });
+      t.expect(box.every(Boolean), 'the button is a full-size target inside the card');
+      await t.page.click('#b-credits');
+      await t.page.waitForSelector('#c-h');
+      const text = await t.page.textContent('.credits');
+      t.expect(/MIT licence/.test(text) && /research notes/.test(text) && /no affiliation|There is no affiliation/.test(text) && /fictional/.test(text) && /made in code/.test(text), 'it says what the About text and the research notes say: ' + text.slice(0, 80));
+      t.equal(await t.page.evaluate(() => window.__game.getState().screen), 'credits', 'the game knows which card is open');
+      t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.id), 'b-back', 'focus is on Back, so Enter closes it');
+      await t.checkLayout();
+      await shot(t, 'S4-04-credits');
+      await t.page.keyboard.press('Enter');
+      await t.page.waitForSelector('#b-play');
+      t.equal(await t.page.evaluate(() => window.__game.getState().screen), 'title', 'Back returns to the title');
+    },
+  },
 ];
