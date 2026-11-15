@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGame, newGame, tick, nudge, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
+import { textWidth, DW } from '../src/js/ui/dmd.js';
 import { autoPlunge } from '../src/js/sim/physics.js';
 import { simulate, TARGETS } from '../tools/balance.mjs';
 
@@ -89,6 +90,33 @@ export const tests = [
       const r = simulate({ games: 20, skill: 0.8, seed: 1, rotate: true });
       t.equal(r.tilts, 0, 'no tilt in 20 bot games: ' + r.tilts);
       t.expect(r.ballAvg >= TARGETS.ballMin && r.ballAvg <= TARGETS.ballMax, 'the ball average stays in its target: ' + r.ballAvg.toFixed(1));
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S2-04
+  {
+    name: 'S2-04 a nudge warning says STOP NUDGING, the last one says so, and the tilt says the flippers are off and there is no bonus',
+    node: true,
+    async run(t) {
+      const callouts = (diff) => { const G = fresh(4, { difficulty: diff }); launched(G); G.cues.length = 0; const seen = []; let n = 0; while (!G.player.tilted && n < 40) { nudge(G, 'left'); n++; run(G, 0.05); for (const c of G.cues) if (c.k === 'dmd') seen.push([c.text, c.sub]); G.cues.length = 0; } return seen; };
+      const std = callouts('standard');
+      t.equal(JSON.stringify(std), JSON.stringify([['DANGER', 'STOP NUDGING'], ['LAST WARNING', 'STOP NUDGING'], ['TILT', 'NO FLIPPERS, NO BONUS']]), 'Standard: DANGER, then LAST WARNING, then TILT: ' + JSON.stringify(std));
+      const exp = callouts('expert');
+      t.equal(JSON.stringify(exp.map((c) => c[0])), JSON.stringify(['LAST WARNING', 'TILT']), 'Expert has one warning and it is the last: ' + JSON.stringify(exp));
+      for (const [text, sub] of std) t.expect(textWidth(sub) <= DW - 2, 'the line "' + sub + '" fits the display without scrolling: ' + textWidth(sub));
+    },
+  },
+  {
+    name: 'S2-04 the game-over card says what the match number is',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'over');
+      await t.page.waitForSelector('#o-match');
+      const text = await t.page.textContent('#o-match');
+      t.expect(/^Match: a score that ends in [0-9][0-9] wins a free game[.]$/.test(text), "one plain line explains it: " + text);
+      const box = await t.page.evaluate(() => { const r = document.querySelector('#o-match').getBoundingClientRect(), c = document.querySelector('.screen').getBoundingClientRect(); return [r.left >= c.left, r.right <= c.right, r.height > 0]; });
+      t.expect(box.every(Boolean), 'inside the card');
+      await t.checkLayout();
+      await shot(t, 'S2-04-match-line');
     },
   },
 ];

@@ -787,7 +787,7 @@ export function nudge(G, dir) {
     p.bob = 1;
     p.warnings++;
     if (p.warnings > tune(G).tiltAfter) tilt(G);
-    else { dmd(G, 'DANGER', 'WARNING ' + p.warnings, 1200, 3); sound(G, 'warning'); }
+    else { dmd(G, p.warnings === tune(G).tiltAfter ? 'LAST WARNING' : 'DANGER', 'STOP NUDGING', 1200, 3); sound(G, 'warning'); }   // S2-04: the callout says why (it was DANGER, WARNING n)
   }
 }
 
@@ -798,7 +798,7 @@ function tilt(G) {
   // release anything sitting in a saucer
   for (const b of G.w.balls) if (b.held && !b.held.drained) { const h = G.T.holes.find((q) => q.sw === b.held.sw); if (h) holdThen(G, b.id, 0.6, h.kickAngle, h.kickSpeed); }
   if (G.mode) endMode(G, false, true);
-  dmd(G, 'TILT', '', 3000, 4); sound(G, 'tilt');
+  dmd(G, 'TILT', 'NO FLIPPERS, NO BONUS', 3000, 4); sound(G, 'tilt');   // S2-04: it was a bare TILT
   cue(G, { k: 'tilt' });
 }
 

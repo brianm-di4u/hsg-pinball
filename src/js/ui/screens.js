@@ -284,6 +284,7 @@ export function createScreens(root, app) {
         <h2 id="o-h">Game over</h2>
         <p class="big-score">${fmt(score)}</p>
         <p>Match <b>${String(match).padStart(2, '0')}</b>${won ? ' · <b class="won">Match! Free game</b>' : ''}</p>
+        <p class="small" id="o-match">Match: a score that ends in ${String(match).padStart(2, '0')} wins a free game.</p>
         ${summary(res, false)}
         ${practice ? '<p class="small">Practice game: not ranked</p>' : ''}
         <div class="menu">
