@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
-import { createGame, newGame, tick, nudge, COMBO_MAX, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
+import { execFileSync } from 'node:child_process';
+import { FACTS, ATTRACT_FACTS } from '../src/js/sim/facts.js';
+import { DMD } from '../src/js/ui/dmd.js';
+import { api, createGame, newGame, tick, nudge, COMBO_MAX, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
 import { textWidth, DW } from '../src/js/ui/dmd.js';
 import { autoPlunge } from '../src/js/sim/physics.js';
 import { simulate, TARGETS } from '../tools/balance.mjs';
@@ -190,6 +193,63 @@ export const tests = [
       t.equal(await line(4000), 'BALL 1', 'a practice game is not ranked, so there is nothing to beat');
       await t.game('act', 'clock', null);
       await t.game('applySettings', { practice: false });
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S4-05
+  {
+    name: 'S4-05 fourteen new sourced lines come from the research, the attract screen speaks in a barker voice, and the source check passes',
+    node: true,
+    async run(t) {
+      const NEW = ['deep', 'jug', 'leased', 'valleySt', 'creek', 'greatSt', 'holiday', 'festival', 'vapors1959', 'madden', 'casinos', 'ohio', 'slots111', 'three'];
+      t.expect(NEW.every((k) => FACTS[k] && FACTS[k].text.length <= 40 && /^tc§[0-9]/.test(FACTS[k].src)), 'each new line is 40 characters or fewer and names its section of research/town-content.md');
+      const tc = fs.readFileSync(path.join(GAME, 'research', 'town-content.md'), 'utf8');
+      t.expect(/jug fountains/.test(tc) && /Valley Street/.test(tc) && /111 slot machines/.test(tc) && /Ohio, Bridge Street/.test(tc) && /co-built the Vapors|with Owney Madden/.test(tc) && /1875/.test(tc) && /1974/.test(tc), 'and the research notes do hold what they say');
+      t.expect(ATTRACT_FACTS.every((k) => FACTS[k]), 'every attract key is a fact');
+      const voiced = ['reserved', 'park', 'spa', 'springs', 'rowCount'].filter((k) => /^(HEAR YE|STEP IN|ROLL UP|MIND THE STEAM|PICK A TUB)/.test(FACTS[k].text));
+      t.equal(voiced.length, 5, 'five of the thirteen older attract lines are in the barker voice: ' + voiced.join(', '));
+      t.expect(ATTRACT_FACTS.length >= 17 && ['jug', 'madden', 'casinos', 'vapors1959', 'leased'].every((k) => ATTRACT_FACTS.includes(k)), 'and the attract screen shows the new town lines');
+      t.expect(ATTRACT_FACTS.every((k) => DMD.wrap(FACTS[k].text, 21).length <= 3), 'every attract line wraps to three lines of the display or fewer');
+      let out = '', ok = true;
+      try { out = execFileSync(process.execPath, [path.join(GAME, 'tools', 'check-facts.mjs')], { encoding: 'utf8' }); } catch (e) { ok = false; out = e.stdout; }
+      t.expect(ok, 'check-facts passes: ' + out.trim());
+    },
+  },
+  {
+    name: 'S4-05 the new lines are shown in play: Central Avenue and Reserve Street callouts, the Raid clubs line, and the boil takes turns',
+    node: true,
+    async run(t) {
+      const subs = (G, title) => { const out = []; for (const c of G.cues) if (c.k === 'dmd' && c.text === title) out.push(c.sub); G.cues.length = 0; return out; };
+      const hit = (G, name) => { G.w.events.push({ t: 'hit', sw: T.sw[name], speed: 1000, dir: 1, ball: G.w.balls[0].id }); tick(G); };
+      // Central Avenue: the orbit's line is drawn from eight; across 12 fixed seeds it shows at least five different ones, four of them new
+      const seen = new Set();
+      for (let seed = 1; seed <= 12; seed++) { const G = fresh(seed); launched(G); G.cues.length = 0; hit(G, 'orbitTop'); for (const x of subs(G, 'CENTRAL AVENUE')) seen.add(x); }
+      const fresh4 = [FACTS.holiday.text, FACTS.festival.text, FACTS.valleySt.text, FACTS.creek.text, FACTS.greatSt.text];
+      t.expect(seen.size >= 5 && fresh4.filter((x) => seen.has(x)).length >= 3, 'the orbit shows ' + seen.size + ' different lines, ' + fresh4.filter((x) => seen.has(x)).length + ' of them new: ' + [...seen].join(' | '));
+      // Reserve Street: every third trip says something, the jug fountains first, then the leased land
+      const R = fresh(2); launched(R); R.cues.length = 0;
+      const said = [];
+      for (let i = 0; i < 7; i++) { hit(R, 'reserve'); said.push(...subs(R, 'RESERVE STREET')); run(R, 1.3); }
+      t.equal(JSON.stringify(said), JSON.stringify([FACTS.jug.text, FACTS.leased.text, FACTS.jug.text]), 'Reserve Street: trips 1, 4 and 7 speak, the jug and the leased land in turn: ' + JSON.stringify(said));
+      // the Raid says whose clubs, once it is under way
+      const D = fresh(3); launched(D); D.cues.length = 0;
+      api.startMode(D, 2); run(D, 5);
+      t.equal(JSON.stringify(subs(D, 'THE CLUBS')), JSON.stringify([FACTS.ohio.text]), 'the Raid names the Ohio club among those raided');
+      // the boil and the Arlington take turns between two lines
+      const B = fresh(4); launched(B); B.cues.length = 0;
+      const boil = []; for (const k of [0, 1]) { B.f.springTemp = 142; B.f.boilUntil = 0; hit(B, 'bumper1'); boil.push(...subs(B, 'THE SPRINGS BOIL')); run(B, 1); }
+      t.equal(JSON.stringify(boil), JSON.stringify([FACTS.temp.text, FACTS.deep.text]), 'the springs boil twice, with a different line each time: ' + JSON.stringify(boil));
+    },
+  },
+  {
+    name: 'S4-05 the attract display shows a barker line and a new town line on the title screen',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'title');
+      const frame = async (key) => { const k = ATTRACT_FACTS.indexOf(key) + 2; await t.game('act', 'clock', (k * 4 + 1) * 1000); await t.waitFrames(6); return t.page.locator('#dmd').screenshot({ path: path.join(SHOTS, 'S4-05-attract-' + key + '-' + t.viewport + '.png') }); };
+      fs.mkdirSync(SHOTS, { recursive: true });
+      const a = await frame('park'), b = await frame('madden');
+      t.expect(a.length > 1500 && b.length > 1500 && !a.equals(b), 'the display draws two different attract screens');
+      await t.game('act', 'clock', null);
     },
   },
 ];

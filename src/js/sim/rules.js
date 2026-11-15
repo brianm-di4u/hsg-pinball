@@ -93,7 +93,7 @@ function resetPlayer(G) {
   G.f = { spa: [0, 0, 0], springTemp: 100, boilUntil: 0, row: new Array(8).fill(0), rowsDone: 0, grandSoakLit: false,
     ramps: 0, towerLevel: 0, lockLit: false, locks: 0, fifth: 0, spins: 0, ebLit: false, modesPlayed: [0, 0, 0, 0, 0, 0],
     modesWon: [0, 0, 0, 0, 0, 0], nextMode: 0, wizardLit: false, ebLitByModes: false, bathsTotal: 0, orbits: 0, round: 0,
-    boils: 0, bathHits: 0, jackpots: 0, wizards: 0, mbs: [0, 0, 0], modeWins: [0, 0, 0, 0, 0, 0] };   // this game's tallies, for the records and goals (progress.js)
+    boils: 0, reserves: 0, bathHits: 0, jackpots: 0, wizards: 0, mbs: [0, 0, 0], modeWins: [0, 0, 0, 0, 0, 0] };   // this game's tallies, for the records and goals (progress.js)
   G.ball = { saveUntil: 0, saving: false, saveWarned: 0, launched: false, skillLane: -1, skillUntil: 0, inLane: false, kicks: [],
     lastMajor: { t: -10, side: '' }, combo: 0, switches: 0, searchAt: 0, kb: { outL: 0, outR: 0 } };
   G.mode = null;
@@ -391,7 +391,7 @@ function bumper(G, i, e) {
   sound(G, 'bumper', 1); cue(G, { k: 'flash', name: 'bumper' + (i + 1) }); cue(G, { k: 'steam', i });
   if (f.springTemp >= 143 && !boil) {
     f.boilUntil = G.t + 30; f.boils++;
-    dmd(G, 'THE SPRINGS BOIL', fact('temp'), 2200, 2, 'boil'); sound(G, 'boil'); show(G, 'boil', 1500);
+    dmd(G, 'THE SPRINGS BOIL', fact(f.boils % 2 ? 'temp' : 'deep'), 2200, 2, 'boil'); sound(G, 'boil'); show(G, 'boil', 1500);
   } else if (f.springTemp % 10 === 0 && f.springTemp < 143) {
     dmd(G, SPRINGS[i], f.springTemp + '°F', 700, 0);
   }
@@ -463,10 +463,11 @@ function major(G, name) {
     f.orbits++;
     score(G, 7500); sound(G, 'orbit');
     if (G.mb && G.mb.kind === 'arlington' && !G.mb.jackpotLit) { G.mb.jackpotLit = true; dmd(G, 'JACKPOT IS LIT', 'SHOOT THE RAMP', 1200, 2); }
-    else if (!G.mode && f.orbits % 4 === 1) dmd(G, 'CENTRAL AVENUE', fact(G.rng.pick(['scotch', 'fifth', 'oaklawn'])), 1600, 1);
+    else if (!G.mode && f.orbits % 4 === 1) dmd(G, 'CENTRAL AVENUE', fact(G.rng.pick(['scotch', 'fifth', 'oaklawn', 'holiday', 'festival', 'valleySt', 'creek', 'greatSt'])), 1600, 1);
   } else if (name === 'reserve') {
     score(G, 5000); sound(G, 'orbit');
     if (G.mb && G.mb.kind === 'arlington' && !G.mb.jackpotLit) { G.mb.jackpotLit = true; dmd(G, 'JACKPOT IS LIT', 'SHOOT THE RAMP', 1200, 2); }
+    else if (!G.mode && !G.mb && f.reserves++ % 3 === 0) dmd(G, 'RESERVE STREET', fact(f.reserves % 2 ? 'jug' : 'leased'), 1400, 1);   // S4-05: the street has something to say
   }
   if (G.mode) modeEvent(G, name);
   if (G.mb && G.mb.kind === 'valley') valleyShot(G, name);
@@ -565,6 +566,7 @@ function startMode(G, forceIdx) {
   if (M.id === 'tub') { m.need = goalFor(G, 'tub', 5); m.data.want = ''; }
   if (M.id === 'coaster') { m.need = goalFor(G, 'coaster', 4); m.data.spins = 0; }
   f.nextMode = (i + 1) % 6;
+  if (M.id === 'raid') after(G, 3.2, () => { if (G.mode && G.mode.id === 'raid' && G.mode.phase === 1) dmd(G, 'THE CLUBS', fact('ohio'), 1500, 1); });   // S4-05
   dmd(G, M.name, modeCue(M, m.need), 2200, 3, { kind: 'mode', id: M.id }); sound(G, 'modeStart'); show(G, 'mode', 1800);
   cue(G, { k: 'mode', id: M.id, on: true });
 }
@@ -607,7 +609,9 @@ function modeEvent(G, kind, arg) {
     } else if (m.phase === 2 && kind === 'vapors') {
       const v = score(G, Math.round(m.data.value / 1000) * 1000);
       dmd(G, 'RAID COMPLETE', fmt(v), 2200, 3, 'jackpot');
-      cue(G, { k: 'fact', text: fact('slots') });
+      const slots = fact(f.modeWins[2] % 2 ? 'slots111' : 'slots');   // S4-05: the two slot-machine facts take turns, and now they are shown
+      cue(G, { k: 'fact', text: slots });
+      after(G, 2.4, () => dmd(G, 'AFTER THE RAID', slots, 1800, 1));
       endMode(G, true);
     }
   } else if (M.id === 'tower' && kind === 'rampMade') {
@@ -695,7 +699,7 @@ function startArlington(G, heldBallId) {
   const h = G.T.holes.find((q) => q.name === 'lock');
   G.mb = { kind: 'arlington', jackpot: 75000, jackpotLit: true, t0: G.t }; G.f.mbs[0]++;
   dmd(G, 'ARLINGTON MULTIBALL', 'RAMP JACKPOTS', 2600, 3, 'multiball');
-  after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact('arlington'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
+  after(G, 2.8, () => dmd(G, 'THE ARLINGTON', fact(G.f.mbs[0] % 2 ? 'arlington' : 'three'), 1800, 1)); sound(G, 'multiball'); show(G, 'multiball', 2600);
   startBallSave(G, tune(G).saveSecsMulti, 1.4);
   holdThen(G, heldBallId, 1.6, h.kickAngle, h.kickSpeed);
   addMultiballs(G, 2);
