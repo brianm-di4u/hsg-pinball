@@ -90,7 +90,8 @@ export const MODE_ART = {
   opacity: 0.5, fadeS: 0.9,    // how strong it gets, and how long a fade takes
   towerY: [0.55, 0.7, 0.85, 1], towerXZ: [0.82, 0.88, 0.94, 1],   // the tower's height and width as a share of its full size, by level 0 to 3
   towerGlass: [0.45, 0.65, 0.85, 1.05],                           // its windows' glow by level
-  arlGlass: [0.1, 0.4, 0.7], arlMulti: 1.6, arlLockLit: 0.14,     // the Arlington's windows by locks held (0 to 2), in multiball, and the pulse added while the lock is lit
+  arlGlass: [0.3, 0.55, 0.8], arlMulti: 1.6, arlLockLit: 0.14,     // [0.1, 0.4, 0.7] before S4-10; the Arlington's windows by locks held (0 to 2), in multiball, and the pulse added while the lock is lit
+  arlSize: [1050, 2100, 1150],   // the Arlington's width, height and depth scale: [820, 1640, 900] before S4-10, so its twin towers read from the player's camera
   easeS: 0.5,                  // seconds the tower and windows take to settle
 };
 
@@ -463,7 +464,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = 
   // landmarks sized to read from the player's camera: the tower stands in the dead area right of the ramp mouth,
   // the Arlington's twin towers rise twice as tall behind the lock, the Vapors sign is enlarged over its scoop
   const tw = place('tower', 458, 487, 0, 0, 1000); if (tw) tw.scale.set(1350, 2700, 1350);
-  const ar = place('arlington', CX, 766, 0, 0, 820); if (ar) ar.scale.set(820, 1640, 900);
+  const ar = place('arlington', CX, 766, 0, 0, 820); if (ar) ar.scale.set(...MODE_ART.arlSize);
   // their lit windows follow the game (below), not the shared shimmer
   const glassOf = (o) => { const out = []; if (o) o.traverse((n) => { if (n.isMesh) for (const m of (Array.isArray(n.material) ? n.material : [n.material])) if (/glass_lit/.test(m.name)) { out.push(m); const i = glowMats.indexOf(m); if (i >= 0) glowMats.splice(i, 1); } }); return out; };
   const towerGlass = glassOf(tw), arlGlass = glassOf(ar);
@@ -814,7 +815,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = 
     /** For tests: the lettering's current scale factors, label by label, and its CSS size on this screen. */
     labelInfo() { return labelList.map((l, i) => ({ text: l.text, size: l.size, scale: lblScales[i] || 1, px: l.size * (lblScales[i] || 1) * cssPerMm(l.x, l.y, canvas.getBoundingClientRect().width) })); },
     /** For tests: how much of each mode painting shows, the tower's height factor and the Arlington's window glow. */
-    modeInfo() { return { art: Object.fromEntries(Object.entries(artPlanes).map(([id, e]) => [id, +e.a.toFixed(3)])), tower: tw ? { level: +prog.tower.toFixed(3), scaleY: +tw.scale.y.toFixed(1) } : null, arlington: { glow: +prog.arl.toFixed(3), windows: arlGlass.length } }; },
+    modeInfo() { return { art: Object.fromEntries(Object.entries(artPlanes).map(([id, e]) => [id, +e.a.toFixed(3)])), tower: tw ? { level: +prog.tower.toFixed(3), scaleY: +tw.scale.y.toFixed(1) } : null, arlington: { glow: +prog.arl.toFixed(3), windows: arlGlass.length, scale: ar ? [ar.scale.x, ar.scale.y, ar.scale.z] : null } }; },
     nameInfo() { return { visible: nameSprite.visible, name: nameShown, opacity: nameSprite.material.opacity, height: nameSprite.scale.y }; },
     highlightInfo() { return { rims: ballPool.filter((B) => B.rim.visible).length, ghosts: ballPool.reduce((n, B) => n + B.ghosts.filter((g) => g.visible).length, 0), floorDark: pfDark.value }; },
     /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */

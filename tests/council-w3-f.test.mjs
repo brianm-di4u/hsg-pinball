@@ -38,3 +38,23 @@ export const tests = [
     },
   },
 ];
+tests.push({
+  name: 'S4-10 the Arlington stands larger over the lake and its windows glow even with no lock held',
+  async run(t) {
+    await t.waitIdle(30000);
+    await t.game('newGame', { balls: 3, seed: 5 });
+    await t.game('act', 'plunge', 0.9);
+    await t.waitFrames(30);
+    const settle = (cond) => t.page.waitForFunction((c) => { const m = window.__game.modeInfo(); return eval(c); }, cond, { timeout: 15000 });
+    const glow = [];
+    for (const locks of [0, 1, 2]) { await t.game('setState', { features: { locks, lockLit: false } }); await settle(locks === 0 ? 'm.arlington.glow > 0.2' : 'm.arlington.glow > ' + (glow[locks - 1] + 0.1)); glow.push((await t.game('modeInfo')).arlington.glow); }
+    t.expect(glow[0] >= 0.25, 'with no lock held the windows already glow warm enough to read against the lake: ' + glow[0]);
+    t.expect(glow[0] < glow[1] && glow[1] < glow[2], 'each lock still lights them more: ' + glow.join(' < '));
+    const sc = (await t.game('modeInfo')).arlington.scale;
+    t.expect(sc && sc[0] >= 1000 && sc[1] >= 2000 && sc[2] >= 1100, 'the twin towers are about a quarter bigger than the 820 x 1640 x 900 they were: ' + sc);
+    await t.game('setState', { features: { locks: 2, lockLit: false } }); await t.waitFrames(40);
+    const clip = t.viewport === 'desktop' ? { x: 500, y: 150, width: 280, height: 200 } : { x: 110, y: 270, width: 160, height: 120 };
+    fs.mkdirSync(SHOTS, { recursive: true });
+    await t.page.screenshot({ path: path.join(SHOTS, 'S4-10-arlington-' + t.viewport + '.png'), clip });
+  },
+});
