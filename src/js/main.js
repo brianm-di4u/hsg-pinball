@@ -29,7 +29,9 @@ const app = {
   settings: loadSettings(),
   touch: matchMedia('(pointer: coarse)').matches,
   sfx: (n) => sfx(n),
-  scores: (balls = app.settings.balls) => loadScores(balls),
+  scores: (balls = app.scoresBalls()) => loadScores(balls),
+  // the table the High scores screen opens on: the length the player plays, unless they have only ever saved scores on the other table (an older save keeps its scores on the 3-ball one)
+  scoresBalls: () => { const b = app.settings.balls; return b === 5 && store.get('scores5', null) == null && store.get('scores', null) != null ? 3 : b; },
   stats: loadStats(),
   storageOk: () => storageWritable(),
 };
@@ -488,7 +490,7 @@ window.__game = {
     const s = gameState(G);
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
-    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.settings.balls); s.frame = frameNo;
+    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo;
     s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], pans: { ...audio.pans }, roll: { ...audio.roll }, ...audioNow() };
     return s;
   },

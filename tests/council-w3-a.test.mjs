@@ -159,6 +159,22 @@ export const tests = [
     },
   },
 
+  {
+    name: 'S3-08 a player who has chosen 5 balls but only has older scores still opens High scores on the table that holds them',
+    viewports: ['desktop'],
+    async run(t) {
+      const old = { v: 1, table: [{ initials: 'OLD', score: 3100000, date: '2026-10-01', difficulty: 'standard' }] };
+      await t.page.evaluate((o) => { localStorage.clear(); localStorage.setItem('hsg-pinball:scores', JSON.stringify(o)); localStorage.setItem('hsg-pinball:settings', JSON.stringify({ v: 1, balls: 5 })); }, old);
+      await t.page.reload(); await t.waitIdle(30000);
+      t.equal((await t.state()).scores[0].initials, 'OLD', 'the scores in the state are the saved ones');
+      await t.game('scene', 'scores');
+      t.expect(/OLD/.test(await t.page.locator('.scores tr').first().textContent()), 'High scores shows them, not an empty table');
+      t.equal(await t.page.locator('[data-balls="3"]').getAttribute('aria-pressed'), 'true', 'on the 3-ball tab');
+      await t.page.click('[data-balls="5"]');
+      t.expect(!/OLD/.test(await t.page.locator('.scores tr').first().textContent()), 'the 5-ball tab is its own table');
+    },
+  },
+
   // ---------------------------------------------------------------------------------------------- S5-09
   {
     name: 'S5-09 Effects and Music volume sliders feed their own buses, are saved, and an older save sounds as it did',

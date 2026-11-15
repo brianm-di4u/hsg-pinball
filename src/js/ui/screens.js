@@ -182,7 +182,7 @@ export function createScreens(root, app) {
       </section>`);
       on('#b-back', () => (back === 'pause' ? S.pause() : S.title()));
     },
-    scores(back, highlight = -1, balls = app.settings.balls) {
+    scores(back, highlight = -1, balls = app.scoresBalls()) {
       current = 'scores';
       const rows = app.scores(balls).map((r, i) => `<tr class="${i === highlight ? 'hl' : ''}"><td>${i + 1}</td><td>${esc(r.initials)}</td><td class="num">${fmt(r.score)}</td><td class="diff">${r.difficulty && r.difficulty !== 'standard' ? DIFF_NAME[r.difficulty] : ''}</td></tr>`).join('');
       el(`<section class="screen dialog" role="dialog" aria-modal="true" aria-labelledby="hs-h">

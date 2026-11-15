@@ -198,6 +198,8 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   #b-menu, #b-mute, .btn.launch { position: relative; inset: auto; left: auto; right: auto; bottom: auto; width: auto; flex: none; min-width: 44px; height: auto; padding: 8px 4px; justify-content: center; background: linear-gradient(#2c2645, #1e1a30); }
   #b-menu .lbl, #b-mute .lbl { display: none; }
 }
+/* the shortest phones in landscape (568 x 320): Menu, the speaker and Launch stack in the narrow column, so the gaps close up to keep them on screen */
+@media (max-height: 340px) and (min-aspect-ratio: 4 / 5) { .side { gap: 2px; } .buttons { gap: 3px; } }
 body.reduced *, body.reduced *::before { animation: none !important; transition: none !important; }
 
 /* review close-ups: the table canvas takes the whole window */
