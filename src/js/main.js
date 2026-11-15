@@ -253,10 +253,26 @@ const input = createInput(tableEl, {
   },
 });
 // on-screen buttons
-$('#b-launch').addEventListener('pointerdown', (e) => { unlock(); coach.setKind(e.pointerType === 'touch' || app.touch ? 'touch' : 'key'); if (!demo && !paused) plunger(G, true); e.preventDefault(); });
-const releaseLaunch = (e) => { if (!demo && !paused) plunger(G, false); };
-$('#b-launch').addEventListener('pointerup', releaseLaunch);
-$('#b-launch').addEventListener('pointerleave', releaseLaunch);
+// The Launch button holds the pull while the finger is on it. Sliding off it (or the touch being taken away) lets the pull go
+// without firing the ball (S6-14); lifting the finger on the button fires. The pointer is captured, so a thumb that drifts a little
+// still counts as on it until it leaves the button's own edge.
+const launchBtn = $('#b-launch');
+let launchPtr = null;
+const abortLaunch = (e) => { if (launchPtr === null || (e && e.pointerId !== launchPtr)) return; launchPtr = null; if (!demo && !paused) plungerCancel(G); };
+launchBtn.addEventListener('pointerdown', (e) => {
+  unlock(); coach.setKind(e.pointerType === 'touch' || app.touch ? 'touch' : 'key');
+  launchPtr = e.pointerId; try { launchBtn.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
+  if (!demo && !paused) plunger(G, true);
+  e.preventDefault();
+});
+launchBtn.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== launchPtr) return;
+  const r = launchBtn.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) abortLaunch(e);
+});
+launchBtn.addEventListener('pointerup', (e) => { if (e.pointerId !== launchPtr) return; launchPtr = null; if (!demo && !paused) plunger(G, false); });
+launchBtn.addEventListener('pointercancel', abortLaunch);
+launchBtn.addEventListener('pointerleave', abortLaunch);
 muteBtn.addEventListener('click', () => { unlock(); app.toggleMute(); tableEl.focus({ preventScroll: true }); });
 $('#b-menu').addEventListener('click', () => { unlock(); if (demo) screens.title(); else pause(); });
 
