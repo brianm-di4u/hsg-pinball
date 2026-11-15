@@ -9,7 +9,7 @@ import { FACTS, fact } from './facts.js';
 export const MODES = [
   { id: 'soak', name: 'BATHHOUSE SOAK', short: 'SOAK', goal: 'HIT 6 LIT BATHHOUSES', cue: 'HIT 6 BATHS', dur: 40 },
   { id: 'derby', name: 'DERBY DAY', short: 'DERBY', goal: 'RAMPS AND ORBITS: WIN THE RACE', cue: 'RAMPS, ORBITS', dur: 45 },
-  { id: 'raid', name: 'RAID! 1967', short: 'RAID', goal: 'FIND 3 SLOTS, THEN THE VAPORS', cue: 'FIND 3 SLOTS', dur: 45 }, // fact: raid, slots
+  { id: 'raid', name: 'RAID! 1967', short: 'RAID', goal: 'HIT 3 LIT TARGETS, THEN THE VAPORS', cue: 'HIT 3 LIT TARGETS', dur: 45 }, // fact: raid, slots (S2-08: it said FIND 3 SLOTS, and nobody knew the slots were the lit bathhouse targets)
   { id: 'tower', name: 'TOWER CLIMB', short: 'TOWER', goal: 'SHOOT THE RAMP 3 TIMES', cue: 'RAMP 3 TIMES', dur: 40 },
   { id: 'tub', name: 'TUB RACE', short: 'TUBS', goal: 'ALTERNATE LEFT AND RIGHT', cue: 'LEFT, RIGHT...', dur: 40 },
   { id: 'coaster', name: 'COASTER HILL', short: 'COASTER', goal: 'RIDE THE ORBIT 4 LAPS', cue: 'ORBIT 4 LAPS', dur: 40 },
@@ -582,7 +582,7 @@ export function nextModeIndex(f) {
 
 // the short goal line on the display, with this round's count in it (round 0 reads as it always did)
 function modeCue(M, need) {
-  return { soak: 'HIT ' + need + ' BATHS', raid: 'FIND ' + need + ' SLOTS', tower: 'RAMP ' + need + ' TIMES', coaster: 'ORBIT ' + need + ' LAPS' }[M.id] || M.cue;
+  return { soak: 'HIT ' + need + ' BATHS', raid: 'HIT ' + need + ' LIT TARGETS', tower: 'RAMP ' + need + ' TIMES', coaster: 'ORBIT ' + need + ' LAPS' }[M.id] || M.cue;
 }
 
 function pickN(G, n, k) { const a = [...Array(n).keys()]; const out = []; while (out.length < k) out.push(a.splice(G.rng.int(a.length), 1)[0]); return out; }

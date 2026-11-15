@@ -5,6 +5,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compileTable } from '../src/js/sim/table.js';
+import { spec } from '../src/js/sim/table-spa-city.js';
+import { createGame, newGame, api, MODES } from '../src/js/sim/rules.js';
+import { textWidth, DW } from '../src/js/ui/dmd.js';
+
+const T = compileTable(spec);
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
@@ -157,6 +163,42 @@ export const tests = [
       const demo = await cue(t, 'plungerHit', { seconds: 1.5, demo: true });
       t.log(`plungerHit peak: game ${full.peak}, demo ${demo.peak}, ratio ${(demo.peak / full.peak).toFixed(3)}`);
       t.expect(demo.peak / full.peak > 0.3 && demo.peak / full.peak < 0.4, 'a demo cue is 30 to 40 percent of the game cue');
+    },
+  },
+
+  // ---------------------------------------------------------------------------------------------- S2-08
+  {
+    name: 'S2-08 the Raid says what to hit, in words that fit the display, and the help says the same',
+    node: true,
+    async run(t) {
+      const G = createGame(T, { seed: 2 }); newGame(G, { seed: 2, firstMode: 2 }); G.cues.length = 0; G.ball.inLane = false;
+      api.startMode(G, 2);
+      const d = G.cues.find((c) => c.k === 'dmd' && c.text === 'RAID! 1967');
+      t.expect(d && d.sub === 'HIT 3 LIT TARGETS', 'the Raid starts with the cue: ' + (d && d.sub));
+      t.expect(d && textWidth(d.sub) <= DW, 'it fits the display on one line (' + (d && textWidth(d.sub)) + ' of ' + DW + ')');
+      t.expect(MODES[2].goal === 'HIT 3 LIT TARGETS, THEN THE VAPORS', 'and the goal on the help screen matches: ' + MODES[2].goal);
+      t.expect(!/SLOTS/.test(MODES[2].cue + MODES[2].goal), 'nobody is asked to find slots any more');
+    },
+  },
+  {
+    name: 'S2-08 the mode line shows a percent for Derby, one short name for each mode, and Grand Soak is named a multiball',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 }); await t.game('act', 'plunge', 0.9); await t.waitFrames(3);
+      const line = async () => { await t.game('pause'); await t.waitFrames(2); const v = await t.page.locator('#modeline').innerText(); await t.game('resume'); return v; };
+      const names = ['Soak', 'Derby', 'Raid! 1967', 'Tower', 'Tubs', 'Coaster'];
+      for (let i = 0; i < 6; i++) {
+        await t.game('act', 'endMode', false); await t.game('act', 'mode', i); await t.waitFrames(3);
+        const v = await line();
+        t.expect(v.startsWith(names[i] + ' · '), 'mode ' + i + ' is called ' + names[i] + ' on the line: ' + v);
+        if (i === 1) t.expect(/^Derby · [0-9]+% · [0-9]+s/.test(v), 'Derby counts in percent, not out of 100: ' + v);
+        else t.expect(/ · [0-9]+[/][0-9]+ · [0-9]+s/.test(v), 'the others count out of a goal: ' + v);
+        if (i === 1 && t.viewport === 'desktop') await shot(t, 'S2-08-derby-percent');
+      }
+      await t.game('act', 'endMode', false);
+      await t.game('act', 'multiball', 'soak'); await t.waitFrames(3);
+      t.expect((await line()).startsWith('Grand Soak Multiball'), 'Grand Soak says what it is: ' + await line());
+      await t.checkLayout();
     },
   },
 ];

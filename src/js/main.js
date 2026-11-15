@@ -245,6 +245,7 @@ function simTimeFor(ts) {
 // Haptics (S1-09): a short pulse on a phone (navigator.vibrate) or a rumble on a gamepad, for what a hand would feel: a flip, a bumper,
 // a sling, a nudge warning and a tilt. Off in the demo, while paused, under reduced motion and with the Vibration switch off.
 // Nobody here can feel it, so the tests watch the calls.
+const modeShort = (i) => MODES[i].short[0] + MODES[i].short.slice(1).toLowerCase();   // one short name for a mode: the grid, the plates and the mode line (S2-08)
 const HAPTIC = { flip: 10, bumper: 15, sling: 15, warning: [20, 40, 20], tilt: [25, 50, 25] };   // ms of pulse (and gap)
 const HAPTIC_GAP = 35;   // ms between pulses: a bumper frenzy is a buzz, not a queue
 let hapticAt = 0;
@@ -568,7 +569,7 @@ function render(alpha, still = false) {
   const chip = dmd.cur ? fmt(p.score) : !touchChip() ? '' : G.mode ? `${G.mode.id.toUpperCase()} ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`;
   setText('#score', demo ? '' : dmd.cur || !touchChip() ? chip : chip + saveLeft);
   setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
-  setText('#modeline', demo ? '' : (G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : G.mode.id[0].toUpperCase() + G.mode.id.slice(1)} · ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak', valley: 'Valley of the Vapors' }[G.mb.kind] : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`) + saveLeft);   // fact: raid
+  setText('#modeline', demo ? '' : (G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : modeShort(G.mode.i)} · ${G.mode.id === 'derby' ? (G.mode.progress | 0) + '%' : (G.mode.progress | 0) + '/' + G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak Multiball', valley: 'Valley of the Vapors' }[G.mb.kind] : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`) + saveLeft);   // fact: raid
   const showLaunch = !demo && !paused && G.w.balls.some((b) => !b.held && b.x > 480 && b.y < 150);
   const mg = demo ? '' : G.f.modesPlayed.map((p, i) => ((G.mode && G.mode.i === i) || (G.mb && G.mb.kind === 'valley') ? 'on' : G.f.modesWon[i] ? 'won' : p ? 'played' : !G.mode && !G.mb && i === nextModeIndex(G.f) ? 'next' : '')).join(',');
   if (mg !== uiCache.mg) { uiCache.mg = mg; const cls = mg.split(','); document.querySelectorAll('#modegrid li').forEach((li, i) => { li.className = cls[i] || ''; }); }
