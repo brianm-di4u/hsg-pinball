@@ -175,4 +175,59 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S6-09
+  {
+    name: 'S6-09 the attract demo rests after the title has sat untouched, and any touch of the page wakes it',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.waitIdle(30000);
+      const s0 = await t.state();
+      t.expect(s0.demo && !s0.resting, 'the demo is running at first');
+      await t.game('step', 1);   // make sure a frame has been drawn under the test's own clock
+      await t.page.evaluate(() => { window.__game.demoRestMs = 300; });
+      await t.page.waitForFunction(() => window.__game.getState().resting, null, { timeout: 10000 });
+      const a = await t.state();
+      await t.waitFrames(30);
+      const b = await t.state();
+      t.equal([b.t, b.drawn], [a.t, a.drawn], 'while it rests the sim does not advance and the view is not drawn');
+      t.expect(b.frame > a.frame, 'the page itself keeps running frames');
+      await t.page.mouse.move(300, 300); await t.page.mouse.move(340, 320);
+      await t.page.waitForFunction(() => !window.__game.getState().resting, null, { timeout: 5000 });
+      const c = await t.state();
+      await t.page.waitForFunction((t0) => window.__game.getState().t > t0, c.t, { timeout: 5000 });
+      t.expect(true, 'a touch of the page wakes the demo and the sim runs again');
+      await t.page.evaluate(() => { window.__game.demoRestMs = null; });
+    },
+  },
+  {
+    name: 'S6-09 the demo rests while Settings is open, and runs again when it closes',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'settings');
+      await t.page.waitForFunction(() => window.__game.getState().resting, null, { timeout: 5000 });
+      const a = await t.state();
+      await t.waitFrames(30);
+      const b = await t.state();
+      t.equal([b.t, b.drawn], [a.t, a.drawn], 'with Settings open the demo neither plays nor draws');
+      await t.game('scene', 'title');
+      await t.page.waitForFunction((t0) => window.__game.getState().t > t0, a.t, { timeout: 5000 });
+      t.expect(!(await t.state()).resting, 'back on the title it plays again');
+    },
+  },
+  {
+    name: 'S6-09 under reduced motion the demo is a still from the start',
+    viewports: ['desktop'],
+    reducedMotion: true,
+    async run(t) {
+      await t.waitIdle(30000);
+      const s = await t.state();
+      t.expect(s.reduced && s.demo && s.resting, 'reduced motion: the demo is resting');
+      await t.waitFrames(30);
+      const b = await t.state();
+      t.equal([b.t, b.drawn], [s.t, s.drawn], 'nothing moves and nothing is redrawn');
+      t.equal(b.view, '3d', 'the table is the 3D one, drawn once before it rested');
+    },
+  },
+
 ];

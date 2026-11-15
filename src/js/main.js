@@ -39,6 +39,12 @@ const app = {
 let G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffff) });
 let demo = true, bot = null, paused = false, acc = 0, lastNow = performance.now(), timeScale = 1, slowUntil = 0;
 let renderClock = null, clockBase = 0, view = null, view2d = null, loading = true, frameNo = 0, lastFact = 0, overTimer = 0;
+// The attract demo is a live game: it rests (no sim, no redraw, the last picture stays up) while the player reads a menu, under
+// reduced motion, and once nobody has touched the page for DEMO_REST_MS. Any key, tap or pointer movement wakes it. (S6-09)
+const DEMO_REST_MS = 30000;
+let lastActive = performance.now(), restView = null, drawn = 0;   // drawn counts the frames the view was drawn, for tests
+for (const ev of ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel']) window.addEventListener(ev, () => { lastActive = performance.now(); }, { passive: true });
+const demoResting = (ts) => demo && (reducedMotion() || (!!screens.current && screens.current !== 'title') || ts - lastActive > (window.__game.demoRestMs ?? (TEST ? Infinity : DEMO_REST_MS)));
 const prev = new Map();
 let lastDots = null, lastDmdW = 0;
 const uiCache = {};
@@ -107,6 +113,7 @@ async function buildAndSwap(want, loads) {
 
 function resize() {
   if (!view2d) return;
+  restView = null;   // a resizing canvas is blank until it is drawn: a resting demo draws again
   const r = tableEl.getBoundingClientRect();
   const ratio = Math.min(window.devicePixelRatio || 1, view && view.kind === '3d' ? view.maxRatio() : 2);
   if (view && view.kind === '3d') view.resize(r.width, r.height, ratio);
@@ -188,6 +195,7 @@ app.applySettings = (s) => {
   setVolumes({ sound: app.settings.sound, music: app.settings.music, ambience: app.settings.ambience, volume: app.settings.volume, sfxVol: app.settings.sfxVol, musicVol: app.settings.musicVol });
   document.documentElement.style.setProperty('--text-scale', app.settings.textScale);
   document.body.classList.toggle('reduced', reducedMotion());
+  if ('keys' in s) { applyKeys(app.settings.keys); paintKeyText(); }
   if (tierChanged && view && view.kind === '3d') { if (s.tier === '2d') { view.hide(); view = view2d; } else view.setTier(s.tier); }
   else if (tierChanged && view === view2d && s.tier !== '2d' && !upgrading) upgradeTo3D();
   document.body.dataset.view = view ? view.kind : '2d';
@@ -195,7 +203,6 @@ app.applySettings = (s) => {
 function pause() {
   if (demo || paused || G.scene === 'over') return;
   paused = true; suspendAudio();
-  if ('keys' in s) { applyKeys(app.settings.keys); paintKeyText(); }
   // keys released while paused never reach the game, so let go of everything now
   G.w.pending.length = 0;   // a flip queued for a later substep must not fire after the release
   for (const f of G.w.flippers) if (f.held) flipper(G, f.side, false);
@@ -219,17 +226,17 @@ function simTimeFor(ts) {
   const t = now + acc + Math.min(MAX_DT, Math.max(0, (ts - lastNow) / 1000)) * timeScale;
   return Math.max(now, t);
 }
+applyKeys(app.settings.keys);   // the keys the player chose in Settings, if any
 const input = createInput(tableEl, {
+  menuMode() { return !!screens.current && screens.current !== 'entry'; },   // the gamepad steers a menu, not the table
+  menu(cmd) { if (cmd === 'back') this.action('pause', true, performance.now(), 'pad'); else screens.navigate(cmd); },
   wantsKeys(a) { return a === 'mute' ? !screens.current || screens.current === 'pause' : !screens.current || screens.current === 'entry' || a === 'pause'; },
   touchActive() { return !screens.current && !paused; },
   action(a, down, ts, src) {
     unlock();
     if (src === 'key' || src === 'touch' || src === 'pad') coach.setKind(src);
     if (a === 'tips') { if (down) coach.skip(); return; }
-applyKeys(app.settings.keys);   // the keys the player chose in Settings, if any
     if (a === 'mute') { if (down) app.toggleMute(); return; }
-  menuMode() { return !!screens.current && screens.current !== 'entry'; },   // the gamepad steers a menu, not the table
-  menu(cmd) { if (cmd === 'back') this.action('pause', true, performance.now(), 'pad'); else screens.navigate(cmd); },
     if (screens.current === 'entry') { if (down && screens.entryKey) screens.entryKey(a); return; }
     if (a === 'pause') {
       if (!down) return;
@@ -277,13 +284,6 @@ function coachFrame() {
   if (show !== uiCache.coach) { uiCache.coach = show; coachEl.hidden = !show; }
 }
 
-// ------------------------------------------------------------------------------------------------- cues
-function now() { return renderClock != null ? renderClock : (performance.now() - clockBase) / 1000; }
-
-function routeCues() {
-  for (const c of G.cues) {
-    switch (c.k) {
-      case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
 // the key names the cabinet hint, the table's screen-reader line and the first-game tips show: the usual ones, or the player's own
 const hintEl = $('.controls-hint'), helpEl = $('#table-help'), hintHTML = hintEl.innerHTML, helpText = helpEl.textContent;
 function paintKeyText() {
@@ -294,6 +294,13 @@ function paintKeyText() {
 }
 paintKeyText();
 
+// ------------------------------------------------------------------------------------------------- cues
+function now() { return renderClock != null ? renderClock : (performance.now() - clockBase) / 1000; }
+
+function routeCues() {
+  for (const c of G.cues) {
+    switch (c.k) {
+      case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
       case 'sound': if (!demo) sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); break;   // pan by where it happened (the cue carries n and m for ladders and countdowns)
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
       case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
@@ -447,7 +454,8 @@ function frame(ts) {
   let dt = Math.min(MAX_DT, (ts - lastNow) / 1000);
   lastNow = ts;
   if (slowUntil && ts > slowUntil) { timeScale = 1; slowUntil = 0; }
-  const running = !paused && !(TEST && window.__game.paused);
+  const resting = demoResting(ts);
+  const running = !paused && !resting && !(TEST && window.__game.paused);
   if (running) {
     acc += dt * timeScale;
     let n = 0;
@@ -458,7 +466,10 @@ function frame(ts) {
   if (frameNo % (view && view.tier === 'low' ? 4 : 1) === 0) setRoll(G.w.balls, G.T.width, running && !demo && G.scene === 'game');
   if (frameNo % 20 === 0) mixState();
   coachFrame();
-  try { render(Math.min(1, acc / TICK)); renderFails = 0; }
+  // a resting demo keeps its last picture: the view is drawn once when it starts to rest (and again after a swap of view)
+  const still = resting && restView === view;
+  if (resting) restView = view; else restView = null;
+  try { render(Math.min(1, acc / TICK), still); renderFails = 0; }
   catch (e) {
     // a throw mid-render leaves the HUD half updated: after 5 in a row say so instead of failing silently
     if (++renderFails === 1) console.error('Spa City Pinball: render failed', e);
@@ -466,11 +477,12 @@ function frame(ts) {
   }
 }
 
-function render(alpha) {
+function render(alpha, still = false) {
   const t = now();
   const lampOn = lampStates(G, LAMPS, t);
   const interp = interpolated(alpha);
-  if (view) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), highlight: app.settings.ballGlow, debug: qs.get('debug') === 'physics' });
+  if (view && !still) drawn++;
+  if (view && !still) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), highlight: app.settings.ballGlow, debug: qs.get('debug') === 'physics' });
   while (effects.length && t - effects[0].t > 2) effects.shift();
   dmd.frame(t * 1000, dmdBase);
   // repaint the dot canvas only when a dot changed (4,096 dots is real work on a phone)
@@ -497,6 +509,7 @@ function render(alpha) {
 window.__game = {
   paused: false,
   overDelay: null,   // tests: how long (ms) after the last ball the entry or game-over card waits; null is the usual delay
+  demoRestMs: null,   // tests: how long (ms) the title may sit untouched before the demo rests; null is the usual 30 s, and never under test
   overPending() { return !!overTimer; },
   slowmo: false,   // tests: let the ball-save slow motion run (it is off under test so timing stays exact)
   seed(n) { G.rng = createGame(T, { seed: n }).rng; G.seedValue = n; return n; },
@@ -504,7 +517,7 @@ window.__game = {
     const s = gameState(G);
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text) };
-    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo;
+    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
     s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], pans: { ...audio.pans }, roll: { ...audio.roll }, ...audioNow() };
     return s;
   },
