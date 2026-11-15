@@ -155,6 +155,35 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S6-05
+  {
+    name: 'S6-05 leaving a finished game for the title cancels its pending initials or game-over card',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.page.evaluate(() => { window.__game.overDelay = 600000; });   // the card is on a long timer, so the test sees it pending
+      await t.game('setState', { player: { ball: 3, score: 9000000 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      t.equal((await t.state()).scene, 'over', 'the game is over');
+      t.equal(await t.game('overPending'), true, 'the card is waiting on its timer');
+      t.expect((await t.state()).screen == null, 'nothing is on screen yet');
+      await t.game('scene', 'title');
+      t.equal(await t.game('overPending'), false, 'going to the title cancels it');
+      const s = await t.state();
+      t.expect(s.screen === 'title' && s.demo === true, 'the title over the attract demo: ' + s.screen);
+      // a new game cancels it too
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('setState', { player: { ball: 3, score: 0 }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 400);
+      t.equal(await t.game('overPending'), true, 'a second finished game has its card pending');
+      await t.game('newGame', { balls: 3, seed: 5 });
+      t.equal(await t.game('overPending'), false, 'starting another game cancels it');
+      await t.page.evaluate(() => { window.__game.overDelay = null; });
+    },
+  },
+
   // ---------------------------------------------------------------------------------------------- S5-08
   {
     name: 'S5-08 a saved ball plays only the save cue; a lost ball plays only the drain cue',

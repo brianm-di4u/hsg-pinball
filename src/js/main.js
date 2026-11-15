@@ -122,6 +122,7 @@ function sizeDMD() {
 // ------------------------------------------------------------------------------------------------- game control
 function startDemo() {
   demo = true;
+  clearTimeout(overTimer); overTimer = 0;   // a finished game's entry or game-over card must not open over the title
   G = createGame(T, { seed: TEST ? 3 : (Date.now() & 0xffff) });
   newGame(G, { balls: 3, practice: true });
   bot = createBot(G, { skill: 0.9, seed: 11 });
@@ -159,7 +160,7 @@ app.start = (resume = null, o = {}) => {
   screens.close();
   document.body.dataset.scene = 'game';
   startMusic('main'); mixState();
-  clearTimeout(overTimer);
+  clearTimeout(overTimer); overTimer = 0;
   tableEl.focus({ preventScroll: true });
 };
 app.continueGame = () => { const r = loadResume(); if (r) app.start(r); };
@@ -346,9 +347,10 @@ function gameOverFlow(c) {
   startMusic('results'); musicIntensity(0);
   const res = recordGame(c);
   overTimer = setTimeout(() => {
+    overTimer = 0;
     if (qualifies(c.score, loadScores(c.balls))) screens.entry(c.score, (ini) => { const i = addScore(ini, c.score, c.difficulty, c.balls); screens.scores('over', i, c.balls); }, res);
     else screens.over(c.score, c.match, c.won, res);
-  }, TEST ? 50 : 2600);
+  }, window.__game.overDelay ?? (TEST ? 50 : 2600));
 }
 
 let renderFails = 0, errorsLogged = 0;
@@ -467,6 +469,8 @@ function render(alpha) {
 // ------------------------------------------------------------------------------------------------- hooks
 window.__game = {
   paused: false,
+  overDelay: null,   // tests: how long (ms) after the last ball the entry or game-over card waits; null is the usual delay
+  overPending() { return !!overTimer; },
   slowmo: false,   // tests: let the ball-save slow motion run (it is off under test so timing stays exact)
   seed(n) { G.rng = createGame(T, { seed: n }).rng; G.seedValue = n; return n; },
   getState() {
