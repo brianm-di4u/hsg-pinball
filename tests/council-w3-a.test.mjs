@@ -4,6 +4,13 @@ import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 import { createGame, newGame, tick } from '../src/js/sim/rules.js';
 import { addBall } from '../src/js/sim/physics.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 
 const T = compileTable(spec);
 const fresh = (seed = 1) => { const G = createGame(T, { seed }); newGame(G, { seed }); G.cues.length = 0; return G; };
@@ -55,6 +62,28 @@ export const tests = [
       });
       t.equal(r.multi, 1, 'multiball save: time keeps its normal speed');
       t.expect(r.lone < 1, 'a lone save slows time: ' + r.lone);
+    },
+  },
+
+  // ---------------------------------------------------------------------------------------------- S2-19
+  {
+    name: 'S2-19 the mode line (and the phone score plate) count the ball save down, and drop it when it ends',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.game('newGame', { seed: 7 });
+      await t.game('pause');
+      const s0 = await t.state();
+      await t.game('setState', { ball: { saveUntil: s0.t + 300, inLane: false, launched: true } });
+      await t.game('step', 2);
+      const sel = t.viewport === 'mobile' ? '#score' : '#modeline';
+      const text = () => t.page.locator(sel).textContent();
+      // the phone plate shows the score while a callout is up: step until the callouts have gone
+      for (let i = 0; i < 60 && !/SAVE/.test(await text()); i++) await t.game('step', 30);
+      t.expect(/SAVE [0-9]+s$/.test(await text()), 'the line says how long the save has left: ' + (await text()));
+      await shot(t, 'S2-19-save-countdown');
+      await t.game('setState', { ball: { saveUntil: 0 } });
+      await t.game('step', 2);
+      t.expect(!/SAVE/.test(await text()), 'and nothing once it has ended: ' + (await text()));
     },
   },
 
