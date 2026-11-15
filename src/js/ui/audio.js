@@ -217,11 +217,11 @@ function synth(name, v, t, o) {
 // ------------------------------------------------------------------------------------------------- music
 // startMusic(name, mode): name is a piece in SCORES; the ambience follows it (a mode asks for its own bed).
 // A switch that is off plays nothing: no node is made for a muted bus.
-export function startMusic(name, mode = null) {
+export function startMusic(name, mode = null, now = false) {
   audio.scene = name; audio.mode = mode;
   const k = audio.kit;
   if (!k || !audio.ctx) return;
-  if (musicOn() && SCORES[name]) k.music.play(SCORES[name], { fade: 1.6 }); else k.music.stop(1);
+  if (musicOn() && SCORES[name]) k.music.play(SCORES[name], { fade: 1.6, now }); else k.music.stop(1);
   const amb = AMBIENCE_FOR[mode && AMBIENCE_FOR['mode:' + mode] ? 'mode:' + mode : name];
   if (ambOn() && SCENES[amb]) k.amb.play(SCENES[amb], { fade: 2.5 }); else k.amb.stop(1.5);
   if (k.music.score || k.amb.scene) { k.scheduleUntil(audio.ctx.currentTime + 0.25); k.start(); } else k.stop();   // the first bar is scheduled now, not on the next timer tick
@@ -242,6 +242,7 @@ export function audioNow() {
     musicLevel: musicLevel(), sfxLevel: sfxLevel(), masterLevel: masterLevel(), muted: audio.muted, ambienceLevel: ambOn() ? AMBIENCE_LEVEL : 0,
     ambienceParams: { ...audio.params },
     bars: k && k.music.info() ? k.music.info().bars : 0,
+    musicAt: k && k.music.info() ? k.music.info().at : null, musicNext: k && k.music.info() ? k.music.info().next : null, clock: audio.ctx ? audio.ctx.currentTime : null,   // when the piece starts, where its next bar starts, and the audio clock
   };
 }
 export function audioList() { return { music: Object.keys(SCORES), ambience: Object.keys(SCENES) }; }

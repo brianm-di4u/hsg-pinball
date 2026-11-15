@@ -161,7 +161,7 @@ app.start = (resume = null, o = {}) => {
   dmd.queue.length = 0; dmd.cur = null;   // a new game starts with a clean display
   screens.close();
   document.body.dataset.scene = 'game';
-  startMusic('main'); mixState();
+  startMusic('main', null, true); mixState();   // a new game's music does not wait for the title's bar to end
   clearTimeout(overTimer); overTimer = 0;
   tableEl.focus({ preventScroll: true });
 };

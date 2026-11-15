@@ -101,7 +101,7 @@ export function makeAudioKit(ctx, out, opt = {}) {
       const fb = gain(0.3, d), wet = gain(score.delay ?? 0.18, lp); inp.connect(d); d.connect(fb); d.connect(wet); nodes.push(d, fb, wet);
     }
     bus.gain.setValueAtTime(0.0001, at); bus.gain.linearRampToValueAtTime(1, at + Math.max(fade, 0.02));
-    return { score, bus, lp, inp, nodes, bars: buildBars(score), t: at, bar: 0, mem: {}, rh: {}, prev: 4, dir: 1, sigs: new Set(), pitches: new Set(), notes: 0 };
+    return { score, bus, lp, inp, nodes, bars: buildBars(score), at, t: at, bar: 0, mem: {}, rh: {}, prev: 4, dir: 1, sigs: new Set(), pitches: new Set(), notes: 0 };
   }
   function genMotif(m, B, spbar, spb) {
     const s = m.score, L = s.lead, classes = L.classes || [0, 1, 2, 4, 5], lo = L.lo ?? -2, hi = L.hi ?? 9;
@@ -172,12 +172,17 @@ export function makeAudioKit(ctx, out, opt = {}) {
     m.lp.frequency.setTargetAtTime((s.lp || 4200) * (1 + 0.6 * inten), t0, 0.4);
     return barDur;
   }
+  const left = new Map();   // piece -> { bar, mem }: where each piece was left, so coming back to it carries on instead of starting again
   const music = {
+    // A change of piece waits for the end of the bar that is playing (cur.t is where the next bar starts), so the old phrase
+    // finishes and the new piece comes in on the beat, crossfading from there. o.at forces a time; o.now takes the first moment.
     play(score, o = {}) {
-      const at = o.at ?? ctx.currentTime + 0.03, fade = o.fade ?? 1.2;
+      const now = ctx.currentTime;
       if (cur && cur.score === score) return;
-      if (cur) retire(cur.bus, cur.nodes, at, fade);
+      const at = o.at ?? (cur && score && !o.now && cur.t > now + 0.03 ? cur.t : now + 0.03), fade = o.fade ?? 1.2;
+      if (cur) { if (score) left.set(cur.score, { bar: cur.bar, mem: cur.mem }); retire(cur.bus, cur.nodes, at, fade); }
       cur = score ? mStart(score, at, fade) : null;
+      if (cur && left.has(score)) { const l = left.get(score); cur.bar = l.bar; cur.mem = l.mem; }
     },
     stop(fade = 1) { music.play(null, { fade }); },
     level(v) { mLevel = v; if (!held) musicBus.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
@@ -185,7 +190,7 @@ export function makeAudioKit(ctx, out, opt = {}) {
     intensity(x) { inten = Math.max(0, Math.min(1, x)); },
     get score() { return cur && cur.score; },
     // For tests: how much the lead has really varied so far.
-    info() { return cur ? { bars: cur.bar, formBars: cur.bars.length, distinctBars: cur.sigs.size, notes: cur.notes, pitches: cur.pitches.size } : null; },
+    info() { return cur ? { bars: cur.bar, at: cur.at, next: cur.t, formBars: cur.bars.length, distinctBars: cur.sigs.size, notes: cur.notes, pitches: cur.pitches.size } : null; },
   };
 
   // ---------------------------------------------------------------------------------------------- ambience

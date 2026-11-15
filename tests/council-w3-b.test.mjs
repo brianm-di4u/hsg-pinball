@@ -146,4 +146,33 @@ export const tests = [
       t.expect(true, 'a flick of the stick to the left nudged the table');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S5-11
+  {
+    name: 'S5-11 a change of music waits for the end of the bar being played, and a piece comes back where it was left',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.reload(); await t.waitIdle(30000);
+      await gesture(t);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('pause');
+      await t.page.waitForFunction(() => { const a = window.__game.getState().audio; return a.state === 'running' && a.music === 'main' && a.bars >= 2; }, null, { timeout: 20000 });
+      const sw = await t.page.evaluate(() => {
+        const g = window.__game, out = {};
+        const a0 = g.getState().audio; out.main = { bars: a0.bars, next: a0.musicNext, clock: a0.clock };
+        g.act('mode', 1); g.step(1);
+        const a1 = g.getState().audio; out.mode = { music: a1.music, at: a1.musicAt, clock: a1.clock, bars: a1.bars };
+        return out;
+      });
+      t.equal(sw.mode.music, 'mode', 'the mode piece is chosen');
+      t.equal(sw.mode.at, sw.main.next, 'and it starts exactly where the next bar of the old piece would have');
+      t.expect(sw.mode.at > sw.main.clock, 'which is after the moment of the change, so the old bar finishes: ' + sw.main.clock.toFixed(3) + ' then ' + sw.mode.at.toFixed(3));
+      const back = await t.page.evaluate(() => {
+        const g = window.__game; g.act('endMode', false); g.step(1);
+        const a = g.getState().audio; return { music: a.music, bars: a.bars };
+      });
+      t.equal(back.music, 'main', 'when the mode ends the play piece returns');
+      t.equal(back.bars, sw.main.bars, 'at the bar it had reached (' + sw.main.bars + '), not from the top');
+    },
+  },
+
 ];
