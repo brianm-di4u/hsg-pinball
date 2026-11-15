@@ -1,0 +1,55 @@
+// Council wave 3, batch D: difficulty, progression and records; feedback, teaching and help
+// (S2-02, S1-19, S2-04, S3-10, S3-13, S4-05, P-N02, S1-04, S4-04).
+// Sim rules run in Node on the sim itself with fixed seeds, so they give the same answer every run; page checks use the window.__game hooks.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
+
+export const tests = [
+  // ---------------------------------------------------------------------------------------------- S2-02
+  {
+    name: 'S2-02 on a phone in portrait the ball number and six mode pips stay beside the score, and the pips show won, played and lit modes',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('act', 'plunge', 0.9);
+      await t.waitFrames(10);
+      const read = () => t.page.evaluate(() => {
+        const r = (s) => { const e = document.querySelector(s), b = e.getBoundingClientRect(), c = getComputedStyle(e); return { w: b.width, h: b.height, l: b.left, r: b.right, t: b.top, b: b.bottom, display: c.display, text: e.textContent }; };
+        const pips = [...document.querySelectorAll('#modegrid li')].map((li) => { const b = li.getBoundingClientRect(), c = getComputedStyle(li); return { cls: li.className, w: b.width, h: b.height, bg: c.backgroundImage, border: c.borderStyle, shadow: c.boxShadow }; });
+        const side = document.querySelector('#side');
+        return { ball: r('#ballno'), grid: r('#modegrid'), score: r('#score'), dmd: r('.dmd-frame'), pips, overflow: side.scrollWidth - side.clientWidth, docOverflow: document.documentElement.scrollWidth - innerWidth };
+      });
+      let v = await read();
+      t.equal(v.ball.text, 'Ball 1 of 3', 'the ball number is on screen: ' + v.ball.text);
+      t.expect(v.ball.w > 20 && v.ball.display !== 'none', 'and visible');
+      t.equal(v.pips.length, 6, 'six mode pips');
+      t.expect(v.grid.w > 60 && v.grid.display !== 'none', 'the pips are shown, not hidden: ' + v.grid.w);
+      t.expect(v.pips.every((p) => p.w >= 12 && p.h >= 12), 'each pip is a visible dot: ' + JSON.stringify(v.pips.map((p) => [p.w, p.h])));
+      t.expect(v.grid.t >= v.dmd.b - 2, 'they sit under the display with the score: ' + JSON.stringify([v.grid, v.dmd]));
+      t.expect(v.overflow <= 0 && v.docOverflow <= 0, 'nothing runs off the side: ' + v.overflow + ' ' + v.docOverflow);
+      t.expect(v.ball.r <= v.score.l + 1 || v.ball.b <= v.score.t + 1, 'the ball number does not overlap the score plate');
+      t.expect(v.pips.every((p) => p.cls === '' || p.cls === 'next'), 'a fresh game has no pip played or won: ' + v.pips.map((p) => p.cls).join('|'));
+      // a game with Soak won, Derby played and the Raid lit
+      await t.game('setState', { features: { modesWon: [1, 0, 0, 0, 0, 0], modesPlayed: [1, 1, 0, 0, 0, 0] } });
+      await t.game('act', 'mode', 2);
+      await t.waitFrames(8);
+      v = await read();
+      t.equal(v.pips.map((p) => p.cls).join('|'), 'won|played|on|||', 'won, played, lit, then not yet: ' + v.pips.map((p) => p.cls).join('|'));
+      t.expect(v.pips[0].bg !== 'none' && v.pips[1].bg === 'none', 'a won pip is gold and a played one is only outlined');
+      t.expect(v.pips[2].shadow !== 'none', 'the lit mode glows');
+      await t.page.waitForFunction(() => !window.__game.getState().dmd.text, null, { timeout: 20000 });   // the mode's callout has gone: the chip names the mode and its time
+      await t.waitFrames(4);
+      v = await read();
+      t.expect(/RAID/.test(v.score.text) && /[0-9]s/.test(v.score.text), 'with no callout up the plate names the mode and its clock: ' + v.score.text);
+      t.expect(v.overflow <= 0, 'and still fits: ' + v.overflow);
+      await t.checkLayout();
+      await shot(t, 'S2-02-status-strip');
+    },
+  },
+];

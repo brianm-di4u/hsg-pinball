@@ -48,7 +48,6 @@ body[data-view="2d"] #gl { visibility: hidden; }
 .mode-grid li.won { color: #1d1405; background: linear-gradient(#e8c25a, #b8892a); border-color: #ffe7a0; }
 .mode-grid li.next { color: var(--text); border-color: var(--gold); border-style: dashed; }   /* the mode the Vapors will serve next */
 .mode-grid li.on { color: #fff; border-color: #c48cff; box-shadow: 0 0 10px rgba(196, 140, 255, 0.6); }
-@media (max-aspect-ratio: 4 / 5) { .mode-grid { display: none; } }
 @media (max-height: 520px) and (min-aspect-ratio: 4 / 5) { .mode-grid { grid-template-columns: repeat(2, 1fr); gap: 3px; } .mode-grid li { padding: 2px; font-size: 0.68em; } }
 .score-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .ballno { color: var(--muted); font-size: 0.95em; }
@@ -155,9 +154,14 @@ body.reduced .boot-bar i { animation: none; width: 100%; opacity: 0.6; }
   .side .info { display: contents; }
   .side .controls-hint, .side .mode-line { display: none; }
   /* the score stays on screen while the DMD shows callouts: a small plate in the dark corner above the arch */
-  .side { flex-wrap: wrap; }
-  .side .score-line { display: flex; flex-basis: 100%; order: 2; justify-content: flex-start; pointer-events: none; margin-top: -2px; }
-  .side .score-line .ballno { display: none; }
+  .side { flex-wrap: wrap; row-gap: 0; }
+  .side .score-line { display: flex; flex: 1 1 0; min-width: 0; order: 2; justify-content: flex-start; align-items: center; gap: 6px; pointer-events: none; margin-top: 6px; }
+  .side::before { content: ""; flex: 0 0 100%; order: 1; height: 0; }   /* line break: the display and its buttons are the first row, the score and the pips the second */
+  .side .score-line .ballno { display: inline; flex: none; font-size: 0.72em; white-space: nowrap; }   /* the ball number stays beside the score (S2-02) */
+  .side .score { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the six modes as pips after the score plate: won is gold, played is outlined, the lit one glows, the next one is dashed */
+  .side .mode-grid { display: flex; flex: none; order: 2; gap: 5px; margin: 6px 0 0; }
+  .side .mode-grid li { width: 14px; height: 14px; padding: 0; border-radius: 50%; font-size: 0; }
   .side .score { font-size: 0.95em; background: rgba(12, 10, 20, 0.72); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.5); }
   .dmd-frame { padding: 5px; border-radius: 6px; }
   .info .controls-hint { display: none; }
