@@ -11,7 +11,7 @@ import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput, applyKeys, customKeys, keyName, KEYS } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { createCoach, setTipKeys } from './ui/coach.js';
-import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, suspendAudio, resumeAudio } from './ui/audio.js';
+import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, setCharge, chargeRender, suspendAudio, resumeAudio } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, storageWritable, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
 import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
 import { createView2D } from './gfx/view2d.js';
@@ -285,7 +285,12 @@ const input = createInput(tableEl, {
     if (a === 'flipL' || a === 'flipR') {
       const n = G.cues.length;
       flipper(G, a === 'flipL' ? 'L' : 'R', down, simTimeFor(ts));
-      if (down) { coach.note('flip'); if (G.cues.slice(n).some((c) => c.k === 'sound' && c.name === 'flip')) haptic('flip'); }   // only a flip that happened (not on a tilted table)
+      if (down) {
+        coach.note('flip');
+        // the flip is heard and felt now, not on the next sim step (S5-20): its cue is taken out of the queue so it does not sound twice
+        const at = G.cues.findIndex((c, k) => k >= n && c.k === 'sound' && c.name === 'flip');
+        if (at >= 0) { const c = G.cues.splice(at, 1)[0]; sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); haptic('flip'); }   // only a flip that happened (not on a tilted table)
+      }
     }
     else if (a === 'plunge') { if (!down && src === 'blur') plungerCancel(G); else plunger(G, down); }
     else if (down && a.startsWith('nudge')) { nudge(G, { nudgeL: 'left', nudgeR: 'right', nudgeU: 'up' }[a]); if (!reducedMotion()) effects.push({ k: 'shake', dir: a, t: now() }); }
@@ -537,6 +542,7 @@ function frame(ts) {
   }
   // the ball's rolling, ramp and rail sound follows the fastest ball; on the low tier it is updated every fourth frame
   if (frameNo % (view && view.tier === 'low' ? 4 : 1) === 0) setRoll(G.w.balls, G.T.width, running && !demo && G.scene === 'game');
+  setCharge(G.w.plunger.pull / G.w.plunger.maxPull, running && !demo && G.scene === 'game' && G.w.plunger.holding);
   if (frameNo % 20 === 0) mixState();
   coachFrame();
   // a resting demo keeps its last picture: the view is drawn once when it starts to rest (and again after a swap of view)
@@ -594,7 +600,7 @@ window.__game = {
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null; s.gfx = view && view.info ? view.info() : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text), line: demo ? null : statusLine() };
     s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
-    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, ...audioNow() };
+    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, charge: { ...audio.charge }, ...audioNow() };
     return s;
   },
   setState(s) { setGameState(G, s); return true; },
@@ -615,6 +621,7 @@ window.__game = {
   audioRender(name, seconds, wantWav, intensity, vol) { return audioRender(name, seconds, wantWav, intensity, vol); },
   cueRender(name, opts) { return cueRender(name, opts); },
   rollRender(seconds, wantWav) { return rollRender(seconds, wantWav); },
+  chargeRender(seconds, wantWav) { return chargeRender(seconds, wantWav); },
   isIdle() { return !loading && (!view || !view.busy || !view.busy()); },
   step(n = 1) { for (let i = 0; i < n; i++) { capturePrev(); if (bot) bot(); tick(G); routeCues(); } mixState(); render(1); return G.w.tick; },
   pause() { this.paused = true; return true; },

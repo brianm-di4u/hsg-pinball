@@ -6,7 +6,7 @@
 import { makeAudioKit, measureAudio } from './audiokit.js';
 import { SCORES, SCENES, AMBIENCE_FOR, MUSIC_LEVEL, AMBIENCE_LEVEL } from './music.js';
 
-export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 } };
+export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 }, charge: { n: 0, p: 0, hz: 0 } };
 
 let master, sfxBus, verb, noiseBuf;
 // cx is the context the cue synthesis builds on (the live one, or an offline one while a cue is rendered for a test);
@@ -345,6 +345,47 @@ export function setRoll(balls, width, on) {
     roll.set(fs, ts, tl, pan);
     audio.roll = { n: audio.roll.n + 1, fs: Math.round(fs), ts: Math.round(ts), layer: tl, pan: +pan.toFixed(2) };   // what the voice was last told (the tests read it)
   } catch { /* audio is optional */ }
+}
+
+// ------------------------------------------------------------------------------------------------- plunger charge (S5-20)
+// A low tone that rises while the plunger is held back, so the strength of the launch can be heard as well as seen: a sine and a
+// quieter triangle an octave above it (so a phone speaker has something to play). CHARGE.gain is its peak at a full pull, before the
+// effects bus; lo and hi are the pitch (Hz) at no pull and a full one.
+export const CHARGE = { gain: 0.1, lo: 70, hi: 230 };
+const chargeHz = (p) => CHARGE.lo + (CHARGE.hi - CHARGE.lo) * Math.pow(p, 1.3);
+let charge = null;
+function makeCharge(c, out) {
+  const o1 = c.createOscillator(), o2 = c.createOscillator(), g1 = c.createGain(), g2 = c.createGain();
+  o1.type = 'sine'; o2.type = 'triangle'; g1.gain.value = 0; g2.gain.value = 0;
+  o1.connect(g1).connect(out); o2.connect(g2).connect(out);
+  o1.start(); o2.start();
+  return {
+    // p: how far the plunger is drawn back, 0 to 1 (0 is silent)
+    set(p, at = c.currentTime) {
+      const f = chargeHz(p);
+      o1.frequency.setTargetAtTime(f, at, 0.03); o2.frequency.setTargetAtTime(f * 2, at, 0.03);
+      g1.gain.setTargetAtTime(p > 0.01 ? CHARGE.gain * (0.4 + 0.6 * p) : 0, at, 0.03); g2.gain.setTargetAtTime(p > 0.01 ? CHARGE.gain * 0.35 * p : 0, at, 0.03);
+    },
+  };
+}
+// p: the pull (0..1); on: false silences it (not holding, paused, demo, no game). audio.charge is what the voice was last told.
+export function setCharge(p, on) {
+  if (!audio.ctx || !sfxBus) return;
+  try {
+    const q = on && audio.on && !audio.hold ? Math.max(0, Math.min(1, p)) : 0;
+    if (!charge) { if (!q) return; charge = makeCharge(audio.ctx, sfxBus); }
+    charge.set(q);
+    audio.charge = { n: audio.charge.n + 1, p: +q.toFixed(3), hz: q ? Math.round(chargeHz(q)) : 0 };
+  } catch { /* audio is optional */ }
+}
+// the charge tone over a scripted pull (0 to full over the first half, held, then let go), for a test
+export function chargeRender(seconds = 4, wav = false) {
+  return measureAudio((oc, dest) => {
+    const { bus } = offlineChain(oc, dest), v = makeCharge(oc, bus), n = 40;
+    for (let i = 0; i <= n; i++) v.set(Math.min(1, (i / n) * 1.6), (seconds * 0.6 * i) / n);
+    v.set(0, seconds * 0.8);
+    return null;
+  }, seconds, { wav });
 }
 
 // ------------------------------------------------------------------------------------------------- test hooks for cues

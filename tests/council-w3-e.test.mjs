@@ -230,4 +230,56 @@ export const tests = [
     },
   },
 
+  // ---------------------------------------------------------------------------------------------- S5-20
+  {
+    name: 'S5-20 a flip is heard (and felt) the moment the button goes down, before the next sim step, and only once',
+    async run(t) {
+      await freshGame(t);
+      await t.game('pause');   // the loop stops, so no sim step can route a queued cue: anything heard now was played by the input itself
+      await t.waitFrames(2);
+      await spyVibrate(t);
+      const flips = async () => (await t.state()).audio.played.filter((n) => n === 'flip').length;
+      const before = await flips();
+      if (t.viewport === 'mobile') await t.tap([90, 520]); else { await t.page.keyboard.down('KeyZ'); await t.page.keyboard.up('KeyZ'); }
+      t.equal(await flips(), before + 1, 'the flip cue sounded with no sim step in between');
+      t.expect((await vibes(t)).length >= 1, 'and the phone was told at once too');
+      await t.game('resume'); await t.waitFrames(8);
+      t.equal(await flips(), before + 1, 'and it does not sound a second time when the sim catches up');
+    },
+  },
+  {
+    name: 'S5-20 holding the plunger sounds a low tone that rises with the pull and stops when it is let go',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 }); await t.waitFrames(5);
+      const charge = async () => (await t.state()).audio.charge;
+      t.equal((await charge()).p, 0, 'silent before the pull');
+      const hold = async (down) => {
+        if (t.viewport === 'mobile') await t.page.locator('#b-launch').dispatchEvent(down ? 'pointerdown' : 'pointerup', { pointerId: 7, pointerType: 'touch', clientX: 10, clientY: 10 });
+        else if (down) await t.page.keyboard.down('Space'); else await t.page.keyboard.up('Space');
+      };
+      await hold(true);
+      await t.page.waitForFunction(() => window.__game.getState().audio.charge.p > 0.15, null, { timeout: 20000 });
+      const a = await charge();
+      await t.page.waitForFunction((p) => window.__game.getState().audio.charge.p > p + 0.25, a.p, { timeout: 20000 });
+      const b = await charge();
+      t.log(`charge tone: ${a.hz} Hz at a pull of ${a.p}, ${b.hz} Hz at ${b.p}`);
+      t.expect(b.hz > a.hz + 20 && a.hz >= 70 && b.hz <= 240, 'the pitch rises with the pull, in a low range');
+      await hold(false);
+      await t.page.waitForFunction(() => window.__game.getState().audio.charge.p === 0, null, { timeout: 20000 });
+      t.equal((await charge()).hz, 0, 'and the tone ends when the plunger is let go');
+    },
+  },
+  {
+    name: 'S5-20 the charge tone is quiet, rises as it is drawn, and falls silent when let go',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.waitForFunction(() => window.__game && window.__game.chargeRender, null, { timeout: 60000 });
+      const r = await t.page.evaluate(() => window.__game.chargeRender(5, false));
+      t.log(`charge render: peak ${r.peak}, per second ${JSON.stringify(r.secs)}`);
+      t.expect(r.peak >= 0.02 && r.peak <= 0.25, 'the tone peaks between 0.02 and 0.25 (' + r.peak + ')');
+      t.expect(r.secs[2] > r.secs[0] * 1.4, 'it gets louder as the pull grows');
+      t.expect(r.secs[4] < r.secs[3] * 0.3, 'and dies away after the release');
+    },
+  },
 ];
