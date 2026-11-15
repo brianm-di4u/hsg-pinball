@@ -55,6 +55,7 @@ export const DERBY = { base: 1.5, spread: 1.2, surgeRate: 4, surgeSecs: 3, surge
 // won mode 15,000 and a mode that was only played 5,000 (it was 15,000 for every one played); a tilt does not count a mode.
 export const LADDER = { ebWins: 2, wizardWins: 4, bonusWon: 15000, bonusPlayed: 5000 };
 const winsOf = (f) => f.modesWon.reduce((a, b) => a + b, 0);
+export const COMBO_MAX = 5;   // the most a combo pays: 20,000 x 5 = 100,000 (a 6-way); another major shot inside the 3 s window keeps paying that
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
 // The Valley of the Vapors (S3-02): it lasts `secs` seconds and then ends (it used to run until the balls drained). Each shot pays `shot`
 // times a multiplier that doubles every `doubleEvery` seconds up to 2 to the `maxDoublings`. maxDoublings was 5 (32x, 1.6M a shot);
@@ -145,6 +146,7 @@ function serve(G) {
   const b = addBall(G.w, SHOOTER.x, SHOOTER.y);
   G.ball.inLane = true; G.ball.launched = false; G.ball.switches = 0;
   G.ball.skillLane = G.rng.int(3);
+  G.ball.lastMajor = { t: -10, side: '' }; G.ball.combo = 0;   // S3-10: a new ball starts with no combo window open
   G.ball.saveUntil = 0; G.ball.saving = false; G.ball.saveWarned = 0; G.ball.kb = { outL: 0, outR: 0 };
   cue(G, { k: 'serve', ball: b.id });
   return b;
@@ -437,7 +439,7 @@ function major(G, name) {
   // combos: another major shot within 3 s
   const last = G.ball.lastMajor;
   if (G.t - last.t < 3) {
-    G.ball.combo++;
+    G.ball.combo = Math.min(COMBO_MAX, G.ball.combo + 1);   // S3-10: it grew without a cap (a 10-way combo paid 200,000)
     const v = score(G, 20000 * G.ball.combo);
     dmd(G, (G.ball.combo + 1) + '-WAY COMBO', fmt(v), 1100, 2); sound(G, 'combo');
   } else G.ball.combo = 0;

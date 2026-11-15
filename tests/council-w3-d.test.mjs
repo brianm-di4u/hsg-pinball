@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
-import { createGame, newGame, tick, nudge, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
+import { createGame, newGame, tick, nudge, COMBO_MAX, STANDARD, DIFFICULTY } from '../src/js/sim/rules.js';
 import { textWidth, DW } from '../src/js/ui/dmd.js';
 import { autoPlunge } from '../src/js/sim/physics.js';
 import { simulate, TARGETS } from '../tools/balance.mjs';
@@ -117,6 +117,34 @@ export const tests = [
       t.expect(box.every(Boolean), 'inside the card');
       await t.checkLayout();
       await shot(t, 'S2-04-match-line');
+    },
+  },
+  // ---------------------------------------------------------------------------------------------- S3-10
+  {
+    name: 'S3-10 a combo pays at most 100,000 however long the chain, and a new ball starts without one',
+    node: true,
+    async run(t) {
+      const G = fresh(6); launched(G); G.cues.length = 0;
+      const shot = (g, name) => { g.w.events.push({ t: 'hit', sw: T.sw[name], speed: 1000, dir: 1, ball: g.w.balls[0].id }); tick(g); };
+      const combos = (g = G) => { const out = []; for (const c of g.cues) if (c.k === 'dmd' && /WAY COMBO/.test(c.text)) out.push([c.text, +c.sub.replace(/,/g, '')]); g.cues.length = 0; return out; };
+      const chain = [];
+      for (let i = 0; i < 12; i++) { shot(G, i % 2 ? 'reserve' : 'orbitTop'); chain.push(...combos()); run(G, 0.5); }
+      t.equal(chain.length, 11, 'eleven of the twelve shots were inside the window of the one before: ' + chain.length);
+      t.equal(JSON.stringify(chain.slice(0, 5)), JSON.stringify([['2-WAY COMBO', 20000], ['3-WAY COMBO', 40000], ['4-WAY COMBO', 60000], ['5-WAY COMBO', 80000], ['6-WAY COMBO', 100000]]), 'the ladder climbs by 20,000 to 100,000: ' + JSON.stringify(chain.slice(0, 5)));
+      t.expect(chain.every(([, v]) => v <= 100000), 'no combo in the chain pays more than 100,000: ' + Math.max(...chain.map((c) => c[1])));
+      t.equal(COMBO_MAX, 5, 'the constant says 5');
+      // a combo window left open when the ball drains does not carry to the next ball
+      const H = fresh(7); launched(H); H.cues.length = 0;
+      shot(H, 'reserve'); shot(H, 'orbitTop'); combos(H);
+      t.expect(H.ball.combo >= 1 && H.t - H.ball.lastMajor.t < 3, 'a window is open on the first ball: combo ' + H.ball.combo);
+      H.ball.saveUntil = 0; H.ball.inLane = false; H.ball.launched = true;
+      H.w.events.push({ t: 'drain', ball: H.w.balls[0].id, x: 240 });
+      run(H, 5);
+      t.equal(H.player.ball, 2, 'the next ball is up');
+      t.expect(H.ball.combo === 0 && H.t - H.ball.lastMajor.t > 3, 'and it starts with no combo and no window: ' + H.ball.combo);
+      H.cues.length = 0;
+      shot(H, 'orbitTop');
+      t.equal(combos(H).length, 0, 'the first shot of the new ball is not a combo');
     },
   },
 ];
