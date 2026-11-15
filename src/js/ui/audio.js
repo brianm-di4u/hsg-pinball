@@ -17,7 +17,7 @@ let cx = null, dst = null, roll = null, quiet = false;   // quiet: the cue being
 // who turns the effects off keeps the music, as before the ambience was added.
 const musicOn = () => audio.music;
 // the bus levels the settings give: the Effects and Music sliders scale what the switches allow; a mute (the M key, the speaker button) closes the master for the session
-const SFX_LEVEL = 0.9;   // the effects bus with its slider at the maximum
+const SFX_LEVEL = 1.1;   // the effects bus with its slider at the maximum (was 0.9, S5-14: the table's cues sat near -14 dBFS, quiet beside other audio)
 const DEFAULT_VOLUME = 0.8;   // the master volume a new player starts with
 const sfxLevel = () => (audio.on ? SFX_LEVEL * audio.sfxVol : 0);
 const musicLevel = () => (musicOn() ? MUSIC_LEVEL * audio.musicVol : 0);
@@ -26,11 +26,23 @@ const ambOn = () => audio.ambience;
 
 // The master volume and the compressor in front of the speakers, on any context: the live one, or an offline one that renders a
 // piece or a cue for a test. vol is the master volume (the Volume slider; 0.8 by default, 1 at its maximum).
+const SOFT_KNEE = 0.55, SOFT_CEIL = 0.9;   // below the knee the sound is untouched; above it, it tends to the ceiling
+let softCurve = null;
+function softCeiling() {
+  if (softCurve) return softCurve;
+  const n = 2049, k = new Float32Array(n), room = SOFT_CEIL - SOFT_KNEE;
+  // a waveshaper maps inputs of -1 to 1 across its curve; anything louder is held at the last value
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1, a = Math.abs(x); k[i] = Math.sign(x) * (a <= SOFT_KNEE ? a : SOFT_KNEE + room * Math.tanh((a - SOFT_KNEE) / room)); }
+  return (softCurve = k);
+}
 function masterChain(c, dest, vol) {
   const m = c.createGain(); m.gain.value = vol;
   const comp = c.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
-  m.connect(comp).connect(dest);
+  // a soft ceiling after it: a waveshaper that passes everything under SOFT_KNEE untouched and bends what is above it towards SOFT_CEIL, so
+  // a pile-up of cues, a piece and a bed at full volume cannot clip. (A second compressor would add make-up gain of its own to everything.)
+  const lim = c.createWaveShaper(); lim.curve = softCeiling(); lim.oversample = '2x';
+  m.connect(comp).connect(lim).connect(dest);
   return m;
 }
 

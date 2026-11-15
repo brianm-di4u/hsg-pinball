@@ -201,4 +201,33 @@ export const tests = [
       await t.checkLayout();
     },
   },
+
+  // ---------------------------------------------------------------------------------------------- S5-14
+  {
+    name: 'S5-14 the effects are louder (a plain tone cue by 15 percent or more, no cue over 0.5) and a soft ceiling holds the pile-up at full volume',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.waitForFunction(() => window.__game && window.__game.cueRender, null, { timeout: 60000 });
+      // bonus and plungerHit are plain tones with no random detune or noise, so each renders to the same peak every time
+      // (before this item: bonus 0.0451, plungerHit 0.0850, at the default volume)
+      const bonus = (await cue(t, 'bonus', { seconds: 1.5 })).peak, hit = (await cue(t, 'plungerHit', { seconds: 1.5 })).peak;
+      t.log(`bonus ${bonus} (was 0.0451), plungerHit ${hit} (was 0.0850)`);
+      t.expect(bonus >= 0.0451 * 1.15 && bonus <= 0.0451 * 1.5, 'bonus is 15 to 50 percent higher');
+      t.expect(hit >= 0.085 * 1.15 && hit <= 0.085 * 1.5, 'plungerHit is 15 to 50 percent higher');
+      // the table's cues that were at 0.2 and the loudest ceremony cue, the median of seven renders (each repeat differs by about 1.5 dB)
+      const med7 = async (name, opts = {}) => median(await Promise.all([0, 1, 2, 3, 4, 5, 6].map(() => cue(t, name, { seconds: 2.5, ...opts }).then((r) => r.peak))));
+      const levels = {};
+      for (const n of ['bumper', 'sling', 'kick', 'achieve', 'saveEnd', 'multUp']) levels[n] = await med7(n);
+      t.log('median peaks: ' + JSON.stringify(levels));
+      t.expect(Object.values(levels).every((p) => p <= 0.5), 'no cue has a median peak over 0.5 at the default volume');
+      t.expect(levels.bumper >= 0.2 && levels.sling >= 0.2 && levels.kick >= 0.2, 'the bumper, sling and kick are in the cue range');
+      // the limiter: a ceremony, a piece at full intensity and its bed, and every table cue at the same instant, with every volume at its maximum.
+      // Before the limiter this was 1.19 (it clipped); it is a pile-up the game does not make on purpose but a long multiball can.
+      let worst = 0;
+      for (const [under, name] of [['wizard', 'achieve'], ['multiball', 'saveEnd'], ['wizard', 'multUp']]) worst = Math.max(worst, (await cue(t, name, { seconds: 4.5, vol: 1, under, with: EVERY })).peak);
+      t.log('the worst pile-up at full volume peaks at ' + worst);
+      t.expect(worst < 0.95, 'the pile-up stays under 0.95: ' + worst);
+    },
+  },
+
 ];
