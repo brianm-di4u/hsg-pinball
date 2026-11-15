@@ -131,4 +131,36 @@ export const tests = [
       t.expect(!held(e, 'L') && !held(e, 'R'), 'both flippers let go when the fingers lift');
     },
   },
+  // ---------------------------------------------------------------------------------------------- S4-22
+  {
+    name: 'S4-22 the medium tier flares a glow at a sling or bumper hit with no extra light, high keeps its flashers, and low has neither',
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('act', 'plunge', 0.9);
+      await t.page.waitForTimeout(200);
+      const flash = (sw) => t.page.evaluate((n) => { const g = window.__game; g.act('switch', n); g.step(1); return g.getState().gfx; }, sw);
+      const read = async (tier) => {
+        await t.game('act', 'tier', tier);
+        await t.waitFrames(6);
+        const before = (await t.state()).gfx;
+        const hit = await flash('slingL');
+        return { before, hit };
+      };
+      const med = await read('medium');
+      t.equal(med.before.tier, 'medium', 'the medium tier is on');
+      t.expect(med.hit.glow > 0.3, 'a sling hit lights the glow on the medium tier: ' + med.hit.glow);
+      t.equal(med.hit.pointLights, 2, 'with the two fill lights it always had and no flasher light: ' + med.hit.pointLights);
+      t.expect(med.before.glow === 0, 'and the glow is off when nothing hit');
+      await t.game('act', 'tier', 'medium'); await t.waitFrames(6);
+      await t.game('act', 'clock', 5000);   // the picture holds still on the flash, for the screenshot
+      await flash('bumper1');
+      await shot(t, 'S4-22-medium-glow');
+      await t.game('act', 'clock', null);
+      const high = await read('high');
+      t.expect(high.hit.pointLights >= 6 && high.hit.glow === 0, 'high keeps its two flasher lights and no sprite: ' + JSON.stringify(high.hit));
+      const low = await read('low');
+      t.expect(low.hit.pointLights === 0 && low.hit.glow === 0, 'low has neither: ' + JSON.stringify(low.hit));
+    },
+  },
 ];

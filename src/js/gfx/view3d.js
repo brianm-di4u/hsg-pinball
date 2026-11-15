@@ -7,10 +7,13 @@ import { paintPlayfield, paintLabels } from './playfield.js';
 import { allLabels, labelScale } from '../sim/labels.js';
 import { CX, BATHHOUSES, VAP } from '../sim/table-spa-city.js';
 
+// flashers: point lights that flare on big hits (they cost every lit pixel). glow (S4-22): one additive sprite that flares in the same
+// place instead, which costs a few pixels and no lighting; the medium tier, the phone tier, has it where it had no flash at all.
+// The governor steps medium down to low, and low has neither.
 const TIERS = {
-  high: { ratio: 2, msaa: 4, shadow: 2048, bloom: 1, pf: 3.7, steam: 220, gi: 4, flashers: 2, cube: 20 },
-  medium: { ratio: 1.5, msaa: 0, shadow: 1024, bloom: 0.5, pf: 2.2, steam: 120, gi: 2, flashers: 0, cube: 0 },
-  low: { ratio: 0.75, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 24, gi: 0, flashers: 0, cube: 0 },
+  high: { ratio: 2, msaa: 4, shadow: 2048, bloom: 1, pf: 3.7, steam: 220, gi: 4, flashers: 2, glow: 0, cube: 20 },
+  medium: { ratio: 1.5, msaa: 0, shadow: 1024, bloom: 0.5, pf: 2.2, steam: 120, gi: 2, flashers: 0, glow: 1, cube: 0 },   // glow was 0
+  low: { ratio: 0.75, msaa: 0, shadow: 0, bloom: 0, pf: 1.6, steam: 24, gi: 0, flashers: 0, glow: 0, cube: 0 },
 };
 
 // Ball highlight (S1-11): a rim glow round the ball, a short trail that grows with speed, and a darkening of the lower
@@ -545,6 +548,15 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const flasherPool = [0, 1].map(() => new THREE.PointLight('#ffb070', 0, 260, 2));
   const giPool = [[60, 300], [420, 300], [150, 900], [330, 900]].map(([x, y]) => { const l = new THREE.PointLight('#ffcf88', 2200, 560, 2); l.position.copy(P(x, y, 110)); return l; });
   let flashers = [], giLights = [];
+  // the glow that stands in for a flasher on the medium tier: a soft additive disc
+  const glowSprite = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32); rg.addColorStop(0, 'rgba(255,214,150,1)'); rg.addColorStop(0.35, 'rgba(255,160,80,0.55)'); rg.addColorStop(1, 'rgba(255,140,60,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+    const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, toneMapped: false }));
+    s.renderOrder = 5; s.visible = false; scene.add(s); return s;
+  })();
   function applyLights() {
     for (const l of [...flasherPool, ...giPool]) scene.remove(l);
     flashers = flasherPool.slice(0, Q.flashers); flashers.forEach((l) => scene.add(l));
@@ -672,6 +684,8 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
   const view = {
     kind: '3d',
     get tier() { return tierName; },
+    /** What a test can read of the picture's cost and the flash: point lights in the scene, and the glow sprite that stands in for a flasher. */
+    info: () => ({ tier: tierName, pointLights: scene.children.filter((o) => o.isPointLight).length, glow: glowSprite.visible ? glowSprite.material.opacity : 0 }),
     maxRatio: () => Q.ratio,
     busy: () => false,
     resize(w, h, ratio) {
@@ -801,13 +815,16 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', reducedMot
       });
       // flashers follow recent big events
       const big = fx.filter((e) => e.k === 'flash' && t - e.t < 0.2).slice(-3);
+      const flashAt = (e) => (e.name && e.name.startsWith('bumper') ? bumpers[+e.name[6] - 1] : e.name && e.name.startsWith('sling') ? { x: e.name === 'slingL' ? 118 : 367, y: 260 } : { x: CX, y: 600 });
       flashers.forEach((l, i) => {
         const e = big[i];
         if (!e || o.reduced) { l.intensity = 0; return; }
-        const k = 1 - (t - e.t) / 0.2;
-        const pos = e.name && e.name.startsWith('bumper') ? bumpers[+e.name[6] - 1] : e.name && e.name.startsWith('sling') ? { x: e.name === 'slingL' ? 118 : 367, y: 260 } : { x: CX, y: 600 };
+        const k = 1 - (t - e.t) / 0.2, pos = flashAt(e);
         l.position.copy(P(pos.x, pos.y, 70)); l.intensity = 9000 * k;
       });
+      const ge = big[big.length - 1];
+      if (Q.glow && ge && !o.reduced) { const k = 1 - (t - ge.t) / 0.2, pos = flashAt(ge); glowSprite.position.copy(P(pos.x, pos.y, 60)); glowSprite.material.opacity = 0.85 * k; glowSprite.scale.setScalar(150 * (1.1 - 0.3 * k)); glowSprite.visible = true; }
+      else glowSprite.visible = false;
       for (const m of glowMats) if (m.name && /glass_lit|neon|sign/.test(m.name)) m.emissiveIntensity = (/neon/.test(m.name) ? 1.5 : /sign/.test(m.name) ? 0.85 : 0.9) * (0.88 + 0.12 * Math.sin(t * 3 + m.id));
       // spinner
       for (const e of fx) if (e.k === 'spin' && !e.used) { e.used = true; spinVel += e.n * 3.5 * (e.dir || 1); }
