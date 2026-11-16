@@ -8,6 +8,19 @@ const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 
+// a paused game finished with this score: the last ball drains and the initials card opens
+async function toEntry(t, score = 9999990) {
+  await t.page.evaluate(() => { for (const k of ['settings', 'scores', 'scores5', 'stats', 'daily', 'resume']) localStorage.removeItem('hsg-pinball:' + k); });
+  await t.reload(); await t.waitIdle(30000);
+  await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+  await t.game('setState', { player: { ball: 3, score }, ball: { saveUntil: 0 } });
+  await t.game('act', 'placeBall', 242, 60, 0, -1500);
+  await t.game('step', 400);
+  await t.page.waitForFunction(() => window.__game.getState().screen === 'entry', null, { timeout: 8000 });
+}
+const initials = (t) => t.page.evaluate(() => [...document.querySelectorAll('.initials .ini span')].map((s) => s.textContent).join(''));
+const cursor = (t) => t.page.evaluate(() => [...document.querySelectorAll('.initials .ini')].findIndex((d) => d.classList.contains('on')));
+
 export const tests = [
   // ------------------------------------------------------------------------------------------------------ S1-10
   {
@@ -44,6 +57,50 @@ export const tests = [
       for (let i = 0; i < 40; i++) { await t.game('step', 1); const r = await rd(); end = Math.abs(r.d0 - rest); worst = Math.max(worst, Math.abs(r.d1 - rest)); }
       t.expect(worst <= end + 1e-9, 'it is never drawn past the end of the stroke: most ' + worst.toFixed(4) + ', stroke ' + end.toFixed(4));
       t.expect(end > 0.3, 'the stroke was reached: ' + end.toFixed(3));
+    },
+  },
+  // ------------------------------------------------------------------------------------------------------ P-N03
+  {
+    name: 'P-N03 initials can be typed: letters fill the places and move on (Z too), Backspace takes one back, the flippers still change the letter, Enter confirms',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await toEntry(t);
+      const k = (key) => t.page.keyboard.press(key);
+      t.equal(await initials(t), 'AAA', 'the card starts at AAA');
+      await k('z'); await k('a'); await k('p');
+      t.equal(await initials(t), 'ZAP', 'typing z, a, p gives ZAP (Z is a letter here, not the left flipper)');
+      t.equal(await cursor(t), 2, 'the cursor stays on the last place');
+      await shot(t, 'P-N03-entry-typed');
+      await t.checkLayout();
+      await k('x');
+      t.equal(await initials(t), 'ZAX', 'a fourth letter replaces the last one');
+      await k('Backspace');
+      t.equal(await initials(t), 'ZAA', 'Backspace takes the last letter back');
+      await k('Backspace');
+      t.equal([await initials(t), await cursor(t)], ['ZAA', 1], 'and again moves back a place');
+      await k('Backspace');
+      await k('Backspace'); await k('Backspace');
+      t.equal([await initials(t), await cursor(t)], ['AAA', 0], 'Backspace at the first place does nothing more');
+      await k('M'); await k('Q');
+      t.equal(await initials(t), 'MQA', 'a capital letter types too');
+      await k('ArrowRight');
+      t.equal([await initials(t), await cursor(t)], ['MQB', 2], 'the right flipper still changes the letter');
+      await k('ArrowLeft');
+      t.equal(await initials(t), 'MQA', 'the left flipper too');
+      await k('1'); await k('.');
+      t.equal(await initials(t), 'MQA', 'digits and punctuation are left alone');
+      const hint = await t.page.locator('#e-hint').textContent();
+      t.expect(t.viewport === 'mobile' ? !/Type/.test(hint) : /^Type your initials/.test(hint), 'the hint says so on a keyboard screen: ' + hint);
+      await k('Backspace'); await k('Backspace'); await k('Backspace');
+      await k('z'); await k('a'); await k('p');
+      await k('Enter');
+      await t.page.waitForFunction(() => window.__game.getState().screen === 'scores');
+      const row = await t.page.evaluate(() => window.__game.getState().scores[0]);
+      t.equal(row.initials, 'ZAP', 'Enter keeps ZAP on the table: ' + row.initials);
+      const gone = await t.page.evaluate(() => window.__game.getState().screen);
+      t.equal(gone, 'scores', 'and the scores are shown');
+      await t.page.keyboard.press('z');
+      t.expect(await t.page.evaluate(() => window.__game.getState().screen) === 'scores', 'after the card closes a letter key does nothing to it');
     },
   },
 ];

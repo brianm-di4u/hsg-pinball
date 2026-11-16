@@ -402,7 +402,7 @@ export function createScreens(root, app) {
           ${summary(res, true)}
           <p>Enter your initials</p>
           <div class="initials" role="group" aria-label="Initials">${letters.map((l, i) => `<div class="ini ${i === pos ? 'on' : ''}"><button type="button" class="btn sm" data-up="${i}" aria-label="Letter ${i + 1} next">▲</button><span aria-live="polite">${l === ' ' ? '_' : l}</span><button type="button" class="btn sm" data-down="${i}" aria-label="Letter ${i + 1} previous">▼</button></div>`).join('')}</div>
-          <p class="hint">Flippers change the letter · plunger confirms</p>
+          <p class="hint" id="e-hint">${app.touch ? 'Flippers change the letter · plunger confirms' : 'Type your initials, or flippers change the letter · plunger confirms'}</p>
           <div class="menu"><button type="button" id="b-ok" class="btn primary" autofocus>OK</button></div>
         </section>`);
         root.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => { pos = +b.dataset.up; cycle(1); }));
@@ -411,6 +411,24 @@ export function createScreens(root, app) {
       };
       const cycle = (d) => { letters[pos] = A[(A.indexOf(letters[pos]) + d + A.length) % A.length]; render(); };
       const finish = () => done(letters.join('').replace(/ /g, '_'));
+      // a keyboard types the letters (P-N03): a letter fills the place under the cursor and moves on (the last place takes the next letter instead), Backspace takes one back.
+      // The letter comes from the key as the player's layout reads it, and it is taken before the game's own keys, so Z types a Z here
+      let typedLast = false;
+      if (S.entryType) window.removeEventListener('keydown', S.entryType, true);
+      S.entryType = (e) => {
+        if (current !== 'entry') { window.removeEventListener('keydown', S.entryType, true); S.entryType = null; return; }
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Backspace') {
+          if (pos === 2 && typedLast) { letters[2] = 'A'; typedLast = false; } else if (pos > 0) { pos--; letters[pos] = 'A'; } else return;
+        } else if (/^[a-z]$/i.test(e.key)) {
+          if (e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+          letters[pos] = e.key.toUpperCase();
+          if (pos < 2) pos++; else typedLast = true;
+        } else return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        render();
+      };
+      window.addEventListener('keydown', S.entryType, true);
       S.entryKey = (a) => {
         if (a === 'flipL') cycle(-1); else if (a === 'flipR') cycle(1);
         else if (a === 'plunge') { if (pos < 2) { pos++; render(); } else finish(); }
