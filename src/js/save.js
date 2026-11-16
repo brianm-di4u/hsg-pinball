@@ -37,7 +37,7 @@ export function storageWritable() {
   try { const k = PREFIX + 'probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch { return false; }
 }
 
-export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, sfxVol: 1, musicVol: 1, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard', tipsSeen: false, ballGlow: true, haptics: true, callouts: true, tierLearned: '' };
+export const DEFAULT_SETTINGS = { v: 1, sound: true, music: true, volume: 0.8, sfxVol: 1, musicVol: 1, motion: 'auto', balls: 3, tier: 'auto', practice: false, textScale: 1, ambience: true, difficulty: 'standard', tipsSeen: false, ballGlow: true, haptics: true, callouts: true, litRim: false, tierLearned: '' };
 
 // saved values come from storage anyone can edit: keep only what the settings screen could have written
 const pick = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt);
@@ -57,7 +57,7 @@ function cleanSettings(s) {
     ...s, v: 1,
     sound: bool(s.sound, d.sound), music: bool(s.music, d.music),
     ambience: bool(s.ambience, bool(s.sound, d.ambience)),   // a save from before the Ambience switch gets it where its Sound effects switch is, so effects off means no new sound
-    practice: bool(s.practice, d.practice), ballGlow: bool(s.ballGlow, d.ballGlow), haptics: bool(s.haptics, d.haptics), callouts: bool(s.callouts, d.callouts),
+    practice: bool(s.practice, d.practice), ballGlow: bool(s.ballGlow, d.ballGlow), haptics: bool(s.haptics, d.haptics), callouts: bool(s.callouts, d.callouts), litRim: bool(s.litRim, d.litRim),
     volume: unit(s.volume, d.volume),
     sfxVol: unit(s.sfxVol, d.sfxVol), musicVol: unit(s.musicVol, d.musicVol),   // a save from before the two sliders has neither: both at full, so nothing sounds different
     motion: pick(s.motion, ['auto', 'full', 'reduced'], d.motion),

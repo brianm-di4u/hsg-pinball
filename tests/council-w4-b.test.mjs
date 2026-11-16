@@ -19,6 +19,8 @@ async function toEntry(t, score = 9999990) {
   await t.game('step', 400);
   await t.page.waitForFunction(() => window.__game.getState().screen === 'entry', null, { timeout: 8000 });
 }
+// a close-up of the multiplier triangles (and the arrows above them), for the before and after pictures
+const closeUp = async (t, name) => { const p = await t.page.evaluate(() => { const q = window.__game.viewScreen(242, 262), c = [...document.querySelectorAll('canvas')].filter((x) => x.getBoundingClientRect().width > 0).sort((u, v) => v.width * v.height - u.width * u.height)[0].getBoundingClientRect(); return [c.left + q[0], c.top + q[1]]; }); const w = 150, h = 90; fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + t.viewport + '.png'), clip: { x: Math.max(0, p[0] - w / 2), y: Math.max(0, p[1] - h / 2), width: w, height: h } }); };
 const initials = (t) => t.page.evaluate(() => [...document.querySelectorAll('.initials .ini span')].map((s) => s.textContent).join(''));
 const cursor = (t) => t.page.evaluate(() => [...document.querySelectorAll('.initials .ini')].findIndex((d) => d.classList.contains('on')));
 
@@ -333,6 +335,97 @@ export const tests = [
       t.expect(box.every(Boolean), 'it is inside the card and on the screen');
       await shot(t, 'C4-02-credits');
       await t.checkLayout();
+    },
+  },
+  // ------------------------------------------------------------------------------------------------------ S2-10
+  {
+    name: 'S2-10 Lit inserts has a High contrast option that is off by default and saved, an old save without it has it off', node: true,
+    async run(t) {
+      const mem = new Map();
+      globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k), key: (i) => [...mem.keys()][i], get length() { return mem.size; } };
+      try {
+        const { loadSettings, saveSettings, DEFAULT_SETTINGS } = await import('../src/js/save.js');
+        t.equal(DEFAULT_SETTINGS.litRim, false, 'the default is off');
+        t.equal(loadSettings().litRim, false, 'a profile with no save has it off');
+        mem.set('hsg-pinball:settings', JSON.stringify({ v: 1, sound: false, difficulty: 'expert' }));
+        const old = loadSettings();
+        t.equal([old.litRim, old.sound, old.difficulty], [false, false, 'expert'], 'a save from before has it off and keeps what it had');
+        saveSettings({ ...old, litRim: true });
+        t.equal(loadSettings().litRim, true, 'it is saved');
+        mem.set('hsg-pinball:settings', JSON.stringify({ v: 1, litRim: 'yes' }));
+        t.equal(loadSettings().litRim, false, 'and a wrong-shaped value falls back to off');
+      } finally { delete globalThis.localStorage; }
+    },
+  },
+  {
+    name: 'S2-10 with High contrast on, every lit insert gets a white rim and no unlit one does; the inserts themselves are drawn as before and the option is off until chosen',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      t.equal((await t.state()).view, '3d', 'the 3D table is up');
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('pause');
+      await t.game('setState', { player: { bonusX: 3 }, ball: { inLane: false } });
+      await t.waitFrames(4);
+      const read = () => t.page.evaluate(() => ({ lit: window.__game.rimLevel('bonus3x'), unlit: window.__game.rimLevel('bonus5x'), body: window.__game.act('lampLevel', 'bonus3x'), bodyUnlit: window.__game.act('lampLevel', 'bonus5x') }));
+      const off = await read();
+      t.equal([off.lit, off.unlit], [0, 0], 'option off: no rim anywhere');
+      await shot(t, 'S2-10-lit-normal'); await closeUp(t, 'S2-10-closeup-normal');
+      await t.game('applySettings', { litRim: true });
+      await t.waitFrames(4);
+      const on = await read();
+      t.expect(on.lit > 0.9, 'option on: the lit insert has a white rim: ' + on.lit);
+      t.equal(on.unlit, 0, 'the unlit one has none');
+      t.expect(Math.abs(on.body - off.body) < 0.05 && Math.abs(on.bodyUnlit - off.bodyUnlit) < 0.05, 'and the inserts are drawn at the same brightness as before: ' + off.body.toFixed(2) + ' then ' + on.body.toFixed(2));
+      await shot(t, 'S2-10-lit-high-contrast'); await closeUp(t, 'S2-10-closeup-high-contrast');
+      await t.game('applySettings', { litRim: false });
+      await t.waitFrames(4);
+      t.equal((await read()).lit, 0, 'switched off again, the rims are gone');
+    },
+  },
+  {
+    name: 'S2-10 the Settings screen offers Lit inserts: Normal or High contrast, and choosing it is saved and applied',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'settings');
+      const sel = t.page.locator('#s-rim');
+      t.equal(await sel.inputValue(), '0', 'it starts on Normal');
+      await sel.selectOption('1');
+      t.equal((await t.state()).settings.litRim, true, 'High contrast is applied');
+      t.equal(await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:settings')).litRim), true, 'and saved');
+      await shot(t, 'S2-10-settings');
+      await t.checkLayout({ allowScrollY: true });
+    },
+  },
+  {
+    name: 'S2-10 the flat 2D table draws the white rim too: more near-white pixels round a lit insert with the option on, and none round an unlit one',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('pause');
+      await t.game('applySettings', { tier: '2d' });
+      await t.game('setState', { player: { bonusX: 3 }, ball: { inLane: false } });
+      await t.waitFrames(4);
+      t.equal((await t.state()).view, '2d', 'the flat table is up');
+      const whites = (name) => t.page.evaluate((n) => {
+        const L = window.__game.act('lampLevel', n);   // (3D only: unused here)
+        const cv = [...document.querySelectorAll('canvas')].filter((x) => x.getBoundingClientRect().width > 0).sort((u, v) => v.width * v.height - u.width * u.height)[0];
+        const pos = { bonus3x: [242 + 15, 262], bonus5x: [242 + 75, 262] }[n], q = window.__game.viewScreen(pos[0], pos[1]);
+        const r = cv.getBoundingClientRect(), k = cv.width / r.width, g = cv.getContext('2d');
+        if (!g) return -1;
+        const d = g.getImageData(Math.round(q[0] * k) - 24, Math.round(q[1] * k) - 24, 48, 48).data; let c = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235) c++;
+        return c;
+      }, name);
+      const off = [await whites('bonus3x'), await whites('bonus5x')];
+      await t.game('applySettings', { litRim: true });
+      await t.waitFrames(4);
+      const on = [await whites('bonus3x'), await whites('bonus5x')];
+      t.expect(on[0] > off[0] + 15, 'a lit insert has a white outline with the option on: ' + off[0] + ' near-white pixels, then ' + on[0]);
+      t.equal(on[1], off[1], 'an unlit one is drawn as before: ' + on[1]);
+      await t.game('applySettings', { litRim: false, tier: 'auto' });
     },
   },
 ];

@@ -562,7 +562,7 @@ function render(alpha, still = false) {
   const lampOn = lampStates(G, LAMPS, t);
   const interp = interpolated(alpha);
   if (view && !still) drawn++;
-  if (view && !still) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), highlight: app.settings.ballGlow, debug: qs.get('debug') === 'physics' });
+  if (view && !still) view.draw(G, alpha, lampOn, interp, { t, effects, demo, reduced: reducedMotion(), highlight: app.settings.ballGlow, rim: app.settings.litRim, debug: qs.get('debug') === 'physics' });
   while (effects.length && t - effects[0].t > 2) effects.shift();
   dmd.frame(t * 1000, dmdBase);
   // repaint the dot canvas only when a dot changed (4,096 dots is real work on a phone)
@@ -629,6 +629,7 @@ window.__game = {
   cueRender(name, opts) { return cueRender(name, opts); },
   rollRender(seconds, wantWav) { return rollRender(seconds, wantWav); },
   chargeRender(seconds, wantWav) { return chargeRender(seconds, wantWav); },
+  rimLevel(name) { return view && view.rimLevel ? view.rimLevel(name) : null; },   // tests: how bright the white rim of a lamp is drawn (3D view)
   drawnFlippers(alpha) { return interpolated(alpha).flippers.map((f) => f.angle); },   // tests: the angles the picture would draw at this fraction of a tick
   isIdle() { return !loading && (!view || !view.busy || !view.busy()); },
   step(n = 1) { for (let i = 0; i < n; i++) { capturePrev(); if (bot) bot(); tick(G); routeCues(); } mixState(); render(1); return G.w.tick; },

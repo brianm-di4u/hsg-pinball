@@ -2,6 +2,7 @@
 // Draws the same sim and lamp states as the 3D view, top-down.
 import { K, BALL_R } from '../sim/physics.js';
 
+const RIM_LIT = 0.55;   // S2-10: a lamp at this brightness or more counts as lit for the white rim
 export function createView2D(canvas, T, lamps) {
   const ctx = canvas.getContext('2d');
   let W = 0, H = 0, s = 1, ox = 0, oy = 0, dpr = 1;
@@ -56,6 +57,7 @@ export function createView2D(canvas, T, lamps) {
         ctx.fillStyle = v > 0.05 ? l.color : '#3a3442';
         if (v > 0.5) { ctx.shadowColor = l.color; ctx.shadowBlur = 10 * s; }
         shape(ctx, l.shape, l.size * s);
+        if (opts.rim && v > RIM_LIT) { ctx.globalAlpha = 1; ctx.lineWidth = Math.max(1.5, 2 * s); ctx.strokeStyle = '#ffffff'; ctx.shadowBlur = 0; ctx.stroke(); }   // S2-10: a lit insert gets a white rim too
         ctx.restore();
       }
       ctx.globalAlpha = 1; ctx.shadowBlur = 0;

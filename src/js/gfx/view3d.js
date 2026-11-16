@@ -545,6 +545,22 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = 
     });
     mesh.renderOrder = 1; mesh.frustumCulled = false; scene.add(mesh);
   }
+  // S2-10: the high-contrast option gives every lit insert a white rim (a thin outline of its own shape just outside it), so lit and unlit differ by a pattern and not only by brightness.
+  // Drawn only while the option is on; the rims sit at zero brightness the rest of the time.
+  const RIM_LIT = 0.55, rimInst = [], rimMeshes = [];
+  for (const [shp, idx] of Object.entries(byShape)) {
+    const outer = shapeOf(THREE, shp, 1.5); outer.holes.push(new THREE.Path(shapeOf(THREE, shp, 1.2).getPoints()));
+    const g = new THREE.ShapeGeometry(outer); g.rotateX(-Math.PI / 2);
+    const mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), idx.length);
+    idx.forEach((li, k) => {
+      const l = lamps[li];
+      tmpQ.setFromEuler(tmpE.set(0, l.angle, 0)); tmpS.set(l.size, 1, l.size);
+      mesh.setMatrixAt(k, tmpM.compose(P(l.x, l.y, 0.36), tmpQ, tmpS));
+      mesh.setColorAt(k, tmpC.setRGB(0, 0, 0));
+      rimInst[li] = { mesh, k };
+    });
+    mesh.renderOrder = 1; mesh.frustumCulled = false; mesh.visible = false; scene.add(mesh); rimMeshes.push(mesh);
+  }
   // the lake: a tiling pattern of soft streaks of light (whole numbers of waves, so it tiles) scrolled over the pool under a soft oval mask
   const ripple = [];
   {
@@ -821,6 +837,7 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = 
     highlightInfo() { return { rims: ballPool.filter((B) => B.rim.visible).length, ghosts: ballPool.reduce((n, B) => n + B.ghosts.filter((g) => g.visible).length, 0), floorDark: pfDark.value }; },
     /** 'full' (default framing) or a close view {x, y, z, dist, pitch, yaw} in table mm and radians (review captures, attract). */
     /** The rendered (uploaded) brightness of a lamp's insert, for tests. */
+    rimLevel(name) { const i = lamps.findIndex((l) => l.name === name); if (i < 0) return null; const ri = rimInst[i], c = new THREE.Color(); ri.mesh.getColorAt(ri.k, c); return ri.mesh.visible ? Math.max(c.r, c.g, c.b) : 0; },
     lampLevel(name) { const i = lamps.findIndex((l) => l.name === name); if (i < 0) return null; const li = lampInst[i], c = new THREE.Color(); li.mesh.getColorAt(li.k, c); return li.mesh.instanceColor.version > 0 ? Math.max(c.r, c.g, c.b) : 0; },
     setCamera(m) {
       camMode = m || 'full';
@@ -876,6 +893,11 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = 
         halos.setColorAt(i, tmpC.copy(lampBase[i]).multiplyScalar(v * (l.group === 'spa' ? 0.75 : 0.2)));
       });
       for (const m of touched) m.instanceColor.needsUpdate = true;
+      for (const m of rimMeshes) m.visible = !!o.rim;
+      if (o.rim) {
+        lamps.forEach((l, i) => { const ri = rimInst[i]; ri.mesh.setColorAt(ri.k, tmpC.setRGB(1, 1, 1).multiplyScalar((lampOn[l.name] || 0) > RIM_LIT ? 1 : 0)); });
+        for (const m of rimMeshes) m.instanceColor.needsUpdate = true;
+      }
       halos.instanceColor.needsUpdate = true;
       // targets flash, drops
       const fx = o.effects;
