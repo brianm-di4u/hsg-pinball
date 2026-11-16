@@ -86,18 +86,22 @@ export const tests = [
       await t.page.waitForFunction(() => window.__titleMs != null, null, { timeout: 8000 });
       await t.game('newGame', { balls: 3, seed: 5 });
       await t.game('act', 'plunge', 0.9);
-      await t.page.waitForTimeout(600);
+      // wait for the ball to leave the lane, then keep it loose: put it back in mid-table every frame, so the table is never quiet however the ball would have run
+      await t.page.waitForFunction(() => { const s = window.__game.getState(); return s.ballsInPlay > 0 && !s.ball.inLane; }, null, { timeout: 20000 });
+      await t.page.evaluate(() => { window.__keepLoose = true; const f = () => { if (window.__keepLoose) { window.__game.act('placeBall', 240, 420, 0, 0); requestAnimationFrame(f); } }; f(); });
       await t.game('act', 'flip', 'L', true);   // a flipper held down across the swap
-      // the packs are in after 2.5 s: with a ball loose the build holds still and the flat table keeps playing
-      await t.page.waitForTimeout(4500);
-      let s = await t.state();
-      t.log('with a ball in play after 5 s: view', s.view, 'ballsInPlay', s.ballsInPlay, 'ball', s.player.ball);
-      if (s.ballsInPlay > 0) t.expect(s.view === '2d', 'no swap while a ball is loose: ' + s.view);
-      t.expect(s.frame > 100, 'the game kept running meanwhile');
+      // the packs are in after 2.5 s: with a ball loose the build holds still and the flat table keeps playing, for a hundred and twenty frames after they arrive
+      await t.page.waitForFunction(() => !!window.THREE && !!window.__PB_MODELS, null, { timeout: 20000 });
+      const held = await t.page.evaluate(() => new Promise((res) => { const f0 = window.__game.getState().frame; let n = 0; const f = () => { const s = window.__game.getState(); if (s.view !== '2d' || s.ballsInPlay === 0) return res({ view: s.view, balls: s.ballsInPlay, frames: s.frame - f0 }); if (++n >= 120) return res({ view: s.view, balls: s.ballsInPlay, frames: s.frame - f0 }); requestAnimationFrame(f); }; f(); }));
+      t.log('after the packs arrived, with a ball loose: view', held.view, 'balls', held.balls, 'frames', held.frames);
+      t.expect(held.view === '2d' && held.balls > 0, 'no swap while a ball is loose: ' + JSON.stringify(held));
+      t.expect(held.frames > 60, 'the game kept running meanwhile: ' + held.frames + ' frames');
+      await t.page.evaluate(() => { window.__keepLoose = false; });
       // now the ball is gone and the next one waits in the lane: the table is quiet
       await t.game('act', 'clearBalls');
       await t.game('pause');
       const before = await t.state();
+      await t.page.waitForFunction(() => window.__game.getState().view === '3d', null, { timeout: 30000 });
       await t.waitIdle(30000);
       const after = await t.state();
       t.expect(after.view === '3d', 'the 3D table is in: ' + after.view);
