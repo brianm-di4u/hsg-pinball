@@ -328,6 +328,7 @@ export const tests = [
       await t.waitIdle(30000);
       await t.game('scene', 'credits');
       await t.page.waitForSelector('#c-art');
+      t.equal(await t.page.locator('#c-font').textContent(), 'Headings are set in Rokkitt Bold, under the SIL Open Font License.', 'and the Credits name the face and its licence');
       t.equal(await t.page.locator('#c-art').textContent(), 'Art: 3D block-outs painted with AI image tools for this game.', 'the line is the one the owner approved');
       const text = await t.page.locator('.credits').textContent();
       t.expect(!/openai|codex|blender/i.test(text), 'and names no company or product');
