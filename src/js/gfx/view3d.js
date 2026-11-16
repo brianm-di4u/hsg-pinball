@@ -148,15 +148,16 @@ export async function createView3D(canvas, T, lamps, { tier = 'auto', learned = 
   // top tier (S6-08). The governor steps down, and back up to the tier it fell from.
   const coarse = () => matchMedia('(pointer: coarse)').matches;
   const weak = () => coarse() && (navigator.hardwareConcurrency || 8) <= 4;
+  const topTier = () => coarse() ? 'medium' : 'high';   // the most this device is expected to manage
   const autoTier = () => {
     if (softwareGL(renderer)) return 'low';
-    const top = coarse() ? 'medium' : 'high', l = typeof learned === 'function' ? learned() : '';
+    const top = topTier(), l = typeof learned === 'function' ? learned() : '';
     if (TIER_ORDER.includes(l) && TIER_ORDER.indexOf(l) <= TIER_ORDER.indexOf(top)) return l;
     return weak() ? 'low' : top;
   };
   const gov = createGovernor();
   let tierName = tier === 'auto' ? autoTier() : tier;
-  if (tier === 'auto' && tierName === 'low' && !softwareGL(renderer) && coarse()) gov.allowUpTo('medium');   // a weak phone starts low and may prove it can do medium
+  if (tier === 'auto' && !softwareGL(renderer) && TIER_ORDER.indexOf(tierName) < TIER_ORDER.indexOf(topTier())) gov.allowUpTo(topTier());   // a start below the device's own top (a weak phone, or a tier learned on a slow day) may climb back to it
   let Q = TIERS[tierName] || TIERS.high;
 
   const packs = await loadPacks();
