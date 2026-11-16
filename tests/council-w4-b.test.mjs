@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flipperDrawAngle } from '../src/js/sim/physics.js';
+import { DIFFICULTY, STANDARD } from '../src/js/sim/rules.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4', 'shots');
@@ -128,6 +129,26 @@ export const tests = [
       t.expect(a.played.filter((x) => x === 'ui').length > before.played.filter((x) => x === 'ui').length || a.played.length >= 40, 'with Sound effects off the cue is still asked for: ' + a.played.slice(-3));
       t.equal(a.audible.length, before.audible.length, 'but nothing is heard: the audible list did not grow');
       t.equal(await t.page.evaluate(() => window.__started), 0, 'and no source started');
+    },
+  },
+  // ------------------------------------------------------------------------------------------------------ C4-03
+  {
+    name: 'C4-03 Standard has one kickback a side, Easy more and Expert none, and the settings and the help say so', 
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      t.equal(STANDARD.kickbacks, 1, 'Standard: one kickback a side');
+      t.expect(DIFFICULTY.easy.kickbacks > DIFFICULTY.standard.kickbacks && DIFFICULTY.standard.kickbacks > DIFFICULTY.expert.kickbacks, 'the order of generosity is kept: Easy ' + DIFFICULTY.easy.kickbacks + ', Standard ' + DIFFICULTY.standard.kickbacks + ', Expert ' + DIFFICULTY.expert.kickbacks);
+      await t.waitIdle(30000);
+      await t.game('scene', 'settings');
+      let text = await t.page.locator('#screens').textContent();
+      t.expect(/Standard: a 10 second ball save, one kickback a side./.test(text), 'Settings describes Standard with one kickback a side');
+      t.expect(!/three kickbacks/i.test(text), 'and nowhere says three');
+      await shot(t, 'C4-03-settings');
+      await t.checkLayout({ allowScrollY: true });
+      await t.game('scene', 'help');
+      await t.page.waitForSelector('#help-scoring', { state: 'attached' });
+      text = await t.page.locator('#screens').textContent();
+      t.expect(/once a side each ball on Standard/.test(text), 'the help says once a side each ball on Standard');
     },
   },
 ];

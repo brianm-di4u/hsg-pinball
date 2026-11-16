@@ -12,7 +12,7 @@ const fmt = (n) => Number(n).toLocaleString('en-US');
 const DIFF_OPTS = [['easy', 'Easy'], ['standard', 'Standard'], ['expert', 'Expert']];
 const DIFF_HINT = {
   easy: 'Easy: a 20 second ball save, five kickbacks a side, a forgiving tilt.',
-  standard: 'Standard: a 10 second ball save, three kickbacks a side.',
+  standard: 'Standard: a 10 second ball save, one kickback a side.',
   expert: 'Expert: no ball save, no kickbacks, a strict tilt and a stronger nudge.',
 };
 const DIFF_NAME = { easy: 'Easy', standard: 'Standard', expert: 'Expert' };
@@ -269,7 +269,7 @@ export function createScreens(root, app) {
               <li><b>Mountain Tower ramp:</b> every 3 ramps raise the tower and light the lock.</li>
               <li><b>The Arlington:</b> lock 3 balls for <b>Arlington Multiball</b>. Jackpots on the ramp.</li>
               <li><b>Central Avenue orbit:</b> the spinner fills the Fifth Season meter for an extra ball.</li>
-              <li><b>Kickbacks:</b> a ball that rolls down an outlane after the ball save has run out is sent back to the shooter lane, a few times a side each ball. Table difficulty in Settings changes how many.</li>
+              <li><b>Kickbacks:</b> a ball that rolls down an outlane after the ball save has run out is sent back to the shooter lane, once a side each ball on Standard. Table difficulty in Settings changes how many.</li>
               <li><b>The Vapors</b> scoop starts modes, collects what's lit, or pays a mystery award.</li>
             </ul>
             </div>

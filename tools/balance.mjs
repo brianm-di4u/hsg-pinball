@@ -1,6 +1,6 @@
 // Headless balance runs: the autoplay bot plays full games on the real rules and physics, and the tool reports ball times,
 // scores, drains and how often each mode and multiball is reached. Targets (S3-03, Standard, skill-0.8 bot, 30+ games):
-// an average ball of 40 to 90 s, side drains under 35 percent of drains, and every mode and the Arlington reached in at
+// an average ball of 30 to 90 s, side drains under 35 percent of drains, and every mode and the Arlington reached in at
 // least 20 percent of games.
 //   node tools/balance.mjs [--games 30] [--skill 0.8] [--seed 1] [--difficulty standard] [--ladder] [--check] [--json]
 //   --tune kickbacks=0,saveSecs=10   override a number of the Standard tuning (rules.js STANDARD) for this run
@@ -14,7 +14,7 @@ import { createBot } from '../src/js/sim/bot.js';
 import { BATHHOUSES } from '../src/js/sim/table-spa-city.js';
 import { TICK } from '../src/js/sim/physics.js';
 
-export const TARGETS = { ballMin: 40, ballMax: 90, sideMax: 0.35, reachMin: 0.2, rotatedReachMin: 0.1 };   // rotatedReachMin (CL-02): with the ladder starting at a different mode each game, every mode is reached in at least this share of games
+export const TARGETS = { ballMin: 30, ballMax: 90, sideMax: 0.35, reachMin: 0.2, rotatedReachMin: 0.1 };   // rotatedReachMin (CL-02): with the ladder starting at a different mode each game, every mode is reached in at least this share of games   // ballMin was 40 until C4-03 cut the kickbacks from three to one a side (the owner's decision): the ball is shorter by design
 const SHOT_SOUND = { vapors: 'saucer', lock: 'saucer', ramp: 'rampMade', orbit: 'orbit', reserve: 'orbit', bh: 'target' };
 const BH = new Set(BATHHOUSES);
 export const LADDER = [0.4, 0.6, 0.8, 0.95];
