@@ -45,9 +45,14 @@ tests.push({
     await t.game('newGame', { balls: 3, seed: 5 });
     await t.game('act', 'plunge', 0.9);
     await t.waitFrames(30);
-    const settle = (cond) => t.page.waitForFunction((c) => { const m = window.__game.modeInfo(); return eval(c); }, cond, { timeout: 15000 });
+    // the windows ease toward their level: wait until the glow is above the lower bound and has stopped moving (ten frames in a row within 0.001), then read it
+    const settle = (floor) => t.page.waitForFunction((lo) => {
+      const g = window.__game.modeInfo().arlington.glow, w = (window.__glowWatch ||= { last: -1, still: 0 });
+      w.still = Math.abs(g - w.last) < 0.001 ? w.still + 1 : 0; w.last = g;
+      return g > lo && w.still >= 10;
+    }, floor, { polling: 'raf', timeout: 30000 });
     const glow = [];
-    for (const locks of [0, 1, 2]) { await t.game('setState', { features: { locks, lockLit: false } }); await settle(locks === 0 ? 'm.arlington.glow > 0.2' : 'm.arlington.glow > ' + (glow[locks - 1] + 0.1)); glow.push((await t.game('modeInfo')).arlington.glow); }
+    for (const locks of [0, 1, 2]) { await t.game('setState', { features: { locks, lockLit: false } }); await t.page.evaluate(() => { window.__glowWatch = { last: -1, still: 0 }; }); await settle(locks === 0 ? 0.2 : glow[locks - 1] + 0.1); glow.push((await t.game('modeInfo')).arlington.glow); }
     t.expect(glow[0] >= 0.25, 'with no lock held the windows already glow warm enough to read against the lake: ' + glow[0]);
     t.expect(glow[0] < glow[1] && glow[1] < glow[2], 'each lock still lights them more: ' + glow.join(' < '));
     const sc = (await t.game('modeInfo')).arlington.scale;
