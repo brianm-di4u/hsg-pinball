@@ -70,8 +70,9 @@ One serializable object, `game` (rules) plus `physics.snapshot(w)`:
 ## 6. Rules engine (`rules.js`, `modes.js`)
 - Consumes physics events (`roll`, `target`, `bumper`, `sling`, `spinner`, `hole`, `drain`, `flipHit`) once per
   tick, updates the state, and emits presentation cues: `{callout, dmd, lamp, sound, shake, score}`.
-- Ball lifecycle: serve to the plunger → ball save (10 s, ends early once the ball has hit 3 switches and then
-  the timer runs out) → drain → end-of-ball bonus → next ball or game over → match → initials entry.
+- Ball lifecycle: serve to the plunger → ball save (starts when the ball leaves the lane: 10 s on Standard, 20 s on Easy,
+  none on Expert; 15 s, 20 s and none after a multiball starts; it always runs its full time and is not shortened by
+  switch hits) → drain → end-of-ball bonus → next ball or game over → match → initials entry.
 - Skill shot: one top lane lit at plunge; landing in it within 4 s scores it.
 - Tilt: each nudge adds to a bob value that decays 1.2/s; above 2.0 a warning (3 allowed), the next tilts the
   ball (flippers dead, no bonus).

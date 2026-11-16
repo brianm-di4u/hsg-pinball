@@ -1,7 +1,8 @@
-// Council wave 4, batch A: saves, lifecycle and robustness (C4-01).
+// Council wave 4, batch A: saves, lifecycle and robustness (C4-01, S3-16, S5-17, S5-18, S5-19).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DIFFICULTY } from '../src/js/sim/rules.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4', 'shots');
@@ -21,6 +22,19 @@ const NEWER = {
 const seedNewer = (t, only = Object.keys(NEWER)) => t.page.evaluate(([n, keys, p]) => { localStorage.clear(); for (const k of keys) localStorage.setItem(p + k, JSON.stringify(n[k])); }, [NEWER, only, P]);
 
 export const tests = [
+  {
+    name: 'S3-16 MECHANICS.md describes the ball save the game has: no early end after three switches, and the lengths on each difficulty',
+    node: true,
+    async run(t) {
+      const doc = fs.readFileSync(path.join(GAME, 'MECHANICS.md'), 'utf8').replace(/\s+/g, ' ');
+      const line = doc.slice(doc.indexOf('Ball lifecycle'), doc.indexOf('Skill shot'));
+      t.expect(line.length > 50, 'the ball lifecycle line is there');
+      t.expect(!/ends early|3 switches|three switches/.test(line) || /not shortened by switch hits/.test(line), 'it no longer says the save ends early after three switches');
+      const d = DIFFICULTY;
+      t.expect(line.includes(d.standard.saveSecs + ' s on Standard') && line.includes(d.easy.saveSecs + ' s on Easy') && d.expert.saveSecs === 0 && /none on Expert/.test(line), 'the single-ball lengths match the code: ' + [d.easy.saveSecs, d.standard.saveSecs, d.expert.saveSecs]);
+      t.expect(line.includes(d.standard.saveSecsMulti + ' s, ' + d.easy.saveSecsMulti + ' s and none'), 'and the multiball lengths: ' + [d.standard.saveSecsMulti, d.easy.saveSecsMulti, d.expert.saveSecsMulti]);
+    },
+  },
   {
     name: 'C4-01 a save from a newer version is byte-for-byte the same after a visit that changes settings and plays a game, and the title says so once',
     viewports: ['desktop', 'mobile'],
