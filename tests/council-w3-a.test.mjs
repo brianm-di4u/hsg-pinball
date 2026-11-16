@@ -85,6 +85,17 @@ export const tests = [
       for (let i = 0; i < 60 && !/SAVE/.test(await text()); i++) await t.game('step', 30);
       t.expect(/SAVE [0-9]+s$/.test(await text()), 'the line says how long the save has left: ' + (await text()));
       await shot(t, 'S2-19-save-countdown');
+      if (t.viewport === 'mobile') {
+        // the phone plate is cut off with an ellipsis when it is too long: the save must lead it and nothing may be cut
+        const cut = () => t.page.locator('#score').evaluate((e) => e.scrollWidth > e.clientWidth);
+        t.expect(/^SAVE [0-9]+s/.test(await text()), 'the save leads the plate: ' + (await text()));
+        t.expect(!(await cut()), 'the plate shows all of its text, not an ellipsis');
+        await t.game('act', 'mode', 0);
+        await t.game('step', 2);
+        for (let i = 0; i < 60 && !/SAVE/.test(await text()); i++) await t.game('step', 30);
+        t.expect(/^SAVE [0-9]+s · /.test(await text()), 'with a mode running the save still comes first: ' + (await text()));
+        await shot(t, 'S2-19-save-countdown-mode');
+      }
       await t.game('setState', { ball: { saveUntil: 0 } });
       await t.game('step', 2);
       t.expect(!/SAVE/.test(await text()), 'and nothing once it has ended: ' + (await text()));

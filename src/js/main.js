@@ -572,8 +572,9 @@ function render(alpha, still = false) {
   // side panel: touch the DOM only when a value changes
   const p = G.player;
   const saveLeft = !demo && G.scene === 'game' && !p.tilted && G.ball.saveUntil > G.t ? ' · SAVE ' + Math.ceil(G.ball.saveUntil - G.t) + 's' : '';   // the ball save running: how long is left
-  const chip = dmd.cur ? fmt(p.score) : !touchChip() ? '' : G.mode ? `${G.mode.id.toUpperCase()} ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`;
-  setText('#score', demo ? '' : dmd.cur || !touchChip() ? chip : chip + saveLeft);
+  const saveSecs = saveLeft.slice(3);   // "SAVE 7s" with no separator: on the phone plate it comes first, so the cut-off end of a long line is never the save
+  const chip = dmd.cur ? fmt(p.score) : !touchChip() ? '' : saveSecs && !G.mode ? saveSecs : G.mode ? `${G.mode.id.toUpperCase()} ${G.mode.progress | 0}/${G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`;
+  setText('#score', demo ? '' : dmd.cur || !touchChip() || !saveSecs || !G.mode ? chip : saveSecs + ' · ' + chip);
   setText('#ballno', demo ? 'Demo' : G.scene === 'over' ? 'Game over' : 'Ball ' + p.ball + ' of ' + p.ballsPerGame);
   const modeText = G.mode ? `${G.mode.id === 'raid' ? 'Raid! 1967' : modeShort(G.mode.i)} · ${G.mode.id === 'derby' ? (G.mode.progress | 0) + '%' : (G.mode.progress | 0) + '/' + G.mode.need} · ${Math.max(0, Math.ceil(G.mode.end - G.t))}s` : G.mb ? { arlington: 'Arlington Multiball', soak: 'Grand Soak Multiball', valley: 'Valley of the Vapors' }[G.mb.kind] : '';   // fact: raid
   setText('#modeline', demo ? '' : (modeText || `Wins ${G.f.modesWon.reduce((a, b) => a + b, 0)}/${LADDER.wizardWins} · Tower ${G.f.towerLevel}/3`) + saveLeft);
