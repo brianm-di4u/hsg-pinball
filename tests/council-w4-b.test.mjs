@@ -428,4 +428,47 @@ export const tests = [
       await t.game('applySettings', { litRim: false, tier: 'auto' });
     },
   },
+  // ------------------------------------------------------------------------------------------------------ C4-04
+  {
+    name: 'C4-04 the table name, the headings, the mode names and the score are set in Rokkitt Bold from file://, and nothing overflows or wraps where it did not',
+    viewports: ['desktop', 'mobile'],
+    fileUrl: true,
+    async run(t) {
+      await t.waitIdle(30000);
+      const tag = process.env.W4_FONT_SHOT || 'after';
+      const family = (sel) => t.page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).fontFamily : null; }, sel);
+      const loaded = () => t.page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('700 20px Rokkitt'); });
+      await shot(t, 'C4-04-title-' + tag);
+      const heights = {};
+      const lines = async (sel) => t.page.evaluate((s) => { const e = document.querySelector(s); const r = e.getBoundingClientRect(); return { h: Math.round(r.height), w: Math.round(r.width), sw: e.scrollWidth, cw: e.clientWidth }; }, sel);
+      heights.title = await lines('#t-h .t-big');
+      t.log(tag + ' title box ' + JSON.stringify(heights.title));
+      t.expect(heights.title.sw <= heights.title.cw + 1, 'the title does not spill its box: ' + JSON.stringify(heights.title));
+      if (tag === 'after') {
+        t.expect(/^"?Rokkitt"?,/.test(await family('#t-h .t-big')), 'the title starts with Rokkitt: ' + await family('#t-h .t-big'));
+        t.expect(/Rockwell/.test(await family('#t-h .t-big')), 'and keeps the old stack behind it');
+        t.equal(await loaded(), true, 'the face is loaded (no network, from the stylesheet)');
+      }
+      await t.checkLayout();
+      await t.game('scene', 'settings');
+      if (tag === 'after') t.expect(/^"?Rokkitt"?,/.test(await family('.screen h2')), 'headings start with Rokkitt');
+      t.expect(/Avenir|Segoe|system-ui/.test(await family('#s-sound')) || !/Rokkitt/.test(await family('#s-sound')), 'while the controls keep their own font: ' + await family('#s-sound'));
+      await shot(t, 'C4-04-settings-' + tag);
+      await t.checkLayout({ allowScrollY: true });
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('pause');
+      await t.waitFrames(3);
+      await t.game('resume');
+      await t.page.waitForSelector('.mode-grid li');
+      if (tag === 'after') {
+        t.expect(/^"?Rokkitt"?,/.test(await family('.score')), 'the score starts with Rokkitt');
+        t.expect(/^"?Rokkitt"?,/.test(await family('.mode-grid li')), 'and so do the mode names');
+      }
+      const chips = await t.page.evaluate(() => [...document.querySelectorAll('.mode-grid li')].map((e) => ({ t: e.textContent, over: e.scrollWidth > e.clientWidth + 1, lines: Math.round(e.getBoundingClientRect().height) })));
+      t.log(tag + ' mode chips (height px): ' + chips.map((c) => c.lines).join(','));
+      t.expect(chips.every((c) => !c.over), 'no mode name spills its box: ' + JSON.stringify(chips));
+      await shot(t, 'C4-04-play-' + tag);
+      await t.checkLayout();
+    },
+  },
 ];
