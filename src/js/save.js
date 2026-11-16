@@ -6,12 +6,29 @@ import { emptyTally, GOALS, pruneDays, streakOf, todayKey } from './progress.js'
 
 const PREFIX = 'hsg-pinball:';
 
+// A save written by a newer version of the game (a release rolled back, a stale copy of the page) is left alone: its keys carry a version
+// number above 1. When any does, nothing is written to storage for the whole visit; the game plays from defaults and what the player does
+// in this visit lives in memory only, so the newer build finds everything as it was.
+const SAVE_KEYS = ['settings', 'scores', 'scores5', 'stats', 'daily', 'resume'];
+const memory = new Map();   // this visit's writes while the stored save is a newer one: key -> JSON text
+let newer = null;           // null until the first access has looked
+const looksNewer = () => SAVE_KEYS.some((k) => {
+  try { const v = JSON.parse(localStorage.getItem(PREFIX + k)); return !!v && typeof v === 'object' && typeof v.v === 'number' && v.v > 1; } catch { return false; }
+});
+export const newerSave = () => { if (newer === null) newer = looksNewer(); return newer; };
+
 export const store = {
   get(key, fallback) {
-    try { const v = localStorage.getItem(PREFIX + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; }
+    try {
+      if (newerSave()) { if (memory.has(key)) return JSON.parse(memory.get(key)); }
+      const v = localStorage.getItem(PREFIX + key); return v == null ? fallback : JSON.parse(v);
+    } catch { return fallback; }
   },
   set(key, value) {
-    try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); return true; } catch { return false; }
+    try {
+      if (newerSave()) { memory.set(key, JSON.stringify(value)); return true; }
+      localStorage.setItem(PREFIX + key, JSON.stringify(value)); return true;
+    } catch { return false; }
   },
 };
 

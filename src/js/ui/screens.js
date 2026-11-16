@@ -50,8 +50,17 @@ function didLine(d) {
 
 export function createScreens(root, app) {
   let current = null;
-  // with storage blocked (a private window, site data switched off) nothing the player earns is kept: say so
-  const noSave = (id) => (app.storageOk() ? '' : `<p class="hint warn" id="${id}" role="note">Progress cannot be saved in this browser: scores and settings will not be kept.</p>`);
+  // with storage blocked (a private window, site data switched off) nothing the player earns is kept: say so. A save from a newer version of the game
+  // is left untouched, so this visit is not saved either: the title says so once, Settings every time it opens
+  let newerTold = false;
+  const noSave = (id, once = false) => {
+    if (app.newerSave()) {
+      if (once && newerTold) return '';
+      newerTold = true;
+      return `<p class="hint warn" id="${id}" role="note">This visit is not being saved: your save comes from a newer version of the game, and it is left as it is.</p>`;
+    }
+    return app.storageOk() ? '' : `<p class="hint warn" id="${id}" role="note">Progress cannot be saved in this browser: scores and settings will not be kept.</p>`;
+  };
   let unbind = null;   // set while Settings waits for a key to bind: takes the listener off again
   const el = (html) => { if (unbind) unbind(); root.innerHTML = html; root.hidden = !html; const st = document.getElementById('stage'); if (st) st.inert = !!html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
   const on = (sel, fn) => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx('ui'); fn(e); }); };
@@ -87,7 +96,7 @@ export function createScreens(root, app) {
         </div>
         <p class="hint">${app.touch ? 'Tap the left or right side to flip · hold Launch to plunge' : customKeys() ? `${keyName(KEYS.flipL[0])} and ${keyName(KEYS.flipR[0])} to flip · hold ${keyName(KEYS.plunge[0])} to plunge` : 'Z and / (or Shift) to flip · hold Space to plunge'}</p>
         <p class="hint" id="t-diff">${DIFF_NAME[app.settings.difficulty]} table</p>
-        ${noSave('t-nosave')}
+        ${noSave('t-nosave', true)}
         <p class="hint" id="t-rank">Rank: ${esc(P.rank.name)}${P.daily.days[P.today] ? ' · daily played today' : ' · today\'s daily table is waiting'}</p>
       </section>`);
       on('#b-continue', () => app.continueGame());

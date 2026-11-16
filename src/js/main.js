@@ -12,7 +12,7 @@ import { createInput, applyKeys, customKeys, keyName, KEYS } from './ui/input.js
 import { createScreens } from './ui/screens.js';
 import { createCoach, setTipKeys } from './ui/coach.js';
 import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, setCharge, chargeRender, suspendAudio, resumeAudio } from './ui/audio.js';
-import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, storageWritable, clearResume, loadStats, saveStats, loadDaily, saveDaily } from './save.js';
+import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, storageWritable, clearResume, loadStats, saveStats, loadDaily, saveDaily, newerSave } from './save.js';
 import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
 import { createView2D } from './gfx/view2d.js';
 import { createView3D, probeGL } from './gfx/view3d.js';
@@ -34,6 +34,7 @@ const app = {
   scoresBalls: () => { const b = app.settings.balls; return b === 5 && store.get('scores5', null) == null && store.get('scores', null) != null ? 3 : b; },
   stats: loadStats(),
   storageOk: () => storageWritable(),
+  newerSave: () => newerSave(),
 };
 
 let G = createGame(T, { seed: TEST ? 1 : (Date.now() & 0xffff) });
@@ -605,7 +606,7 @@ window.__game = {
     const s = gameState(G);
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null; s.gfx = view && view.info ? view.info() : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text), line: demo ? null : statusLine() };
-    s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
+    s.newerSave = newerSave(); s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
     s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, charge: { ...audio.charge }, ...audioNow() };
     return s;
   },
