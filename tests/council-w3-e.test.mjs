@@ -21,6 +21,7 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 // the loudest cues of the game and the table cues that land in the same moment
 const LOUD = ['achieve', 'saveEnd', 'multUp', 'mbEnd', 'rivalPass', 'jackpot', 'superJackpot', 'extraBall', 'wizard', 'modeWon'];
 const TABLE = ['bumper'];   // the table cue that most often lands with a ceremony (S5-14 later tests a sling and more with the limiter)
+const PILE = ['bumper', 'sling', 'kick', 'flipHit', 'wall'];   // five table cues at once, with a ceremony
 const EVERY = ['bumper', 'sling', 'kick', 'flip', 'flipHit', 'wall'];
 
 // S1-09: a stand-in for navigator.vibrate that keeps every call, so the tests can see what a phone would be told
@@ -92,6 +93,20 @@ export const tests = [
       t.log(`busiest moment at full volume: ${worst} (${worstName})`);
       // a chance of a repeat landing 1.5 dB over its usual level is covered by the margin: the usual peak is far below 0.95
       t.expect(worst < 0.95, `the busiest moment peaks at ${worst} with every volume control at its maximum (${worstName})`);
+      // the heavier pile-up (S5-14 follow-up): a ceremony with five table cues on top of a full piece and its bed. With the limiter's
+      // 2x oversampling this overshot to 1.03; with none it holds the curve's full-scale value, 0.8503. Each is rendered twice (the cues differ by
+      // 1.5 dB from render to render) and the loudest is judged, so a single repeat cannot hide an overshoot.
+      let pile = 0, pileName = '';
+      for (const under of ['multiball', 'wizard']) {
+        for (const name of LOUD) {
+          for (let k = 0; k < 2; k++) {
+            const p = (await cue(t, name, { seconds: 4.5, vol: 1, under, with: PILE })).peak;
+            if (p > pile) { pile = p; pileName = under + ' + ' + name; }
+          }
+        }
+      }
+      t.log(`heaviest pile-up at full volume: ${pile} (${pileName})`);
+      t.expect(pile <= 0.851, `the heavy pile-up stays at the ceiling the curve reaches at full scale (0.8503), peaking at ${pile} (${pileName})`);
       // every cue alone at full volume
       for (const name of [...LOUD, ...EVERY]) t.expect((await cue(t, name, { seconds: 2.5, vol: 1 })).peak < 0.95, name + ' alone at full volume stays under 0.95');
     },

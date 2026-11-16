@@ -41,7 +41,7 @@ function masterChain(c, dest, vol) {
   comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
   // a soft ceiling after it: a waveshaper that passes everything under SOFT_KNEE untouched and bends what is above it towards SOFT_CEIL, so
   // a pile-up of cues, a piece and a bed at full volume cannot clip. (A second compressor would add make-up gain of its own to everything.)
-  const lim = c.createWaveShaper(); lim.curve = softCeiling(); lim.oversample = '2x';
+  const lim = c.createWaveShaper(); lim.curve = softCeiling(); lim.oversample = 'none';   // no oversampling: 2x let a hard pile-up overshoot the ceiling to 1.03, with none the peak holds at SOFT_CEIL
   m.connect(comp).connect(lim).connect(dest);
   return m;
 }
