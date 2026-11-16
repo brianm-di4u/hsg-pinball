@@ -43,6 +43,58 @@ const seedNewer = (t, only = Object.keys(NEWER)) => t.page.evaluate(([n, keys, p
 
 export const tests = [
   {
+    name: 'S2-30 help on a phone is one section at a time (Controls, Table and modes, About from the footer); on a wide screen it is whole, as before',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'help');
+      await t.page.waitForSelector('#help-scoring', { state: 'attached' });
+      const shown = (sel) => t.page.locator(sel).first().isVisible();
+      const flow = () => t.page.evaluate(() => { const b = document.querySelector('.cols'); return { scroll: b.scrollHeight, view: b.clientHeight }; });
+      if (t.viewport === 'desktop') {
+        t.equal(await shown('.help-tabs'), false, 'no tabs on a wide screen');
+        t.equal(await shown('#b-about'), false, 'and no About link');
+        for (const sel of ['.keys', '#help-scoring', '.modes', '#help-about']) t.expect(await shown(sel), sel + ' is on the screen with nothing to switch');
+        await shot(t, 'S2-30-help-whole');
+        await t.checkLayout({ allowScrollY: true });
+        return;
+      }
+      t.expect(await shown('.help-tabs'), 'the tabs are there');
+      t.equal(await t.page.locator('.help-tabs [role=tab]').allTextContents(), ['Controls', 'Table and modes'], 'two of them');
+      t.equal(await t.page.locator('#ht-a').getAttribute('aria-selected'), 'true', 'Controls is picked first');
+      t.expect(await shown('.keys'), 'the controls show');
+      for (const sel of ['#help-scoring', '.modes', '#help-about']) t.equal(await shown(sel), false, sel + ' waits behind another tab');
+      const a = await flow();
+      const hint = () => t.page.evaluate(() => getComputedStyle(document.querySelector('.screen .menu'), '::before').display);
+      t.expect(a.scroll <= a.view + 1 ? (await hint()) === 'none' : (await hint()) !== 'none', 'Scroll for more is said only when there is more: ' + JSON.stringify(a) + ' ' + (await hint()));
+      await shot(t, 'S2-30-help-controls');
+      await t.checkLayout({ allowScrollY: true });
+      await t.page.click('#ht-b');
+      t.expect(await shown('#help-scoring') && await shown('.modes'), 'Table and modes shows the table, the modes and the scoring');
+      t.equal(await shown('.keys'), false, 'and not the controls');
+      t.equal(await t.page.locator('#ht-b').getAttribute('aria-selected'), 'true', 'its tab is marked');
+      const b = await flow();
+      t.expect(b.scroll > b.view + 1 && (await hint()) !== 'none', 'the long section says Scroll for more: ' + JSON.stringify(b));
+      await shot(t, 'S2-30-help-table');
+      await t.checkLayout({ allowScrollY: true });
+      await t.page.click('#b-about');
+      t.expect(await shown('#help-about') && !(await shown('.modes')) && !(await shown('.keys')), 'About from the footer shows only the About text');
+      t.equal(await t.page.locator('#b-about').getAttribute('aria-expanded'), 'true', 'the footer link says it is open');
+      await shot(t, 'S2-30-help-about');
+      await t.page.click('#b-about');
+      t.expect(await shown('.keys'), 'the link again goes back to the controls');
+      // the keyboard: the arrow keys move between tabs
+      await t.page.focus('#ht-a');
+      await t.page.keyboard.press('ArrowRight');
+      t.equal(await t.page.evaluate(() => document.activeElement.id), 'ht-b', 'the right arrow moves to the next tab');
+      t.expect(await shown('#help-scoring'), 'and shows it');
+      t.log('help scroll height / window: controls ' + a.scroll + '/' + a.view + ', table and modes ' + b.scroll + '/' + b.view);
+      // the Back button still works
+      await t.page.click('#b-back');
+      t.expect(await t.page.locator('#b-play').count() === 1, 'Back returns to the title');
+    },
+  },
+  {
     name: 'S5-19 Back, Done, Resume and the confirmed Quit play the back cue; the buttons that go forward keep the forward click',
     viewports: ['desktop', 'mobile'],
     async run(t) {

@@ -231,11 +231,16 @@ export function createScreens(root, app) {
     },
     help(back) {
       current = 'help';
-      el(`<section class="screen dialog wide" role="dialog" aria-modal="true" aria-labelledby="h-h">
+      el(`<section class="screen dialog wide" data-tab="a" role="dialog" aria-modal="true" aria-labelledby="h-h">
         <h2 id="h-h">How to play</h2>
         <p class="goal-line"><b>Goal.</b> ${GOAL_LINE}</p>
+        <div class="help-tabs" role="tablist" aria-label="Help sections">
+          <button type="button" role="tab" id="ht-a" class="btn sm primary" data-tab="a" aria-selected="true" aria-controls="hp-a">Controls</button>
+          <button type="button" role="tab" id="ht-b" class="btn sm" data-tab="b" aria-selected="false" aria-controls="hp-b" tabindex="-1">Table and modes</button>
+        </div>
         <div class="cols">
           <div>
+            <div class="hp hp-a" id="hp-a" role="tabpanel" aria-labelledby="ht-a">
             <h3>Controls</h3>
             <table class="keys"><tbody>${app.touch ? `
               <tr><th>Flippers</th><td>Tap and hold the left or right half of the table</td></tr>
@@ -253,6 +258,8 @@ export function createScreens(root, app) {
               <tr><th>Mute</th><td>M · the speaker button</td></tr>
               <tr><th>Tip</th><td>On Windows, Z and / work best: while one Shift is held, Windows hides the other Shift's release.</td></tr>`}
             </tbody></table>
+            </div>
+            <div class="hp hp-b">
             <h3>The table</h3>
             <ul>
               <li><b>Skill shot:</b> plunge into the flashing S·P·A lane. Flippers move the lit lane. Hold Launch and let go when the bar reaches the lit lane's mark.</li>
@@ -265,8 +272,10 @@ export function createScreens(root, app) {
               <li><b>Kickbacks:</b> a ball that rolls down an outlane after the ball save has run out is sent back to the shooter lane, a few times a side each ball. Table difficulty in Settings changes how many.</li>
               <li><b>The Vapors</b> scoop starts modes, collects what's lit, or pays a mystery award.</li>
             </ul>
+            </div>
           </div>
           <div>
+            <div class="hp hp-b" id="hp-b" role="tabpanel" aria-labelledby="ht-b">
             <h3>Modes at the Vapors</h3>
             <ol class="modes">${MODES.map((m) => `<li><b>${esc(m.name)}</b>: ${esc(m.goal.toLowerCase())}</li>`).join('')}</ol>
             <p>Win two to light an extra ball and win four to light the wizard mode, <b>Valley of the Vapors</b>. A mode you lose pays a smaller bonus. Finish it and the round goes up: the modes ask a little more and pay a little more.</p>
@@ -279,12 +288,35 @@ export function createScreens(root, app) {
               <li><b>Match:</b> a score that ends in the match number wins a free game.</li>
               <li><b>Beat the table:</b> the display shows the next high score to pass.</li>
             </ul>
+            </div>
+            <div class="hp hp-c" id="hp-c" role="region" aria-label="About this game">
             <h3>About</h3>${'' /* fact: reserved, older */}
             <p class="small" id="help-about">An original game in the open-source Hot Springs Games collection (MIT). Places are shown as setting only; no affiliation with any business. Facts come from the collection's research notes, with "about" or "reportedly" where sources disagree. Horses, riders and characters are fictional. Hot Springs was set aside by Congress on April 20, 1832, forty years before Yellowstone.</p>
+            </div>
           </div>
         </div>
-        <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>Back</button></div>
+        <div class="menu"><button type="button" id="b-about" class="btn sm help-about-link" aria-controls="hp-c" aria-expanded="false">About this game</button><button type="button" id="b-back" class="btn primary" autofocus>Back</button></div>
       </section>`);
+      // on a phone the help is one section at a time (CSS shows every section on a wider screen): Controls, Table and modes, and About from the footer
+      const sec = root.querySelector('.screen'), tabs = [...root.querySelectorAll('.help-tabs [role=tab]')], aboutBtn = root.querySelector('#b-about'), body = root.querySelector('.cols');
+      // 'Scroll for more' is only said when there is more: a section that fits has nothing under it
+      const fits = () => sec.classList.toggle('fits', body.scrollHeight <= body.clientHeight + 1);
+      if (window.ResizeObserver) new ResizeObserver(fits).observe(body);
+      const showTab = (id, focus = false) => {
+        sec.dataset.tab = id;
+        for (const b of tabs) { const on = b.dataset.tab === id; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('primary', on); if (on && focus) b.focus(); }
+        if (id === 'c') tabs[0].tabIndex = 0;   // About has no tab of its own: the first tab stays reachable by keyboard
+        aboutBtn.setAttribute('aria-expanded', String(id === 'c'));
+        body.scrollTop = 0; fits();
+      };
+      for (const b of tabs) b.addEventListener('click', () => { app.sfx('ui'); showTab(b.dataset.tab); });
+      root.querySelector('.help-tabs').addEventListener('keydown', (e) => {
+        const k = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!k) return;
+        e.preventDefault(); showTab(tabs[(tabs.findIndex((b) => b.dataset.tab === sec.dataset.tab) + k + tabs.length) % tabs.length].dataset.tab, true);
+      });
+      aboutBtn.addEventListener('click', () => { app.sfx('ui'); showTab(sec.dataset.tab === 'c' ? 'a' : 'c'); });
+      fits();
       on('#b-back', () => (back === 'pause' ? S.pause() : S.title()));
     },
     scores(back, highlight = -1, balls = app.scoresBalls()) {

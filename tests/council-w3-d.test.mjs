@@ -158,9 +158,10 @@ export const tests = [
     async run(t) {
       await t.waitIdle(30000);
       await t.game('scene', 'help');
-      await t.page.waitForSelector('#help-scoring');
+      await t.page.waitForSelector('#help-scoring', { state: 'attached' });
       const text = await t.page.textContent('#help-scoring');
       for (const [re, what] of [[/3 seconds/, 'the combo window'], [/100,000/, 'what a combo tops out at'], [/300 spins/, 'the Fifth Season meter'], [/two extra balls a game/, 'the extra-ball limit'], [/15,000 a mode won/, 'what the bonus pays a mode'], [/free game/, 'what match does'], [/next high score/, 'the score to beat']]) t.expect(re.test(text), 'Scoring says ' + what + ': ' + text.slice(0, 60));
+      if (t.viewport === 'mobile') await t.page.click('#ht-b');   // on a phone the scoring is on the Table and modes tab (S2-30)
       await t.page.evaluate(() => document.querySelector('#help-scoring').scrollIntoView({ block: 'center' }));
       await t.waitFrames(3);
       await t.checkLayout();

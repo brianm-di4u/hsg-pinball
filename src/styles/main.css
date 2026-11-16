@@ -230,10 +230,20 @@ body.reduced *, body.reduced *::before { animation: none !important; transition:
 body.closeup .glass, body.closeup .side { display: none; }
 body.closeup .stage { grid-template-columns: 1fr; }
 body.closeup .table { width: 100vw; }
+/* help on a phone in portrait: one section at a time, picked by tabs; About opens from the footer. Wider screens show everything, as before. */
+.help-tabs, .help-about-link { display: none; }
+@media (max-aspect-ratio: 4 / 5) {
+  .help-tabs { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin: 0 0 10px; }
+  .help-tabs .btn { min-height: 44px; }
+  .help-about-link { display: block; margin: 0 auto 8px; min-height: 44px; background: none; border: 0; box-shadow: none; color: var(--gold-2); text-decoration: underline; text-underline-offset: 3px; }
+  .screen[data-tab="a"] .hp-b, .screen[data-tab="a"] .hp-c, .screen[data-tab="b"] .hp-a, .screen[data-tab="b"] .hp-c, .screen[data-tab="c"] .hp-a, .screen[data-tab="c"] .hp-b { display: none; }
+  .screen.dialog.wide .cols { grid-template-columns: 1fr; }
+}
 /* help: the body is its own scroll area, ending above the Back button */
 .screen.dialog.wide { overflow: hidden; display: flex; flex-direction: column; }
 .screen.dialog.wide .cols { padding-bottom: 40px !important; -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); overflow-y: auto; min-height: 0; flex: 1; padding-bottom: 12px; margin-right: -8px; padding-right: 8px; }
 .screen.dialog.wide .menu::before { content: 'Scroll for more ▾'; display: block; text-align: center; font-size: 0.78em; color: var(--muted); margin-bottom: 6px; }
+.screen.dialog.wide.fits .menu::before { display: none; }
 .screen.dialog.wide .menu { position: static; margin: 12px 0 0; padding: 0; background: none; }
 
 /* ---------------------------------------------------------------- records, goals and the toast (S3-01) */
