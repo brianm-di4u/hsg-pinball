@@ -43,6 +43,41 @@ const seedNewer = (t, only = Object.keys(NEWER)) => t.page.evaluate(([n, keys, p
 
 export const tests = [
   {
+    name: 'S5-19 Back, Done, Resume and the confirmed Quit play the back cue; the buttons that go forward keep the forward click',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      const last = async () => { const p = (await t.state()).audio.played; return p[p.length - 1]; };
+      const press = async (sel) => { await t.page.click(sel); return last(); };
+      t.equal(await press('#b-settings'), 'ui', 'Settings from the title is a forward click');
+      t.equal(await press('#b-back'), 'uiBack', 'Done in Settings is the back cue');
+      t.equal(await press('#b-help'), 'ui', 'How to play is forward');
+      t.equal(await press('#b-back'), 'uiBack', 'Back from How to play');
+      t.equal(await press('#b-scores'), 'ui', 'High scores is forward');
+      t.equal(await press('#b-back'), 'uiBack', 'Back from High scores');
+      t.equal(await press('#b-records'), 'ui', 'Records is forward');
+      t.equal(await press('#b-back'), 'uiBack', 'Back from Records');
+      t.equal(await press('#b-credits'), 'ui', 'Credits is forward');
+      t.equal(await press('#b-back'), 'uiBack', 'Back from Credits');
+      await t.game('newGame', { balls: 3, seed: 5 });
+      await t.game('pause');
+      await t.page.evaluate(() => document.querySelector('#b-menu').click());
+      await t.page.waitForSelector('#b-resume');
+      t.equal(await press('#b-resume'), 'uiBack', 'Resume is the back cue');
+      await t.page.evaluate(() => document.querySelector('#b-menu').click());
+      await t.page.waitForSelector('#b-quit');
+      t.equal(await press('#b-quit'), 'ui', 'the first tap on Quit only asks');
+      t.equal(await press('#b-quit'), 'uiBack', 'the confirming tap leaves the game with the back cue');
+      // the game-over card's Continue goes on, it does not go back
+      await t.game('newGame', { balls: 3, seed: 5, practice: true });
+      await t.game('setState', { player: { ball: 3, score: 100, tilted: true }, ball: { saveUntil: 0 } });
+      await t.game('act', 'placeBall', 242, 60, 0, -1500);
+      await t.game('step', 600);
+      await t.page.waitForSelector('#b-again');
+      t.equal(await press('#b-again'), 'ui', 'Play again is forward');
+    },
+  },
+  {
     name: 'S5-18 the ball-save slow motion dulls the master through a low-pass from 20 kHz to 1.2 kHz and back over the same half second, and only where the effects are on',
     node: true,
     async run(t) {

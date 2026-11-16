@@ -63,13 +63,15 @@ export function createScreens(root, app) {
   };
   let unbind = null;   // set while Settings waits for a key to bind: takes the listener off again
   const el = (html) => { if (unbind) unbind(); root.innerHTML = html; root.hidden = !html; const st = document.getElementById('stage'); if (st) st.inert = !!html; const f = root.querySelector('[autofocus], button'); if (f) f.focus({ preventScroll: true }); };
-  const on = (sel, fn) => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx('ui'); fn(e); }); };
+  // Back, Done and Resume sound lower than the forward click: the cue is named by the button unless the caller says otherwise (the game-over card's Continue is forward)
+  const BACK = ['#b-back', '#b-resume'];
+  const on = (sel, fn, cue = BACK.includes(sel) ? 'uiBack' : 'ui') => { const n = root.querySelector(sel); if (n) n.addEventListener('click', (e) => { app.sfx(cue); fn(e); }); };
   // a destructive button: the first tap asks, a second tap within 3 s does it
-  const confirmOn = (sel, fn) => {
+  const confirmOn = (sel, fn, doneCue = 'ui') => {
     const n = root.querySelector(sel); if (!n) return;
     const label = n.textContent; let timer = 0;
     n.addEventListener('click', () => {
-      app.sfx('ui');
+      app.sfx(timer ? doneCue : 'ui');
       if (timer) { clearTimeout(timer); timer = 0; fn(); return; }
       n.textContent = 'Tap again to confirm';
       timer = setTimeout(() => { timer = 0; n.textContent = label; }, 3000);
@@ -140,7 +142,7 @@ export function createScreens(root, app) {
       on('#b-help', () => S.help('pause'));
       on('#b-settings', () => S.settings('pause'));
       confirmOn('#b-restart', () => app.restart());
-      confirmOn('#b-quit', () => app.quit());
+      confirmOn('#b-quit', () => app.quit(), 'uiBack');   // the second tap leaves the game: a back sound
     },
     settings(back) {
       current = 'settings';
@@ -295,7 +297,7 @@ export function createScreens(root, app) {
         <div class="menu"><button type="button" id="b-back" class="btn primary" autofocus>${back === 'over' ? 'Continue' : 'Back'}</button></div>
       </section>`);
       root.querySelectorAll('[data-balls]').forEach((b) => b.addEventListener('click', () => { app.sfx('ui'); S.scores(back, +b.dataset.balls === balls ? highlight : -1, +b.dataset.balls); const n = root.querySelector('[data-balls="' + b.dataset.balls + '"]'); if (n) n.focus({ preventScroll: true }); }));
-      on('#b-back', () => (back === 'over' ? app.quit() : S.title()));
+      on('#b-back', () => (back === 'over' ? app.quit() : S.title()), back === 'over' ? 'ui' : 'uiBack');
     },
     records(back) {
       current = 'records';
