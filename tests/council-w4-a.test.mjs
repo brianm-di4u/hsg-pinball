@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DIFFICULTY } from '../src/js/sim/rules.js';
-import { audio, unlock, stopMusic, suspendAudio, resumeAudio } from '../src/js/ui/audio.js';
+import { audio, unlock, stopMusic, suspendAudio, resumeAudio, slowmoDip } from '../src/js/ui/audio.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4', 'shots');
@@ -11,13 +11,20 @@ const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); awai
 // a context whose state the test sets (iOS says 'interrupted' after a call), and a window that keeps the listeners it is given
 function fakeContext() {
   const stub = () => new Proxy(function () {}, { get: (_, k) => (k === 'connect' ? (x) => x : k === Symbol.toPrimitive ? () => 0 : stub()), set: () => true, apply: () => stub() });
+  // a node that keeps what is set on it and where it was connected, and records the automation on its frequency; anything else it is asked for is a stub
+  const node = (kind, ctx) => {
+    const calls = [], param = { value: 0, cancelScheduledValues: (t) => calls.push(['cancel', t]), setValueAtTime: (v, t) => calls.push(['set', v, t]), exponentialRampToValueAtTime: (v, t) => calls.push(['ramp', v, t]) };
+    const o = { kind, calls, frequency: param, Q: { value: 0 }, to: null, connect(x) { o.to = x; return x; } };
+    const n = new Proxy(o, { get: (_, k) => (k in o ? o[k] : stub()), set: (_, k, v) => { o[k] = v; return true; } });
+    ctx.nodes.push(n); return n;
+  };
   return class {
-    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = {}; this.resumes = 0; this.rejects = false; fakeContext.last = this; }
+    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = {}; this.resumes = 0; this.rejects = false; this.nodes = []; fakeContext.last = this; }
     suspend() { this.state = 'suspended'; return Promise.resolve(); }
     resume() { this.resumes++; if (this.rejects) return Promise.reject(new Error('not allowed')); this.state = 'running'; return Promise.resolve(); }
     createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
-    createGain() { return stub(); } createOscillator() { return stub(); } createBiquadFilter() { return stub(); }
-    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createWaveShaper() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
+    createGain() { return node('gain', this); } createOscillator() { return stub(); } createBiquadFilter() { return node('biquad', this); }
+    createBufferSource() { return stub(); } createDynamicsCompressor() { return node('comp', this); } createWaveShaper() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
   };
 }
 const P = 'hsg-pinball:';
@@ -35,6 +42,67 @@ const NEWER = {
 const seedNewer = (t, only = Object.keys(NEWER)) => t.page.evaluate(([n, keys, p]) => { localStorage.clear(); for (const k of keys) localStorage.setItem(p + k, JSON.stringify(n[k])); }, [NEWER, only, P]);
 
 export const tests = [
+  {
+    name: 'S5-18 the ball-save slow motion dulls the master through a low-pass from 20 kHz to 1.2 kHz and back over the same half second, and only where the effects are on',
+    node: true,
+    async run(t) {
+      globalThis.window = { AudioContext: fakeContext() };
+      try {
+        unlock();
+        const c = fakeContext.last;
+        const master = c.nodes.find((n) => n.kind === 'gain' && n.lp);
+        t.expect(!!master, 'the live master chain has a low-pass');
+        const lp = master.lp;
+        t.equal(lp.type, 'lowpass', 'a low-pass');
+        t.equal(lp.frequency.value, 20000, 'wide open at rest');
+        t.expect(master.to === lp && lp.to && lp.to.kind === 'comp', 'it sits between the master volume and the compressor');
+        t.equal(lp.Q.value < 0, true, 'with no resonance peak at the corner (Q below the Butterworth value in dB)');
+        c.currentTime = 10;
+        slowmoDip(500);
+        const calls = lp.calls.map((x) => x.map((v) => (typeof v === 'number' ? +v.toFixed(4) : v)));
+        t.equal(calls, [['cancel', 10], ['set', 20000, 10], ['ramp', 1200, 10.1667], ['ramp', 20000, 10.5]], 'down to 1200 Hz, back to 20000 Hz at the end of the half second');
+        t.equal(audio.dips, 1, 'the dip is counted');
+        // no dip with the effects off, muted or held
+        for (const [what, set, undo] of [['effects off', () => { audio.on = false; }, () => { audio.on = true; }], ['muted', () => { audio.muted = true; }, () => { audio.muted = false; }], ['held', () => { audio.hold = true; }, () => { audio.hold = false; }]]) {
+          set(); const n = lp.calls.length; slowmoDip(500); undo();
+          t.equal(lp.calls.length, n, 'no dip when ' + what);
+        }
+      } finally { stopMusic(); audio.ctx = null; audio.hold = false; audio.dips = 0; delete globalThis.window; }
+    },
+  },
+  {
+    name: 'S5-18 a saved lone ball dips the sound with the slow motion; a saved ball with others in play, and reduced motion, do not',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.page.mouse.click(20, 400);
+      await t.page.waitForFunction(() => window.__game.getState().audio.ctx, null, { timeout: 10000 });
+      await t.page.evaluate(() => { window.__game.slowmo = true; });
+      const drain = async (others) => {
+        await t.game('newGame', { balls: 3, seed: 5 });
+        await t.game('pause');
+        const s0 = await t.state();
+        await t.game('setState', { ball: { saveUntil: s0.t + 300, inLane: false, launched: true } });
+        await t.game('act', 'placeBall', 242, 60, 0, -1500);
+        if (others) await t.game('act', 'addBall', 240, 420, 0, 0);
+        await t.game('step', 400);
+      };
+      const dips = async () => (await t.state()).audio.dips;
+      const n0 = await dips();
+      await drain(false);
+      t.equal(await dips(), n0 + 1, 'a saved lone ball: one dip');
+      await drain(true);
+      t.equal(await dips(), n0 + 1, 'a saved ball with another loose: none, as the picture does not slow either');
+      await t.game('applySettings', { motion: 'reduced' });
+      await drain(false);
+      t.equal(await dips(), n0 + 1, 'reduced motion: none');
+      await t.game('applySettings', { motion: 'auto' });
+      await drain(false);
+      t.equal(await dips(), n0 + 2, 'and back to one when motion is allowed again');
+      await t.page.evaluate(() => { window.__game.slowmo = false; });
+      await t.game('resume');
+    },
+  },
   {
     name: 'S5-17 the sound comes back from an interrupted context as well as a suspended one, and a tap or click brings it back after the system takes it away',
     node: true,

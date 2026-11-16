@@ -6,7 +6,7 @@
 import { makeAudioKit, measureAudio } from './audiokit.js';
 import { SCORES, SCENES, AMBIENCE_FOR, MUSIC_LEVEL, AMBIENCE_LEVEL } from './music.js';
 
-export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 }, charge: { n: 0, p: 0, hz: 0 } };
+export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 }, charge: { n: 0, p: 0, hz: 0 }, dips: 0 };
 
 let master, sfxBus, verb, noiseBuf;
 // cx is the context the cue synthesis builds on (the live one, or an offline one while a cue is rendered for a test);
@@ -26,6 +26,7 @@ const ambOn = () => audio.ambience;
 
 // The master volume and the compressor in front of the speakers, on any context: the live one, or an offline one that renders a
 // piece or a cue for a test. vol is the master volume (the Volume slider; 0.8 by default, 1 at its maximum).
+const DIP_OPEN = 20000, DIP_SHUT = 1200;   // the slow-motion dip: the master low-pass goes from DIP_OPEN down to DIP_SHUT and back
 const SOFT_KNEE = 0.55, SOFT_CEIL = 0.9;   // below the knee the sound is untouched; above it, it tends to the ceiling
 let softCurve = null;
 function softCeiling() {
@@ -35,14 +36,17 @@ function softCeiling() {
   for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1, a = Math.abs(x); k[i] = Math.sign(x) * (a <= SOFT_KNEE ? a : SOFT_KNEE + room * Math.tanh((a - SOFT_KNEE) / room)); }
   return (softCurve = k);
 }
-function masterChain(c, dest, vol) {
+function masterChain(c, dest, vol, live = false) {
   const m = c.createGain(); m.gain.value = vol;
   const comp = c.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
   // a soft ceiling after it: a waveshaper that passes everything under SOFT_KNEE untouched and bends what is above it towards SOFT_CEIL, so
   // a pile-up of cues, a piece and a bed at full volume cannot clip. (A second compressor would add make-up gain of its own to everything.)
   const lim = c.createWaveShaper(); lim.curve = softCeiling(); lim.oversample = 'none';   // no oversampling: 2x let a hard pile-up overshoot the ceiling to 1.03, with none the peak holds at SOFT_CEIL
-  m.connect(comp).connect(lim).connect(dest);
+  // the live chain has a low-pass in front of the compressor that is wide open (20 kHz) except while the ball-save slow motion dips it (slowmoDip)
+  if (live) { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = DIP_OPEN; lp.Q.value = -3.01; m.connect(lp).connect(comp); m.lp = lp; }
+  else m.connect(comp);
+  comp.connect(lim).connect(dest);
   return m;
 }
 
@@ -56,7 +60,7 @@ export function unlock() {
     if (!AC) return;
     const c = (audio.ctx = new AC()); cx = c;
     c.onstatechange = () => { if (c.state !== 'running' && c.state !== 'closed' && !audio.hold) armGesture(); };   // the system took the sound away: the next tap or key brings it back
-    master = masterChain(c, c.destination, masterLevel());
+    master = masterChain(c, c.destination, masterLevel(), true);
     sfxBus = c.createGain(); sfxBus.gain.value = sfxLevel(); sfxBus.connect(master);
     // a short generated room impulse for a little space
     const len = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, len, c.sampleRate);
@@ -88,6 +92,15 @@ export function suspendAudio() {
   audio.hold = true;
   if (audio.kit) audio.kit.hold();
   if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
+}
+// The ball save's slow motion (0.35x for about half a second) is heard as well as seen: everything dulls to a muffled 1.2 kHz and opens again over the same
+// time, down in the first third and back up through the rest. Sound effects off means no cinematic beat; a held (paused) game is silent anyway.
+export function slowmoDip(ms = 500) {
+  if (!master || !master.lp || !audio.ctx || !audio.on || audio.hold || audio.muted) return;
+  const f = master.lp.frequency, t = audio.ctx.currentTime, d = ms / 1000;
+  f.cancelScheduledValues(t); f.setValueAtTime(DIP_OPEN, t);
+  f.exponentialRampToValueAtTime(DIP_SHUT, t + d / 3); f.exponentialRampToValueAtTime(DIP_OPEN, t + d);
+  audio.dips++;
 }
 export function resumeAudio() {
   audio.hold = false;

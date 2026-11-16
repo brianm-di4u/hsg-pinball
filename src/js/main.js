@@ -11,7 +11,7 @@ import { DMD, paintDMD, makeSilhouettes } from './ui/dmd.js';
 import { createInput, applyKeys, customKeys, keyName, KEYS } from './ui/input.js';
 import { createScreens } from './ui/screens.js';
 import { createCoach, setTipKeys } from './ui/coach.js';
-import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, setCharge, chargeRender, suspendAudio, resumeAudio } from './ui/audio.js';
+import { audio, unlock, sfx, setVolumes, startMusic, musicIntensity, ambienceParam, audioList, audioNow, audioRender, cueRender, rollRender, setRoll, setCharge, chargeRender, suspendAudio, resumeAudio, slowmoDip } from './ui/audio.js';
 import { store, loadSettings, saveSettings, loadScores, qualifies, addScore, loadResume, saveResume, storageWritable, clearResume, loadStats, saveStats, loadDaily, saveDaily, newerSave } from './save.js';
 import { gameTally, addTally, newlyEarned, goalById, rankOf, todayKey, dailySeed, DAILY_OPTS, streakOf, pruneDays, setToday } from './progress.js';
 import { createView2D } from './gfx/view2d.js';
@@ -364,7 +364,7 @@ function routeCues() {
       case 'dmd': if (!demo || c.prio >= 3) dmd.push(c); if (!demo) announce(c.text + (c.sub ? '. ' + c.sub : '')); break;
       case 'sound': if (demo) sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, { ...c, demo: true }); else { sfx(c.name, c.v, c.x == null ? 0 : (c.x / G.T.width) * 2 - 1, c); if (c.name !== 'flip') haptic(c.name); } break;   // pan by where it happened; a flip buzzes the moment the button goes down, in the input handler (the cue carries n and m for ladders and countdowns)
       case 'flash': case 'steam': case 'spin': case 'kick': effects.push({ ...c, t: now() }); break;
-      case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; } break;
+      case 'slowmo': if (!c.others && !reducedMotion() && (!TEST || window.__game.slowmo)) { timeScale = 0.35; slowUntil = performance.now() + 500; if (!demo) slowmoDip(c.ms || 500); } break;
       case 'mode': if (!demo) { startMusic(G.mb ? mbScene(G.mb.kind) : c.on ? 'mode' : 'main', c.on ? c.id : null); mixState(); } break;
       case 'mb': if (!demo) { startMusic(c.on ? mbScene(c.kind) : (G.mode ? 'mode' : 'main'), !c.on && G.mode ? G.mode.id : null); mixState(); } break;
       case 'serve': if (!demo) { announce('Ball ' + G.player.ball + ' of ' + G.player.ballsPerGame + '. ' + (G.player.ball === 1 && !G.player.score ? 'First mode: ' + MODES[nextModeIndex(G.f)].name.toLowerCase() + '. ' : '') + 'Launch is ready.'); if (G.player.ball === 1 && !G.player.score) clearResume(); else saveResume(G.player, G.f, G.settings.practice, G.difficulty, G.daily); } break;
@@ -607,7 +607,7 @@ window.__game = {
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null; s.gfx = view && view.info ? view.info() : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text), line: demo ? null : statusLine() };
     s.newerSave = newerSave(); s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
-    s.audio = { ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, charge: { ...audio.charge }, ...audioNow() };
+    s.audio = { dips: audio.dips, ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, charge: { ...audio.charge }, ...audioNow() };
     return s;
   },
   setState(s) { setGameState(G, s); return true; },
