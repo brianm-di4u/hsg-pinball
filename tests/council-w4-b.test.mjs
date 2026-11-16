@@ -103,4 +103,31 @@ export const tests = [
       t.expect(await t.page.evaluate(() => window.__game.getState().screen) === 'scores', 'after the card closes a letter key does nothing to it');
     },
   },
+  // ------------------------------------------------------------------------------------------------------ S5-29
+  {
+    name: 'S5-29 a tap on a title button makes a real sound (a context and a started source), and the audible list is empty when the effects are off though the cue is still asked for',
+    viewports: ['desktop', 'mobile'],
+    initScript: () => {
+      window.__started = 0;
+      for (const C of [OscillatorNode, AudioBufferSourceNode]) { const s = C.prototype.start; C.prototype.start = function (...a) { window.__started++; return s.apply(this, a); }; }
+    },
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.page.evaluate(() => { window.__game.applySettings({ sound: true, music: false, ambience: false }); });
+      await t.page.locator('#b-help').click();
+      await t.page.waitForFunction(() => window.__game.getState().audio.audible.includes('ui'), null, { timeout: 8000 });
+      let a = (await t.state()).audio;
+      t.expect(a.ctx && a.state === 'running', 'the tap started the audio context: ' + a.state);
+      t.expect(await t.page.evaluate(() => window.__started) > 0, 'and a source was started');
+      await t.page.locator('#b-back').click();
+      await t.page.evaluate(() => { window.__game.applySettings({ sound: false }); window.__started = 0; });
+      const before = (await t.state()).audio;
+      await t.page.locator('#b-help').click();
+      await t.page.waitForFunction((n) => window.__game.getState().audio.played.length > n || window.__game.getState().audio.played.filter((x) => x === 'ui').length > 0, before.played.length);
+      a = (await t.state()).audio;
+      t.expect(a.played.filter((x) => x === 'ui').length > before.played.filter((x) => x === 'ui').length || a.played.length >= 40, 'with Sound effects off the cue is still asked for: ' + a.played.slice(-3));
+      t.equal(a.audible.length, before.audible.length, 'but nothing is heard: the audible list did not grow');
+      t.equal(await t.page.evaluate(() => window.__started), 0, 'and no source started');
+    },
+  },
 ];

@@ -607,7 +607,7 @@ window.__game = {
     s.paused = paused || this.paused; s.demo = demo; s.view = view ? view.kind : null; s.tier = view && view.tier ? view.tier : null; s.gfx = view && view.info ? view.info() : null;
     s.lamps = lampStates(G, LAMPS, now()); s.dmd = { text: dmd.cur ? dmd.cur.text : null, sub: dmd.cur ? dmd.cur.sub : null, queue: dmd.queue.map((q) => q.text), line: demo ? null : statusLine() };
     s.newerSave = newerSave(); s.screen = screens.current; s.settings = { ...app.settings }; s.reduced = reducedMotion(); s.timeScale = timeScale; s.scores = loadScores(app.scoresBalls()); s.frame = frameNo; s.drawn = drawn; s.resting = demoResting(performance.now());
-    s.audio = { dips: audio.dips, ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, charge: { ...audio.charge }, ...audioNow() };
+    s.audio = { dips: audio.dips, ctx: !!audio.ctx, state: audio.ctx ? audio.ctx.state : null, hold: audio.hold, played: [...audio.played], audible: [...audio.audible], demoPlayed: [...audio.demoPlayed], pans: { ...audio.pans }, roll: { ...audio.roll }, charge: { ...audio.charge }, ...audioNow() };
     return s;
   },
   setState(s) { setGameState(G, s); return true; },

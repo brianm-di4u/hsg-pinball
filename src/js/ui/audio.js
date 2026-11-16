@@ -6,7 +6,7 @@
 import { makeAudioKit, measureAudio } from './audiokit.js';
 import { SCORES, SCENES, AMBIENCE_FOR, MUSIC_LEVEL, AMBIENCE_LEVEL } from './music.js';
 
-export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 }, charge: { n: 0, p: 0, hz: 0 }, dips: 0 };
+export const audio = { ctx: null, on: true, music: true, ambience: true, vol: 0.8, sfxVol: 1, musicVol: 1, muted: false, played: [], audible: [], demoPlayed: [], last: {}, scene: null, mode: null, hold: false, kit: null, intensity: 0, params: {}, pans: {}, roll: { n: 0, fs: 0, ts: 0, layer: 0, pan: 0 }, charge: { n: 0, p: 0, hz: 0 }, dips: 0 };
 
 let master, sfxBus, verb, noiseBuf;
 // cx is the context the cue synthesis builds on (the live one, or an offline one while a cue is rendered for a test);
@@ -210,6 +210,7 @@ export function sfx(name, v = 1, pan = 0, o = {}) {
   try {
     dst = route(sfxBus, demo, pan);
     synth(name, v, t, o);
+    if (!demo) { audio.audible.push(name); if (audio.audible.length > 40) audio.audible.shift(); }   // only what was really sounded: past the missing context, the switches, the pause and the rate limit (played is every cue the game asked for)
   } catch { /* audio is optional */ }
   dst = sfxBus; quiet = false;
 }

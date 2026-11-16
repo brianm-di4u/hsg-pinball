@@ -56,7 +56,7 @@ export const tests = [
       for (const sw of ['bumper1', 'slingL', 'bhHale', 'laneS', 'spinner', 'rampMade', 'orbitTop']) { await t.game('act', 'switch', sw, sw.startsWith('bumper') ? 'bumper' : sw.startsWith('sling') ? 'sling' : sw === 'spinner' ? 'spinner' : 'hit'); await t.game('step', 2); }
       const s = await t.state();
       t.expect(s.audio.ctx, 'audio context running after the Play click');
-      for (const n of ['bumper', 'sling', 'target', 'rollover', 'spinner', 'rampMade', 'orbit']) t.expect(s.audio.played.includes(n), 'sound ' + n);
+      for (const n of ['bumper', 'sling', 'target', 'rollover', 'spinner', 'rampMade', 'orbit']) t.expect(s.audio.audible.includes(n), 'sound ' + n);
     },
   },
   {
