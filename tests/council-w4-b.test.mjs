@@ -318,4 +318,21 @@ export const tests = [
       t.expect(levels.tick3 <= levels.multUp * 1.2 && levels.x5 <= levels.multUp * 1.5, 'and not louder than the multiplier-up cue it sits beside');
     },
   },
+  // ------------------------------------------------------------------------------------------------------ C4-02
+  {
+    name: 'C4-02 the Credits say how the art was made, in one plain line, and it fits the card',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await t.waitIdle(30000);
+      await t.game('scene', 'credits');
+      await t.page.waitForSelector('#c-art');
+      t.equal(await t.page.locator('#c-art').textContent(), 'Art: 3D block-outs painted with AI image tools for this game.', 'the line is the one the owner approved');
+      const text = await t.page.locator('.credits').textContent();
+      t.expect(!/openai|codex|blender/i.test(text), 'and names no company or product');
+      const box = await t.page.evaluate(() => { const r = document.querySelector('#c-art').getBoundingClientRect(), c = document.querySelector('.screen').getBoundingClientRect(); return [r.left >= c.left, r.right <= c.right, r.height > 0, r.bottom <= innerHeight]; });
+      t.expect(box.every(Boolean), 'it is inside the card and on the screen');
+      await shot(t, 'C4-02-credits');
+      await t.checkLayout();
+    },
+  },
 ];

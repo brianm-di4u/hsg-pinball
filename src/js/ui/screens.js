@@ -121,6 +121,7 @@ export function createScreens(root, app) {
         <div class="credits">
           <p><b>Spa City Pinball</b> is an original game in the open-source Hot Springs Games collection (MIT licence).</p>
           <p>The table, the sounds and the music are made in code. Nothing is loaded from the network.</p>
+          <p id="c-art">Art: 3D block-outs painted with AI image tools for this game.</p>
           <p>The town facts come from the collection's research notes, with "about" or "reportedly" where sources disagree.</p>
           <p>Real places appear as historical setting. There is no affiliation with, or endorsement by, any business. Horses, riders and characters are fictional.</p>
         </div>
