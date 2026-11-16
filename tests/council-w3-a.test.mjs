@@ -81,8 +81,9 @@ export const tests = [
       await t.game('step', 2);
       const sel = t.viewport === 'mobile' ? '#score' : '#modeline';
       const text = () => t.page.locator(sel).textContent();
-      // the phone plate shows the score while a callout is up: step until the callouts have gone
-      for (let i = 0; i < 60 && !/SAVE/.test(await text()); i++) await t.game('step', 30);
+      // the phone plate shows the score while a callout is up: wait for the callouts to clear and the plate to lead with the save
+      const plateSaves = (re = 'SAVE') => t.page.waitForFunction(([q, r]) => new RegExp(r).test(document.querySelector(q).textContent), [sel, re], { timeout: 30000 });
+      await plateSaves();
       t.expect(/SAVE [0-9]+s$/.test(await text()), 'the line says how long the save has left: ' + (await text()));
       await shot(t, 'S2-19-save-countdown');
       if (t.viewport === 'mobile') {
@@ -92,7 +93,7 @@ export const tests = [
         t.expect(!(await cut()), 'the plate shows all of its text, not an ellipsis');
         await t.game('act', 'mode', 0);
         await t.game('step', 2);
-        for (let i = 0; i < 60 && !/SAVE/.test(await text()); i++) await t.game('step', 30);
+        await plateSaves('^SAVE [0-9]+s · ');
         t.expect(/^SAVE [0-9]+s · /.test(await text()), 'with a mode running the save still comes first: ' + (await text()));
         await shot(t, 'S2-19-save-countdown-mode');
       }
