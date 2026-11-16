@@ -25,15 +25,15 @@ export function rankOf(total) {
 }
 
 // ------------------------------------------------------------------------------------------------- tallies
-export const emptyTally = () => ({ games: 0, score: 0, skillShots: 0, baths: 0, rows: 0, boils: 0, jackpots: 0, wizards: 0, extraBalls: 0, mbs: [0, 0, 0], modeWins: [0, 0, 0, 0, 0, 0] });
+export const emptyTally = () => ({ games: 0, matches: 0, score: 0, skillShots: 0, baths: 0, rows: 0, boils: 0, jackpots: 0, wizards: 0, extraBalls: 0, mbs: [0, 0, 0], modeWins: [0, 0, 0, 0, 0, 0] });
 // what one game has counted so far, read off the game's own tallies
 export function gameTally(G) {
   const f = G.f, p = G.player;
-  return { games: 0, score: p.score, skillShots: p.skillShots, baths: f.bathHits || 0, rows: f.rowsDone, boils: f.boils || 0, jackpots: f.jackpots || 0, wizards: f.wizards || 0,
+  return { games: 0, matches: p.match != null && p.score % 100 === p.match ? 1 : 0, score: p.score, skillShots: p.skillShots, baths: f.bathHits || 0, rows: f.rowsDone, boils: f.boils || 0, jackpots: f.jackpots || 0, wizards: f.wizards || 0,
     extraBalls: p.eb || 0, mbs: [...(f.mbs || [0, 0, 0])], modeWins: [...(f.modeWins || [0, 0, 0, 0, 0, 0])] };
 }
 export function addTally(a, b) {
-  return { games: a.games + b.games, score: a.score + b.score, skillShots: a.skillShots + b.skillShots, baths: a.baths + b.baths, rows: a.rows + b.rows, boils: a.boils + b.boils,
+  return { games: a.games + b.games, matches: (a.matches || 0) + (b.matches || 0), score: a.score + b.score, skillShots: a.skillShots + b.skillShots, baths: a.baths + b.baths, rows: a.rows + b.rows, boils: a.boils + b.boils,
     jackpots: a.jackpots + b.jackpots, wizards: a.wizards + b.wizards, extraBalls: a.extraBalls + b.extraBalls, mbs: a.mbs.map((v, i) => v + b.mbs[i]), modeWins: a.modeWins.map((v, i) => v + b.modeWins[i]) };
 }
 

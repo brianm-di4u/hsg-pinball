@@ -432,7 +432,7 @@ function recordGame(c) {
   for (const id of ids) { st.earned[id] = todayKey(); toastQ.push(id); }
   saveStats(st);
   const rank = rankOf(st.score);
-  const res = { score: c.score, diff, newBest: prevBest > 0 && c.score > prevBest, best: st.best[diff], rank, rankUp: rank.i > before.i, daily, earned: [...(G.earnedNow || []), ...ids] };
+  const res = { score: c.score, matched: !!c.won, diff, newBest: prevBest > 0 && c.score > prevBest, best: st.best[diff], rank, rankUp: rank.i > before.i, daily, earned: [...(G.earnedNow || []), ...ids] };
   if (ids.length && !toastTimer) pumpToast();
   return res;
 }

@@ -141,6 +141,9 @@ select:focus-visible, input:focus-visible { outline: 3px solid var(--neon-blue);
 .scores tr.hl td { background: rgba(212, 175, 55, 0.2); }
 .big-score { font: 800 2.2em var(--display); color: var(--gold-2); margin: 6px 0; font-variant-numeric: tabular-nums; }
 .won { color: var(--teal); }
+/* a match (S3-11): an ink stamp, drawn in CSS */
+.match-stamp { display: block; width: fit-content; max-width: 100%; margin: 8px auto; padding: 4px 14px; border: 2px solid var(--gold-2); border-radius: 6px; color: var(--gold-2); font: 800 1.15em var(--display); letter-spacing: 0.18em; text-align: center; transform: rotate(-2.5deg); background: rgba(232, 194, 90, 0.08); }
+.match-stamp small { display: block; font: 400 0.62em var(--font); letter-spacing: 0.02em; color: var(--cream); }
 .initials { display: flex; justify-content: center; gap: 14px; margin: 12px 0; }
 .ini { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; border: 2px solid transparent; }
 .ini.on { border-color: var(--neon-blue); }

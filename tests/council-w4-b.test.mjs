@@ -151,4 +151,77 @@ export const tests = [
       t.expect(/once a side each ball on Standard/.test(text), 'the help says once a side each ball on Standard');
     },
   },
+  // ------------------------------------------------------------------------------------------------------ S3-11
+  {
+    name: 'S3-11 a new profile starts with a table whose lowest score is 250,000, a profile that already had records keeps the old one, and a match is counted in the stats', node: true,
+    async run(t) {
+      const mem = new Map();
+      globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k), key: (i) => [...mem.keys()][i], get length() { return mem.size; } };
+      try {
+        const { loadScores, loadStats, store } = await import('../src/js/save.js');
+        const { gameTally, addTally, emptyTally } = await import('../src/js/progress.js');
+        const low = () => loadScores(3)[9].score, top = () => loadScores(3)[0].score;
+        t.equal([low(), top(), loadScores(3).length], [250000, 2500000, 10], 'a new profile: ten rows, the lowest 250,000, the top unchanged');
+        t.equal(loadStats().seed, 2, 'and its stats record says which table it has');
+        store.set('stats', { v: 1, games: 4, score: 900000, best: { standard: 400000 } });
+        t.equal(low(), 100000, 'a profile with stats from before keeps the old table (lowest 100,000)');
+        t.equal(loadStats().seed, 1, 'its stats say so too');
+        t.equal(loadStats().games, 4, 'and its games are as they were');
+        store.set('stats', { v: 1, seed: 2, games: 4 });
+        t.equal(low(), 250000, 'a stats record marked 2 has the new table');
+        store.set('stats', 'damaged');
+        t.equal(low(), 250000, 'a damaged stats record is repaired as a new profile');
+        store.set('scores', { v: 1, table: [{ initials: 'OLD', score: 3100000, date: '2026-10-01', difficulty: 'standard' }] });
+        t.equal(loadScores(3).map((r) => r.initials), ['OLD'], 'a saved table is never replaced by a seeded one');
+        // the match is counted
+        t.equal(emptyTally().matches, 0, 'the tally starts at no matches');
+        const p = { score: 123440, match: 40 }, f = { rowsDone: 0, mbs: [0, 0, 0], modeWins: [0, 0, 0, 0, 0, 0] };
+        t.equal(gameTally({ player: p, f }).matches, 1, 'a game whose score ends in its match number counts one');
+        t.equal(gameTally({ player: { ...p, score: 123450 }, f }).matches, 0, 'one that does not counts none');
+        t.equal(gameTally({ player: { ...p, match: null }, f }).matches, 0, 'a game in play (no match drawn yet) counts none');
+        t.equal(addTally({ ...emptyTally(), matches: 2 }, { ...emptyTally(), matches: 1 }).matches, 3, 'and the totals add up');
+        store.set('stats', { v: 1, seed: 2, matches: 7.9 });
+        t.equal(loadStats().matches, 7, 'a saved count is read as a whole number');
+      } finally { delete globalThis.localStorage; }
+    },
+  },
+  {
+    name: 'S3-11 a match is stamped on the game-over card and counted in Records; a score that is not a match is not stamped',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      const { createGame } = await import('../src/js/sim/rules.js');
+      const { compileTable } = await import('../src/js/sim/table.js');
+      const { spec } = await import('../src/js/sim/table-spa-city.js');
+      const SEED = 4242, M = createGame(compileTable(spec), { seed: SEED }).rng.int(10) * 10;   // the first draw of the seed is the match number if nothing else draws first
+      const gameOver = async (score) => {
+        await t.page.evaluate(() => { for (const k of ['settings', 'scores', 'scores5', 'stats', 'daily', 'resume']) localStorage.removeItem('hsg-pinball:' + k); });
+        await t.reload(); await t.waitIdle(30000);
+        await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+        await t.game('setState', { player: { ball: 3 }, ball: { saveUntil: 0 } });
+        await t.game('act', 'placeBall', 242, 60, 0, -1500);
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'bonus' || window.__game.getState().scene === 'over', null, { timeout: 15000 }).catch(() => {});
+        for (let i = 0; i < 40 && (await t.state()).scene !== 'bonus'; i++) await t.game('step', 20);
+        await t.game('setState', { player: { score } });   // the bonus is already in the score: set the final one
+        await t.game('seed', SEED);
+        for (let i = 0; i < 80 && (await t.state()).scene !== 'over'; i++) await t.game('step', 20);
+        await t.page.waitForSelector('#o-match');
+        return t.state();
+      };
+      let s = await gameOver(150000 + M);
+      t.equal(s.player.match, M, 'the match number is the one the seed gives: ' + M);
+      t.expect(await t.page.locator('#o-stamp').isVisible(), 'the card shows the stamp');
+      t.expect(/MATCH/.test(await t.page.locator('#o-stamp').textContent()), 'it says MATCH');
+      t.expect(!/free game/i.test(await t.page.locator('#screens').textContent()), 'and nowhere promises a free game');
+      await t.checkLayout();
+      await shot(t, 'S3-11-match-stamp');
+      t.equal((await t.game('progress')).stats.matches, 1, 'the stats count one match');
+      await t.page.click('#b-title'); await t.page.click('#b-records');
+      t.expect(/Matches won\s*1/.test(await t.page.locator('#screens').textContent()), 'Records show Matches won 1');
+      await shot(t, 'S3-11-records');
+      s = await gameOver(150000 + ((M + 10) % 100));
+      t.equal(s.player.match, M, 'the same match number again');
+      t.equal(await t.page.locator('#o-stamp').count(), 0, 'a score that does not end in it has no stamp');
+      t.equal((await t.game('progress')).stats.matches, 0, 'and no match is counted');
+    },
+  },
 ];

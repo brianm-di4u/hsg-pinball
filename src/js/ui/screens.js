@@ -48,6 +48,9 @@ function didLine(d) {
   return parts.length ? '<p class="did" id="o-did">This game: ' + parts.join(' · ') + '</p>' : '';
 }
 
+// a match (S3-11): the game-over card stamps it and the records count it; a practice game is not recorded, so it is not stamped
+const matchStamp = (score, won, practice) => (won && !practice ? `<p class="match-stamp" id="o-stamp" role="status"><span aria-hidden="true">★</span> MATCH <span aria-hidden="true">★</span><small>${fmt(score)} ends in the match number: added to your records</small></p>` : '');
+
 export function createScreens(root, app) {
   let current = null;
   // with storage blocked (a private window, site data switched off) nothing the player earns is kept: say so. A save from a newer version of the game
@@ -285,7 +288,7 @@ export function createScreens(root, app) {
               <li><b>Modes:</b> every step pays 15,000 or more, and most pay 50,000 to 200,000 more for finishing.</li>
               <li><b>Extra ball:</b> 300 spins fill the Fifth Season meter. At most ${EB_CAP === 2 ? 'two' : EB_CAP} extra balls a game.</li>
               <li><b>Bonus</b> at the end of each ball: 2,000 a bathhouse, 10,000 a tower level, ${fmt(LADDER.bonusWon)} a mode won (${fmt(LADDER.bonusPlayed)} if only played) and 10 a spin, times the S·P·A multiplier.</li>
-              <li><b>Match:</b> a score that ends in the match number wins a free game.</li>
+              <li><b>Match:</b> a score that ends in the match number is a match, stamped in your records.</li>
               <li><b>Beat the table:</b> the display shows the next high score to pass.</li>
             </ul>
             </div>
@@ -353,7 +356,7 @@ export function createScreens(root, app) {
             <h3>Best scores</h3>
             <table class="keys"><tbody><tr><th>Easy</th><td>${best('easy')}</td></tr><tr><th>Standard</th><td>${best('standard')}</td></tr><tr><th>Expert</th><td>${best('expert')}</td></tr></tbody></table>
             <h3>Lifetime</h3>
-            <table class="keys"><tbody>${stat('Games finished', st.games)}${stat('Modes won', wins)}${stat('Wizard rounds finished', st.wizards)}${stat('Valley of the Vapors reached', st.mbs[2])}${stat('Arlington Multiballs', st.mbs[0])}${stat('Grand Soaks', st.mbs[1])}${stat('Jackpots', st.jackpots)}${stat('Skill shots', st.skillShots)}${stat('Bathhouse hits', st.baths)}${stat('Bathhouse Rows completed', st.rows)}${stat('Springs boiled', st.boils)}${stat('Extra balls', st.extraBalls)}</tbody></table>
+            <table class="keys"><tbody>${stat('Games finished', st.games)}${stat('Matches won', st.matches || 0)}${stat('Modes won', wins)}${stat('Wizard rounds finished', st.wizards)}${stat('Valley of the Vapors reached', st.mbs[2])}${stat('Arlington Multiballs', st.mbs[0])}${stat('Grand Soaks', st.mbs[1])}${stat('Jackpots', st.jackpots)}${stat('Skill shots', st.skillShots)}${stat('Bathhouse hits', st.baths)}${stat('Bathhouse Rows completed', st.rows)}${stat('Springs boiled', st.boils)}${stat('Extra balls', st.extraBalls)}</tbody></table>
             <h3>Wins by mode</h3>
             <ul class="chips">${MODE_NAMES.map((n, i) => `<li>${n} <b>${st.modeWins[i]}</b></li>`).join('')}</ul>
             <h3>Daily table</h3>
@@ -376,8 +379,9 @@ export function createScreens(root, app) {
         <div class="title-art" aria-hidden="true"></div>
         <h2 id="o-h">Game over</h2>
         <p class="big-score">${fmt(score)}</p>
-        <p>Match <b>${String(match).padStart(2, '0')}</b>${won ? ' · <b class="won">Match! Free game</b>' : ''}</p>
-        <p class="small" id="o-match">Match: a score that ends in ${String(match).padStart(2, '0')} wins a free game.</p>
+        <p>Match <b>${String(match).padStart(2, '0')}</b></p>
+        ${matchStamp(score, won, practice)}
+        <p class="small" id="o-match">Match: a score that ends in ${String(match).padStart(2, '0')} is a match, and is stamped in your records.</p>
         ${didLine(did)}
         ${summary(res, false)}
         ${practice ? '<p class="small">Practice game: not ranked</p>' : ''}
@@ -400,6 +404,7 @@ export function createScreens(root, app) {
           <h2 id="e-h">High score!</h2>
           <p class="big-score">${fmt(score)}</p>
           ${summary(res, true)}
+          ${res ? matchStamp(score, res.matched, false) : ''}
           <p>Enter your initials</p>
           <div class="initials" role="group" aria-label="Initials">${letters.map((l, i) => `<div class="ini ${i === pos ? 'on' : ''}"><button type="button" class="btn sm" data-up="${i}" aria-label="Letter ${i + 1} next">▲</button><span aria-live="polite">${l === ' ' ? '_' : l}</span><button type="button" class="btn sm" data-down="${i}" aria-label="Letter ${i + 1} previous">▼</button></div>`).join('')}</div>
           <p class="hint" id="e-hint">${app.touch ? 'Flippers change the letter · plunger confirms' : 'Type your initials, or flippers change the letter · plunger confirms'}</p>

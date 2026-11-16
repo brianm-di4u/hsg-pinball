@@ -117,7 +117,7 @@ export const tests = [
       await t.game('scene', 'over');
       await t.page.waitForSelector('#o-match');
       const text = await t.page.textContent('#o-match');
-      t.expect(/^Match: a score that ends in [0-9][0-9] wins a free game[.]$/.test(text), "one plain line explains it: " + text);
+      t.expect(/^Match: a score that ends in [0-9][0-9] is a match, and is stamped in your records[.]$/.test(text), "one plain line explains it: " + text);
       const box = await t.page.evaluate(() => { const r = document.querySelector('#o-match').getBoundingClientRect(), c = document.querySelector('.screen').getBoundingClientRect(); return [r.left >= c.left, r.right <= c.right, r.height > 0]; });
       t.expect(box.every(Boolean), 'inside the card');
       await t.checkLayout();
@@ -160,7 +160,7 @@ export const tests = [
       await t.game('scene', 'help');
       await t.page.waitForSelector('#help-scoring', { state: 'attached' });
       const text = await t.page.textContent('#help-scoring');
-      for (const [re, what] of [[/3 seconds/, 'the combo window'], [/100,000/, 'what a combo tops out at'], [/300 spins/, 'the Fifth Season meter'], [/two extra balls a game/, 'the extra-ball limit'], [/15,000 a mode won/, 'what the bonus pays a mode'], [/free game/, 'what match does'], [/next high score/, 'the score to beat']]) t.expect(re.test(text), 'Scoring says ' + what + ': ' + text.slice(0, 60));
+      for (const [re, what] of [[/3 seconds/, 'the combo window'], [/100,000/, 'what a combo tops out at'], [/300 spins/, 'the Fifth Season meter'], [/two extra balls a game/, 'the extra-ball limit'], [/15,000 a mode won/, 'what the bonus pays a mode'], [/stamped in your records/, 'what match does'], [/next high score/, 'the score to beat']]) t.expect(re.test(text), 'Scoring says ' + what + ': ' + text.slice(0, 60));
       if (t.viewport === 'mobile') await t.page.click('#ht-b');   // on a phone the scoring is on the Table and modes tab (S2-30)
       await t.page.evaluate(() => document.querySelector('#help-scoring').scrollIntoView({ block: 'center' }));
       await t.waitFrames(3);

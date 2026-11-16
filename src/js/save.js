@@ -82,11 +82,19 @@ export function loadSettings() {
 }
 export function saveSettings(s) { store.set('settings', s); }
 
-// fictional default high scores (initials only)
-const DEFAULT_SCORES = [
+// fictional default high scores (initials only). A profile made before S3-11 keeps the first table (its lowest was 100,000, which almost every first game beat);
+// a new profile gets the second, whose lowest is 250,000: about where the autoplay bot's games land on today's Standard table (median 216,580, average 329,502,
+// tools/balance.mjs, 30 games). Which one a profile has is its stats record's `seed`: 2 for a new one, 1 for one that already had stats.
+const seedRows = (rows) => rows.map(([initials, score]) => ({ initials, score, date: '2026-11-01', difficulty: 'standard' }));
+const DEFAULT_SCORES = seedRows([
   ['SPA', 2500000], ['ROW', 2000000], ['TUB', 1500000], ['HOT', 1200000], ['FDY', 1000000],
   ['QPW', 800000], ['OZK', 600000], ['LMR', 400000], ['HLE', 250000], ['SUP', 100000],
-].map(([initials, score]) => ({ initials, score, date: '2026-11-01', difficulty: 'standard' }));
+]);
+const DEFAULT_SCORES_2 = seedRows([
+  ['SPA', 2500000], ['ROW', 2000000], ['TUB', 1500000], ['HOT', 1200000], ['FDY', 1000000],
+  ['QPW', 850000], ['OZK', 650000], ['LMR', 450000], ['HLE', 350000], ['SUP', 250000],
+]);
+const seedKind = () => { const s = store.get('stats', null); return !s || typeof s !== 'object' || Array.isArray(s) || s.v !== 1 || s.seed === 2 ? 2 : 1; };
 
 // one table for each length of game, so a 5-ball score is never set against a 3-ball one: 'scores' stays the 3-ball table (every score saved before this
 // was kept there), 'scores5' is the 5-ball table
@@ -100,7 +108,7 @@ export function loadScores(balls = 3) {
       .sort((a, b) => b.score - a.score).slice(0, 10);
     if (rows.length) return rows;
   }
-  return DEFAULT_SCORES.map((r) => ({ ...r }));
+  return (seedKind() === 2 ? DEFAULT_SCORES_2 : DEFAULT_SCORES).map((r) => ({ ...r }));
 }
 export function qualifies(score, table = loadScores(3)) { return score > 0 && (table.length < 10 || score > table[table.length - 1].score); }
 export function addScore(initials, score, difficulty = 'standard', balls = 3) {
@@ -136,11 +144,11 @@ const cntArr = (v, len) => Array.from({ length: len }, (_, i) => (Array.isArray(
 const dateKey = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 export function loadStats() {
   const s = store.get('stats', null), d = emptyTally();
-  if (!isObj(s) || s.v !== 1) return { v: 1, ...d, started: 0, best: { easy: 0, standard: 0, expert: 0 }, earned: {} };
+  if (!isObj(s) || s.v !== 1) return { v: 1, ...d, seed: 2, started: 0, best: { easy: 0, standard: 0, expert: 0 }, earned: {} };
   const earned = {};
   if (isObj(s.earned)) for (const g of GOALS) { const when = dateKey(s.earned[g.id]); if (when) earned[g.id] = when; }
   const b = isObj(s.best) ? s.best : {};
-  return { v: 1, games: cnt(s.games), score: cnt(s.score), skillShots: cnt(s.skillShots), baths: cnt(s.baths), rows: cnt(s.rows), boils: cnt(s.boils), jackpots: cnt(s.jackpots), wizards: cnt(s.wizards),
+  return { v: 1, seed: s.seed === 2 ? 2 : 1, games: cnt(s.games), matches: cnt(s.matches), score: cnt(s.score), skillShots: cnt(s.skillShots), baths: cnt(s.baths), rows: cnt(s.rows), boils: cnt(s.boils), jackpots: cnt(s.jackpots), wizards: cnt(s.wizards),
     extraBalls: cnt(s.extraBalls), started: cnt(s.started), mbs: cntArr(s.mbs, 3), modeWins: cntArr(s.modeWins, 6), best: { easy: cnt(b.easy), standard: cnt(b.standard), expert: cnt(b.expert) }, earned };
 }
 export function saveStats(s) { return store.set('stats', s); }
