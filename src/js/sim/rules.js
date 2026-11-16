@@ -56,6 +56,7 @@ export const DERBY = { base: 1.5, spread: 1.2, surgeRate: 4, surgeSecs: 3, surge
 export const LADDER = { ebWins: 2, wizardWins: 4, bonusWon: 15000, bonusPlayed: 5000 };
 const winsOf = (f) => f.modesWon.reduce((a, b) => a + b, 0);
 export const COMBO_MAX = 5;   // the most a combo pays: 20,000 x 5 = 100,000 (a 6-way); another major shot inside the 3 s window keeps paying that
+const STAND_GAP = 2, STAND_STEPS = 7;   // S5-15: a standup hit within 2 s of the last climbs one step of the pitch ladder, up to 7 steps
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
 // The Valley of the Vapors (S3-02): it lasts `secs` seconds and then ends (it used to run until the balls drained). Each shot pays `shot`
 // times a multiplier that doubles every `doubleEvery` seconds up to 2 to the `maxDoublings`. maxDoublings was 5 (32x, 1.6M a shot);
@@ -400,7 +401,10 @@ function bumper(G, i, e) {
 function bathhouse(G, i, e) {
   const f = G.f, name = BATHHOUSES[i];
   f.bathHits++;
-  sound(G, 'target'); cue(G, { k: 'flash', name: 'bh' + name });
+  // S5-15: standup hits that come within STAND_GAP seconds of each other climb a pitch ladder (the cue carries the step); a pause starts it again
+  const st = (G.ball.stand ||= { t: -10, n: 0 });
+  st.n = G.t - st.t < STAND_GAP ? Math.min(STAND_STEPS, st.n + 1) : 0; st.t = G.t;
+  sound(G, 'target', 1, undefined, { n: st.n }); cue(G, { k: 'flash', name: 'bh' + name });
   if (G.mb && G.mb.kind === 'soak') {
     const v = score(G, 20000 * Math.max(1, ballsInPlay(G)));
     G.mb.hit[i] = 1; f.jackpots++;
@@ -441,7 +445,7 @@ function major(G, name) {
   if (G.t - last.t < 3) {
     G.ball.combo = Math.min(COMBO_MAX, G.ball.combo + 1);   // S3-10: it grew without a cap (a 10-way combo paid 200,000)
     const v = score(G, 20000 * G.ball.combo);
-    dmd(G, (G.ball.combo + 1) + '-WAY COMBO', fmt(v), 1100, 2); sound(G, 'combo');
+    dmd(G, (G.ball.combo + 1) + '-WAY COMBO', fmt(v), 1100, 2); sound(G, 'combo', 1, undefined, { n: G.ball.combo });
   } else G.ball.combo = 0;
   G.ball.lastMajor = { t: G.t, side };
   if (name === 'rampMade') {

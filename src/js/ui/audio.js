@@ -186,6 +186,7 @@ const LV = { rollover: 0.25, spinner: 0.2, switch: 0.28, rampEnter: 0.8, wireDro
 const RAMP_SWEEP = 0.55;   // seconds: about the time a shot takes from the ramp mouth to the top
 const MODE_VOICE = [{ root: 72, wave: 'sine' }, { root: 67, wave: 'square' }, { root: 76, wave: 'triangle' }, { root: 69, wave: 'triangle' }, { root: 64, wave: 'sawtooth' }, { root: 71, wave: 'square' }];   // by mode: soak, derby, raid, tower, tub, coaster
 const LADDER = [0, 2, 4, 7, 9, 12, 14, 16];   // major pentatonic, two octaves, by progress
+const LADDER_RATIO = (n) => 2 ** (LADDER[Math.max(0, Math.min(LADDER.length - 1, n | 0))] / 12);   // the pitch ratio of step n of the pentatonic ladder
 const LIT = [[523, 659, 784], [784, 988, 1319, 1568], [392, 523, 659, 784, 1047]];   // lock, extra ball, wizard
 const BIG = new Set(['jackpot', 'superJackpot', 'skill', 'complete', 'modeWon', 'extraBall', 'multiball', 'wizard', 'boil', 'gameOver', 'start', 'achieve']);
 // The attract demo plays the table with the sound of the table (S1-20): the contact cues at DEMO_GAIN of their level, through the same
@@ -235,7 +236,8 @@ function synth(name, v, t, o) {
     case 'wall': impact(t, MATERIAL[o.kind] || 'metal', v); break;
     case 'clack': tone(1800 * jf(), t, 0.03, 'square', 0.08 * v * jg()); noise(t, 0.02, 0.1 * v * jg(), 4000 * jf()); break;
     case 'rollover': tone(1046 * J(), t, 0.05, 'square', LV.rollover); tone(1568 * J(), t + 0.04, 0.06, 'square', LV.rollover * 0.7); break;
-    case 'target': thunk(t, 160, 0.25); tone(880, t, 0.08, 'triangle', 0.12); break;
+    // a standup target: the pitch climbs a step of the ladder for each hit that comes within 2 s of the last (o.n), and every repeat is detuned a little (S5-15)
+    case 'target': thunk(t, 160 * J(50), 0.25); tone(880 * LADDER_RATIO(o.n) * J(50), t, 0.08, 'triangle', 0.12); break;
     case 'spinner': for (let k = 0; k < Math.round(3 + v * 8); k++) tone((1400 - k * 40) * J(10), t + k * 0.035, 0.02, 'square', LV.spinner); break;
     case 'switch': tone(1200 * J(), t, 0.025, 'square', LV.switch); break;
     case 'outlane': [392, 330, 262].forEach((f, k) => tone(f, t + k * 0.08, 0.12, 'square', 0.08)); break;
@@ -293,7 +295,7 @@ function synth(name, v, t, o) {
     case 'extraBall': sweep(t, 0.5, 1500, 6500, 0.1 * CEREMONY, 1, sfxBus, 1); [1047, 1319, 1568, 2093].forEach((f, k) => bell(t + k * 0.09, f, 0.9, 0.2)); break;
     // the ball saved (the Shoot Again lamp): a short two-note ready call
     case 'shootAgain': tone(784, t, 0.1, 'triangle', 0.2, 0, sfxBus, 1); tone(1047, t + 0.1, 0.28, 'triangle', 0.22, 0, sfxBus, 1); tone(2093, t + 0.1, 0.2, 'sine', 0.05, 0, sfxBus, 1); break;
-    case 'combo': tone(659, t, 0.1, 'square', 0.08); tone(988, t + 0.07, 0.15, 'square', 0.08); break;
+    case 'combo': { const r = LADDER_RATIO((o.n || 1) - 1); tone(659 * r * J(50), t, 0.1, 'square', 0.08); tone(988 * r * J(50), t + 0.07, 0.15, 'square', 0.08); break; }   // each link of the chain a step higher (S5-15)
     case 'bonus': for (let k = 0; k < 10; k++) tone(440 + k * 44, t + k * 0.12, 0.06, 'square', 0.06); break;
     case 'nudge': noise(t, 0.08, 0.18, 200, 'lowpass', 1); break;
     case 'warning': tone(220, t, 0.25, 'square', 0.1); tone(220, t + 0.3, 0.25, 'square', 0.1); break;

@@ -224,4 +224,55 @@ export const tests = [
       t.equal((await t.game('progress')).stats.matches, 0, 'and no match is counted');
     },
   },
+  // ------------------------------------------------------------------------------------------------------ S5-15
+  {
+    name: 'S5-15 a standup target and a combo climb a pitch ladder while they come quickly, start again after a pause, and no two repeats are the same pitch', node: true,
+    async run(t) {
+      const { sfx, unlock, stopMusic, audio } = await import('../src/js/ui/audio.js');
+      const freqs = [];
+      const stub = () => new Proxy(function () {}, { get: (_, k) => (k === 'connect' ? (x) => x : k === Symbol.toPrimitive ? () => 0 : stub()), set: () => true, apply: () => stub() });
+      class Ctx {
+        constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = {}; fakeCtx = this; }
+        suspend() { return Promise.resolve(); } resume() { return Promise.resolve(); }
+        createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+        createOscillator() { const o = stub(); return new Proxy({}, { get: (_, k) => (k === 'frequency' ? { setValueAtTime: (v) => freqs.push(v), exponentialRampToValueAtTime() {} } : k === 'connect' ? (x) => x : o[k]), set: () => true }); }
+        createGain() { return stub(); } createBiquadFilter() { return stub(); } createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); }
+        createWaveShaper() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
+      }
+      let fakeCtx = null;
+      globalThis.window = { AudioContext: Ctx };
+      try {
+        unlock();
+        const play = (name, n) => { fakeCtx.currentTime += 1; freqs.length = 0; sfx(name, 1, 0, { n }); return freqs.slice(); };
+        const bright = (name, n, lo, hi) => play(name, n).filter((f) => f > lo && f < hi);
+        // the target's pitch tone is the one above 600 Hz (its thump is about 160 Hz); the combo has two tones, take the first
+        const ladder = [0, 1, 2, 3, 4, 5].map((n) => bright('target', n, 600, 5000)[0]);
+        for (let i = 1; i < ladder.length; i++) t.expect(ladder[i] > ladder[i - 1], `target step ${i} is higher than step ${i - 1}: ${ladder[i - 1].toFixed(0)} then ${ladder[i].toFixed(0)}`);
+        const combos = [1, 2, 3, 4].map((n) => play('combo', n)[0]);
+        for (let i = 1; i < combos.length; i++) t.expect(combos[i] > combos[i - 1], `combo step ${i + 1} is higher than step ${i}: ${combos[i - 1].toFixed(0)} then ${combos[i].toFixed(0)}`);
+        // the same step twice is not the same pitch: 12 repeats of one step, each within 3 percent of 880 Hz and not all equal
+        // (the chance that 12 draws from a continuous spread are all equal is nil)
+        const same = Array.from({ length: 12 }, () => bright('target', 0, 600, 5000)[0]);
+        t.expect(same.every((f) => f >= 880 * 0.97 - 1e-9 && f <= 880 * 1.03 + 1e-9), 'every repeat is within 3 percent of 880 Hz: ' + Math.min(...same).toFixed(1) + ' to ' + Math.max(...same).toFixed(1));
+        t.expect(new Set(same.map((f) => f.toFixed(3))).size > 6, 'and the repeats differ: ' + new Set(same.map((f) => f.toFixed(3))).size + ' distinct of 12');
+      } finally { stopMusic(); audio.ctx = null; delete globalThis.window; }
+    },
+  },
+  {
+    name: 'S5-15 the rules number the standup hits that come within 2 s of each other, and the combo cue carries its count',
+    node: true,
+    async run(t) {
+      const { createGame, newGame, tick } = await import('../src/js/sim/rules.js');
+      const { compileTable } = await import('../src/js/sim/table.js');
+      const { spec } = await import('../src/js/sim/table-spa-city.js');
+      const G = createGame(compileTable(spec), { seed: 5 }); newGame(G, { balls: 3, seed: 5 });
+      const ns = () => G.cues.filter((c) => c.k === 'sound' && c.name === 'target').map((c) => c.n);
+      const hit = (sw) => { G.w.events.push({ t: 'hit', sw: G.T.sw[sw], speed: 1000, dir: 1, ball: (G.w.balls[0] || {}).id }); tick(G); };
+      const idle = (secs) => { for (let i = 0; i < secs * 120; i++) tick(G); };
+      hit('bhHale'); hit('bhLamar'); hit('bhFordyce');
+      t.equal(ns(), [0, 1, 2], 'three quick standup hits are steps 0, 1, 2');
+      G.cues.length = 0; idle(2.5); G.cues.length = 0; hit('bhHale');
+      t.equal(ns(), [0], 'after more than 2 s the ladder starts again');
+    },
+  },
 ];
