@@ -46,12 +46,16 @@ function masterChain(c, dest, vol) {
   return m;
 }
 
+// wake the context from any state but running: Safari on iOS leaves it 'interrupted' after a call or an app switch, not 'suspended'
+const wake = (c) => { if (c.state !== 'running' && c.state !== 'closed') { const p = c.resume(); if (p && p.catch) p.catch(() => {}); } };
+
 export function unlock() {
-  if (audio.ctx) { if (audio.ctx.state === 'suspended' && !audio.hold) audio.ctx.resume(); return; }
+  if (audio.ctx) { if (!audio.hold) wake(audio.ctx); return; }
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = (audio.ctx = new AC()); cx = c;
+    c.onstatechange = () => { if (c.state !== 'running' && c.state !== 'closed' && !audio.hold) armGesture(); };   // the system took the sound away: the next tap or key brings it back
     master = masterChain(c, c.destination, masterLevel());
     sfxBus = c.createGain(); sfxBus.gain.value = sfxLevel(); sfxBus.connect(master);
     // a short generated room impulse for a little space
@@ -68,14 +72,15 @@ export function unlock() {
   } catch { audio.ctx = null; }
 }
 
-// browsers only allow audio after a gesture: the first tap, click or key anywhere starts it (touchend, not touchstart, for iOS)
-if (typeof window !== 'undefined' && window.addEventListener) {
-  const first = () => {
-    unlock();
-    if (audio.ctx && audio.ctx.state === 'running') for (const e of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(e, first, true);
-  };
-  for (const e of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(e, first, true);
+// browsers only allow audio after a gesture: the first tap, click or key anywhere starts it (touchend and click, not touchstart, for iOS).
+// The listeners come off once the sound is running and go back on if the system takes it away again.
+const GESTURES = ['pointerdown', 'keydown', 'touchend', 'click'];
+function onGesture() {
+  unlock();
+  if (audio.ctx && audio.ctx.state === 'running') for (const e of GESTURES) window.removeEventListener(e, onGesture, true);
 }
+function armGesture() { if (typeof window !== 'undefined' && window.addEventListener) for (const e of GESTURES) window.addEventListener(e, onGesture, true); }
+armGesture();
 
 // silence while paused or hidden: the kit fades its buses and a suspended context stops the clock it schedules
 // from, so nothing is lost or queued
@@ -86,7 +91,7 @@ export function suspendAudio() {
 }
 export function resumeAudio() {
   audio.hold = false;
-  if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+  if (audio.ctx) wake(audio.ctx);
   if (audio.kit) audio.kit.release();
 }
 

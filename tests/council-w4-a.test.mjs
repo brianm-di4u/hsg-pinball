@@ -3,10 +3,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DIFFICULTY } from '../src/js/sim/rules.js';
+import { audio, unlock, stopMusic, suspendAudio, resumeAudio } from '../src/js/ui/audio.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
+// a context whose state the test sets (iOS says 'interrupted' after a call), and a window that keeps the listeners it is given
+function fakeContext() {
+  const stub = () => new Proxy(function () {}, { get: (_, k) => (k === 'connect' ? (x) => x : k === Symbol.toPrimitive ? () => 0 : stub()), set: () => true, apply: () => stub() });
+  return class {
+    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = {}; this.resumes = 0; this.rejects = false; fakeContext.last = this; }
+    suspend() { this.state = 'suspended'; return Promise.resolve(); }
+    resume() { this.resumes++; if (this.rejects) return Promise.reject(new Error('not allowed')); this.state = 'running'; return Promise.resolve(); }
+    createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+    createGain() { return stub(); } createOscillator() { return stub(); } createBiquadFilter() { return stub(); }
+    createBufferSource() { return stub(); } createDynamicsCompressor() { return stub(); } createWaveShaper() { return stub(); } createConvolver() { return stub(); } createDelay() { return stub(); }
+  };
+}
 const P = 'hsg-pinball:';
 const rawSave = (t) => t.page.evaluate((p) => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(p)) o[k] = localStorage.getItem(k); } return o; }, P);
 const reload = async (t) => { await t.page.reload(); await t.waitIdle(30000); await t.waitFrames(3); };
@@ -22,6 +35,51 @@ const NEWER = {
 const seedNewer = (t, only = Object.keys(NEWER)) => t.page.evaluate(([n, keys, p]) => { localStorage.clear(); for (const k of keys) localStorage.setItem(p + k, JSON.stringify(n[k])); }, [NEWER, only, P]);
 
 export const tests = [
+  {
+    name: 'S5-17 the sound comes back from an interrupted context as well as a suspended one, and a tap or click brings it back after the system takes it away',
+    node: true,
+    async run(t) {
+      const listening = new Set();
+      globalThis.window = { AudioContext: fakeContext(), addEventListener: (e) => listening.add(e), removeEventListener: (e) => listening.delete(e) };
+      const unhandled = [];
+      const onUnhandled = (e) => unhandled.push(e);
+      process.on('unhandledRejection', onUnhandled);
+      try {
+        unlock();
+        const c = fakeContext.last;
+        for (const state of ['interrupted', 'suspended']) {
+          c.state = state;
+          unlock();
+          t.equal(c.state, 'running', 'a tap wakes a context that is ' + state);
+        }
+        c.state = 'interrupted';
+        resumeAudio();
+        t.equal(c.state, 'running', 'resumeAudio (a tab shown again, Resume) wakes an interrupted one');
+        suspendAudio();
+        c.state = 'interrupted';
+        const n = c.resumes;
+        unlock();
+        t.equal(c.resumes, n, 'a paused game stays silent: unlock does not wake it');
+        resumeAudio();
+        c.state = 'closed';
+        const m = c.resumes;
+        unlock(); resumeAudio();
+        t.equal(c.resumes, m, 'a closed context is left alone');
+        // the system takes the sound away while the game is running: the listeners come back, for touchend and click as well as the rest
+        audio.hold = false; c.state = 'interrupted'; listening.clear();
+        c.onstatechange();
+        t.expect(['pointerdown', 'keydown', 'touchend', 'click'].every((e) => listening.has(e)), 'the gesture listeners are armed again: ' + [...listening]);
+        listening.clear(); c.state = 'suspended'; audio.hold = true;
+        c.onstatechange();
+        t.equal(listening.size, 0, 'but not while the game itself holds the sound');
+        audio.hold = false;
+        c.state = 'interrupted'; c.rejects = true;
+        unlock();
+        await new Promise((r) => setTimeout(r, 20));
+        t.equal(unhandled.length, 0, 'a refused resume is not an unhandled rejection');
+      } finally { process.off('unhandledRejection', onUnhandled); stopMusic(); audio.ctx = null; audio.hold = false; delete globalThis.window; }
+    },
+  },
   {
     name: 'S3-16 MECHANICS.md describes the ball save the game has: no early end after three switches, and the lengths on each difficulty',
     node: true,
