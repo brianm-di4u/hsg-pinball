@@ -209,6 +209,15 @@ function substep(w, dt) {
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) collideBalls(w, w.balls[i], w.balls[j]);
 }
 
+/** The angle to draw a flipper at (S1-10): the ball is drawn between the last two ticks, which is a tick behind the sim, so a flipper
+ *  drawn the same way shows a flip a tick late. The flipper (not the ball) is drawn forward by the same fraction instead, and never
+ *  past either end of its stroke. prevAngle is its angle one tick ago; null draws it where it is. */
+export function flipperDrawAngle(f, prevAngle, alpha) {
+  if (prevAngle == null || !(alpha > 0)) return f.angle;
+  const a = f.angle + (f.angle - prevAngle) * alpha, e = f.rest + f.dir * f.stroke;
+  return Math.min(Math.max(a, Math.min(f.rest, e)), Math.max(f.rest, e));
+}
+
 function stepFlippers(w, dt) {
   for (const f of w.flippers) {
     const prev = f.theta;

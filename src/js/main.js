@@ -2,7 +2,7 @@
 // lamps, effects), screens, saves and the window.__game test hooks.
 import { compileTable } from './sim/table.js';
 import { spec } from './sim/table-spa-city.js';
-import { TICK, autoPlunge, addBall, LAYER, removeBall, SKILL_LANES } from './sim/physics.js';
+import { TICK, autoPlunge, addBall, LAYER, removeBall, SKILL_LANES, flipperDrawAngle } from './sim/physics.js';
 import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api, LADDER, MODES, nextModeIndex } from './sim/rules.js';
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
@@ -522,7 +522,7 @@ function interpolated(alpha) {
       const q = prev.get(b.id) || [b.x, b.y, b.z];
       return { id: b.id, x: q[0] + (b.x - q[0]) * alpha, y: q[1] + (b.y - q[1]) * alpha, z: q[2] + (b.z - q[2]) * alpha, layer: b.layer, roll: b.roll, vx: b.vx, vy: b.vy };
     }),
-    flippers: G.w.flippers.map((f, i) => ({ ...f, angle: pf ? pf[i] + (f.angle - pf[i]) * alpha : f.angle })),
+    flippers: G.w.flippers.map((f, i) => ({ ...f, angle: flipperDrawAngle(f, pf ? pf[i] : null, alpha) })),
   };
 }
 
@@ -629,6 +629,7 @@ window.__game = {
   cueRender(name, opts) { return cueRender(name, opts); },
   rollRender(seconds, wantWav) { return rollRender(seconds, wantWav); },
   chargeRender(seconds, wantWav) { return chargeRender(seconds, wantWav); },
+  drawnFlippers(alpha) { return interpolated(alpha).flippers.map((f) => f.angle); },   // tests: the angles the picture would draw at this fraction of a tick
   isIdle() { return !loading && (!view || !view.busy || !view.busy()); },
   step(n = 1) { for (let i = 0; i < n; i++) { capturePrev(); if (bot) bot(); tick(G); routeCues(); } mixState(); render(1); return G.w.tick; },
   pause() { this.paused = true; return true; },
