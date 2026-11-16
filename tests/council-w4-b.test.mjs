@@ -275,4 +275,47 @@ export const tests = [
       t.equal(ns(), [0], 'after more than 2 s the ladder starts again');
     },
   },
+  // ------------------------------------------------------------------------------------------------------ S5-16
+  {
+    name: 'S5-16 the end-of-ball bonus is sounded part by part on the beat the display reveals it, then the multiplier hits; a tilted ball and a skipped count do not', node: true,
+    async run(t) {
+      const { createGame, newGame, tick, flipper, BONUS_STEP } = await import('../src/js/sim/rules.js');
+      const { compileTable } = await import('../src/js/sim/table.js');
+      const { spec } = await import('../src/js/sim/table-spa-city.js');
+      const T = compileTable(spec);
+      const fresh = () => { const G = createGame(T, { seed: 3 }); newGame(G, { balls: 3, seed: 3 }); G.cues.length = 0; return G; };
+      const run = (G, secs) => { for (let i = 0; i < Math.round(secs * 120); i++) tick(G); };
+      const drain = (G) => { G.player.ball = G.player.ballsPerGame - 1; G.ball.saveUntil = 0; G.ball.inLane = false; G.ball.launched = true; G.w.events.push({ t: 'drain', ball: G.w.balls[0].id, x: 240 }); tick(G); };
+      const G = fresh(); G.player.bonusX = 3;
+      drain(G);
+      t.equal(G.scene, 'bonus', 'the bonus is counting');
+      const parts = G.bonus.parts.length;
+      run(G, BONUS_STEP * (parts + 1) + 0.1);
+      const heard = G.cues.filter((c) => c.k === 'sound' && /^bonus/.test(c.name)).map((c) => [c.name, c.n]);
+      t.equal(heard, [...Array.from({ length: parts }, (_, k) => ['bonusTick', k]), ['bonusX', 3]], 'one tick for each part, rising, then the multiplier hit with its value (' + parts + ' parts, x3)');
+      t.expect(!G.cues.some((c) => c.k === 'sound' && c.name === 'bonus'), 'and no single long run on top');
+      // each tick lands when the display moves to its part: the display shows part k from k x BONUS_STEP
+      const H = fresh(); drain(H);
+      const at = []; for (let i = 0; i < Math.round(BONUS_STEP * (parts + 1) * 120) + 20; i++) { tick(H); for (const c of H.cues) if (c.k === 'sound' && /^bonus/.test(c.name)) at.push([c.name, +(H.t - H.bonus.t0).toFixed(3)]); H.cues.length = 0; }
+      t.expect(at.every(([, s], k) => Math.abs(s - k * BONUS_STEP) < 0.03), 'each lands within 30 ms of its part on the display: ' + JSON.stringify(at));
+      // a tilted ball says NO BONUS with the old single sound; skipping the count silences what is left
+      const K = fresh(); K.player.tilted = true; drain(K);
+      t.expect(K.cues.some((c) => c.k === 'sound' && c.name === 'bonus') && !K.cues.some((c) => c.name === 'bonusTick'), 'a tilted ball keeps the one old sound and has no ticks');
+      const S = fresh(); drain(S); run(S, 0.9); S.cues.length = 0;
+      flipper(S, 'L', true); flipper(S, 'L', false); run(S, 3);
+      t.equal(S.cues.filter((c) => c.k === 'sound' && /^bonus/.test(c.name)).length, 0, 'skipping the count after 0.9 s leaves no tick or hit to sound later');
+    },
+  },
+  {
+    name: 'S5-16 the bonus tick and the multiplier hit are audible and no louder than the table cues (rendered offline at the shipped volume)',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.waitIdle(30000);
+      const peak = async (name, n) => { const r = []; for (let i = 0; i < 5; i++) r.push((await t.page.evaluate(([a, b]) => window.__game.cueRender(a, { n: b, seconds: 1.5 }), [name, n])).peak); return r.sort((a, b) => a - b)[2]; };
+      const levels = { tick0: await peak('bonusTick', 0), tick3: await peak('bonusTick', 3), x1: await peak('bonusX', 1), x5: await peak('bonusX', 5), multUp: await peak('multUp', 3) };
+      t.log('median peaks at the speakers (default volume): ' + JSON.stringify(Object.fromEntries(Object.entries(levels).map(([k, v]) => [k, +v.toFixed(3)]))));
+      for (const [k, v] of Object.entries(levels)) t.expect(v > 0.03 && v < 0.6, k + ' is audible and does not clip: ' + v.toFixed(3));
+      t.expect(levels.tick3 <= levels.multUp * 1.2 && levels.x5 <= levels.multUp * 1.5, 'and not louder than the multiplier-up cue it sits beside');
+    },
+  },
 ];

@@ -3,7 +3,7 @@
 import { compileTable } from './sim/table.js';
 import { spec } from './sim/table-spa-city.js';
 import { TICK, autoPlunge, addBall, LAYER, removeBall, SKILL_LANES, flipperDrawAngle } from './sim/physics.js';
-import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api, LADDER, MODES, nextModeIndex } from './sim/rules.js';
+import { createGame, newGame, tick, flipper, plunger, plungerCancel, nudge, gameState, setGameState, mystery, api, LADDER, MODES, nextModeIndex, BONUS_STEP } from './sim/rules.js';
 import { createBot } from './sim/bot.js';
 import { buildLamps, lampStates } from './sim/lamps.js';
 import { FACTS, ATTRACT_FACTS } from './sim/facts.js';
@@ -482,7 +482,7 @@ function dmdBase(d) {
   }
   if (G.scene === 'bonus' && G.bonus) {
     const b = G.bonus, age = G.t - b.t0;
-    const idx = Math.min(b.parts.length, Math.floor(age / 0.45));
+    const idx = Math.min(b.parts.length, Math.floor(age / BONUS_STEP));
     if (b.tilted) { d.center('TILT', 4, 2, 3); d.center('NO BONUS', 22, 1, 2); return; }
     if (idx < b.parts.length) { d.center(b.parts[idx][0], 4, 1, 2); d.center(fmt(b.parts[idx][1]), 15, 2, 3); }
     else { d.center('BONUS ' + b.x + 'X', 3, 1, 2); d.center(fmt(b.total), 15, 2, 3); }

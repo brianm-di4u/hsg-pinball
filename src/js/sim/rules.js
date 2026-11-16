@@ -56,6 +56,7 @@ export const DERBY = { base: 1.5, spread: 1.2, surgeRate: 4, surgeSecs: 3, surge
 export const LADDER = { ebWins: 2, wizardWins: 4, bonusWon: 15000, bonusPlayed: 5000 };
 const winsOf = (f) => f.modesWon.reduce((a, b) => a + b, 0);
 export const COMBO_MAX = 5;   // the most a combo pays: 20,000 x 5 = 100,000 (a 6-way); another major shot inside the 3 s window keeps paying that
+export const BONUS_STEP = 0.45;   // S5-16: the display shows one part of the end-of-ball bonus every 0.45 s, and the count is sounded on the same beat
 const STAND_GAP = 2, STAND_STEPS = 7;   // S5-15: a standup hit within 2 s of the last climbs one step of the pitch ladder, up to 7 steps
 const BONUS_SECS = 2.6, BONUS_TILTED_SECS = 1.2, BONUS_SKIP_AFTER = 0.8;   // the end-of-ball count: 2.6 s for every ball and not skippable before S1-06; a tilted ball says NO BONUS for 1.2 s
 // The Valley of the Vapors (S3-02): it lasts `secs` seconds and then ends (it used to run until the balls drained). Each shot pays `shot`
@@ -209,7 +210,13 @@ function endBall(G) {
   G.scene = 'bonus';
   if (!p.tilted) p.score += total;
   cue(G, { k: 'bonus', ...G.bonus });
-  sound(G, 'bonus');
+  if (p.tilted) sound(G, 'bonus');
+  else {
+    // one tick for each part as the display shows it, rising, and a hit when the multiplier is applied (the same beat as main.js's bonus lines)
+    const b = G.bonus;
+    parts.forEach((_, k) => { if (k === 0) sound(G, 'bonusTick', 1, undefined, { n: 0 }); else G.timers.push({ at: b.t0 + k * BONUS_STEP, bonus: true, fn: () => { if (G.bonus === b) sound(G, 'bonusTick', 1, undefined, { n: k }); } }); });
+    G.timers.push({ at: b.t0 + parts.length * BONUS_STEP, bonus: true, fn: () => { if (G.bonus === b) sound(G, 'bonusX', 1, undefined, { n: b.x }); } });
+  }
   f.spins = 0;
   G.timers.push({ at: G.t + len, bonus: true, fn: () => nextBall(G) });
 }

@@ -297,6 +297,9 @@ function synth(name, v, t, o) {
     case 'shootAgain': tone(784, t, 0.1, 'triangle', 0.2, 0, sfxBus, 1); tone(1047, t + 0.1, 0.28, 'triangle', 0.22, 0, sfxBus, 1); tone(2093, t + 0.1, 0.2, 'sine', 0.05, 0, sfxBus, 1); break;
     case 'combo': { const r = LADDER_RATIO((o.n || 1) - 1); tone(659 * r * J(50), t, 0.1, 'square', 0.08); tone(988 * r * J(50), t + 0.07, 0.15, 'square', 0.08); break; }   // each link of the chain a step higher (S5-15)
     case 'bonus': for (let k = 0; k < 10; k++) tone(440 + k * 44, t + k * 0.12, 0.06, 'square', 0.06); break;
+    // the end-of-ball count (S5-16): a tick for each part of the bonus as the display shows it, climbing the ladder, and a hit for the multiplier (o.n is the step, or the multiplier)
+    case 'bonusTick': tone(523 * LADDER_RATIO(o.n) * J(), t, 0.1, 'square', LV.cue * 0.5); tone(1047 * LADDER_RATIO(o.n) * J(), t + 0.02, 0.08, 'triangle', LV.cue * 0.3, 0, sfxBus, 1); noise(t, 0.015, 0.08, 4000); break;
+    case 'bonusX': { const f = 392 * 2 ** (Math.min(5, o.n || 1) / 4); thunk(t, 90, 0.25); tone(f, t, 0.18, 'triangle', LV.cue * 0.8, 0, sfxBus, 1); tone(f * 1.5, t + 0.07, 0.3, 'triangle', LV.cue * 0.7, 0, sfxBus, 1); break; }
     case 'nudge': noise(t, 0.08, 0.18, 200, 'lowpass', 1); break;
     case 'warning': tone(220, t, 0.25, 'square', 0.1); tone(220, t + 0.3, 0.25, 'square', 0.1); break;
     case 'tilt': tone(110, t, 1.2, 'sawtooth', 0.12, -50); break;
