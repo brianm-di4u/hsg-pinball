@@ -388,11 +388,16 @@ export const tests = [
     name: 'S3-01 the goal cue is a cue-level sound, a little different each time',
     viewports: ['desktop'],
     async run(t) {
-      const r = await t.page.evaluate(() => window.__game.cueRender('achieve', { seconds: 3 }));
+      // the detune, the reverb tail and the noise all draw on Math.random: seed it (mulberry32) for the renders and put it back, so the same two renders come out every run (K-05). Unseeded, the peak ran from 0.41 to 0.47 over 40 seeds, so the 0.45 bound is met by the seed, not by chance; seed 1 gives 0.406
+      const render = (seed, n) => t.page.evaluate(async ([sd, k]) => {
+        const real = Math.random; let a = sd >>> 0;
+        Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let x = Math.imul(a ^ (a >>> 15), 1 | a); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+        try { const out = []; for (let i = 0; i < k; i++) out.push(await window.__game.cueRender('achieve', { seconds: 3 })); return out; } finally { Math.random = real; }
+      }, [seed, n]);
+      const [r, r2] = await render(1, 2);
       t.log('achieve peak ' + r.peak + ' rms ' + r.rmsDb + ' dB');
       t.expect(r.peak >= 0.15 && r.peak <= 0.45, 'it peaks ' + r.peak + ' (0.15 to 0.45)');
       t.expect(r.secs[0] > 0.01 && (r.secs[2] || 0) < 0.002, 'and is over inside two seconds');
-      const r2 = await t.page.evaluate(() => window.__game.cueRender('achieve', { seconds: 3 }));
       t.expect(r2.peak !== r.peak || r2.rmsDb !== r.rmsDb, 'two renders are not identical (detune)');
       t.expect(r.peak + 0.138 + 0.069 < 0.95, 'with the loudest piece and bed it stays under 0.95');
     },
