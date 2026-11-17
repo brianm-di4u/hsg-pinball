@@ -215,7 +215,7 @@ function endBall(G) {
     // one tick for each part as the display shows it, rising, and a hit when the multiplier is applied (the same beat as main.js's bonus lines)
     const b = G.bonus;
     parts.forEach((_, k) => { if (k === 0) sound(G, 'bonusTick', 1, undefined, { n: 0 }); else G.timers.push({ at: b.t0 + k * BONUS_STEP, bonus: true, fn: () => { if (G.bonus === b) sound(G, 'bonusTick', 1, undefined, { n: k }); } }); });
-    G.timers.push({ at: b.t0 + parts.length * BONUS_STEP, bonus: true, fn: () => { if (G.bonus === b) sound(G, 'bonusX', 1, undefined, { n: b.x }); } });
+    if (b.x >= 2) G.timers.push({ at: b.t0 + parts.length * BONUS_STEP, bonus: true, fn: () => { if (G.bonus === b) sound(G, 'bonusX', 1, undefined, { n: b.x }); } });   // the multiplier hit only where something is multiplied (K-03)
   }
   f.spins = 0;
   G.timers.push({ at: G.t + len, bonus: true, fn: () => nextBall(G) });
