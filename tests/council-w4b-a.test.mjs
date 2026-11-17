@@ -8,7 +8,20 @@ import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4b', 'shots');
+const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 const T = compileTable(spec);
+// a paused game finished with a high score: the last ball drains and the initials card opens; `settings` is what the page has saved before it loads
+async function toEntry(t, settings = null) {
+  await t.page.evaluate((st) => { for (const k of ['settings', 'scores', 'scores5', 'stats', 'daily', 'resume']) localStorage.removeItem('hsg-pinball:' + k); if (st) localStorage.setItem('hsg-pinball:settings', JSON.stringify(st)); }, settings);
+  await t.reload(); await t.waitIdle(30000);
+  await t.game('newGame', { balls: 3, seed: 7 }); await t.game('pause'); await t.game('step', 30);
+  await t.game('setState', { player: { ball: 3, score: 9999990 }, ball: { saveUntil: 0 } });
+  await t.game('act', 'placeBall', 242, 60, 0, -1500);
+  await t.game('step', 400);
+  await t.page.waitForFunction(() => window.__game.getState().screen === 'entry', null, { timeout: 8000 });
+}
+const typed = (t) => t.page.evaluate(() => [...document.querySelectorAll('.initials .ini span')].map((x) => x.textContent).join(''));
 
 export const tests = [
   // ------------------------------------------------------------------------------------------------------ K-03
@@ -46,6 +59,36 @@ export const tests = [
       t.expect(line.includes(d.easy.bobDecay + '/s on Easy') && line.includes(d.expert.bobDecay + '/s on Expert'), 'and the Easy and Expert decay: ' + [d.easy.bobDecay, d.expert.bobDecay]);
       t.expect(line.includes(d.standard.tiltAfter + ' warnings on Standard') && line.includes(d.easy.tiltAfter + ' on Easy') && line.includes(d.expert.tiltAfter + ' on Expert'), 'and the warnings before the tilt: ' + [d.standard.tiltAfter, d.easy.tiltAfter, d.expert.tiltAfter]);
       t.expect(!/1\.2\/s|\(3 allowed\)/.test(line), 'and none of the wave-2 numbers');
+    },
+  },
+  // ------------------------------------------------------------------------------------------------------ K-07
+  {
+    name: 'K-07 the initials hint on a keyboard names the keys that still change the letter, not the flippers; a touch screen keeps its words',
+    viewports: ['desktop', 'mobile'],
+    async run(t) {
+      await toEntry(t);
+      const hint = await t.page.locator('#e-hint').textContent();
+      if (t.viewport === 'mobile') t.equal(hint, 'Flippers change the letter · plunger confirms', 'a touch screen has no keys to name: ' + hint);
+      else {
+        t.equal(hint, 'Type your initials, or change the letter with Shift, / or ← → · plunger confirms', 'the hint names Shift, / and the arrows: ' + hint);
+        t.expect(!/flippers/i.test(hint), 'and does not call them flippers, since Z types a letter here');
+        await t.page.keyboard.press('z');
+        t.equal(await typed(t), 'ZAA', 'Z types a Z');
+        await t.page.keyboard.press('ArrowRight');
+        t.equal(await typed(t), 'ZBA', 'and a named key, the right arrow, changes the letter under the cursor');
+      }
+      await shot(t, 'K-07-initials-hint');
+      await t.checkLayout();
+    },
+  },
+  {
+    name: "K-07 with the flippers on keys of the player's own, the hint names the ones that are not letters, and none when all are letters",
+    viewports: ['desktop'],
+    async run(t) {
+      await toEntry(t, { v: 1, keys: { flipL: 'KeyQ', flipR: 'Comma' } });
+      t.equal(await t.page.locator('#e-hint').textContent(), 'Type your initials, or change the letter with , · plunger confirms', 'only the comma still changes the letter');
+      await toEntry(t, { v: 1, keys: { flipL: 'KeyQ', flipR: 'KeyJ' } });
+      t.equal(await t.page.locator('#e-hint').textContent(), 'Type your initials · plunger confirms', 'two letter keys leave nothing to name');
     },
   },
 ];

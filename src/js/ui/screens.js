@@ -397,6 +397,12 @@ export function createScreens(root, app) {
       on('#b-title', () => app.quit());
     },
     entry(score, done, res) {
+      // on a keyboard the letter keys type, so the hint names the flipper keys that still change the letter: Shift, / and ← → as shipped, or the player's own non-letter keys (K-07)
+      const cycleKeys = () => {
+        if (!customKeys()) return 'Shift, / or ← →';
+        const names = [...KEYS.flipL, ...KEYS.flipR].filter((c) => !/^Key[A-Z]$/.test(c)).map(keyName);
+        return names.length > 1 ? names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1] : names[0] || '';
+      };
       current = 'entry';
       const letters = ['A', 'A', 'A'];
       let pos = 0;
@@ -410,7 +416,7 @@ export function createScreens(root, app) {
           ${res ? matchStamp(score, res.matched, false) : ''}
           <p>Enter your initials</p>
           <div class="initials" role="group" aria-label="Initials">${letters.map((l, i) => `<div class="ini ${i === pos ? 'on' : ''}"><button type="button" class="btn sm" data-up="${i}" aria-label="Letter ${i + 1} next">▲</button><span aria-live="polite">${l === ' ' ? '_' : l}</span><button type="button" class="btn sm" data-down="${i}" aria-label="Letter ${i + 1} previous">▼</button></div>`).join('')}</div>
-          <p class="hint" id="e-hint">${app.touch ? 'Flippers change the letter · plunger confirms' : 'Type your initials, or flippers change the letter · plunger confirms'}</p>
+          <p class="hint" id="e-hint">${app.touch ? 'Flippers change the letter · plunger confirms' : 'Type your initials' + (cycleKeys() ? ', or change the letter with ' + cycleKeys() : '') + ' · plunger confirms'}</p>
           <div class="menu"><button type="button" id="b-ok" class="btn primary" autofocus>OK</button></div>
         </section>`);
         root.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => { pos = +b.dataset.up; cycle(1); }));
