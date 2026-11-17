@@ -204,7 +204,7 @@ export function sfx(name, v = 1, pan = 0, o = {}) {
   pan = Math.max(-0.7, Math.min(0.7, pan)); audio.pans[name] = +pan.toFixed(2);
   if (!audio.ctx || !audio.on || audio.hold) return;
   const t = audio.ctx.currentTime;
-  if (LIMIT[name] && t - (audio.last[name] || 0) < LIMIT[name]) return;
+  if (LIMIT[name] && audio.last[name] !== undefined && t - audio.last[name] < LIMIT[name]) return;   // the first cue of a name is never limited, whatever the clock says
   audio.last[name] = t;
   v = Math.max(0.15, Math.min(1, v));
   if (BIG.has(name) && audio.kit) audio.kit.music.duck(6, 400);
