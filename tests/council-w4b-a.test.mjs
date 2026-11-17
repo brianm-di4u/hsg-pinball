@@ -1,9 +1,13 @@
-// Council wave 4b, batch A: clean-up after wave 4 (K-03 the bonus multiplier hit).
+// Council wave 4b, batch A: clean-up after wave 4 (K-03 the bonus multiplier hit, K-04 the Tilt line in MECHANICS.md, K-07 the initials hint).
 // The sim and the document run in Node on fixed seeds, so they give the same answer every run.
-import { createGame, newGame, tick, flipper, BONUS_STEP } from '../src/js/sim/rules.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createGame, newGame, tick, flipper, BONUS_STEP, DIFFICULTY } from '../src/js/sim/rules.js';
 import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 
+const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const T = compileTable(spec);
 
 export const tests = [
@@ -27,6 +31,21 @@ export const tests = [
       t.expect(K.cues.some((c) => c.k === 'sound' && c.name === 'bonus') && !K.cues.some((c) => c.name === 'bonusTick'), 'a tilted ball keeps its one old sound');
       const S = fresh(3); drain(S); run(S, 0.9); S.cues.length = 0; flipper(S, 'L', true); flipper(S, 'L', false); run(S, 3);
       t.equal(heard(S).length, 0, 'a skipped count at 3x leaves no tick or hit to sound later');
+    },
+  },
+  // ------------------------------------------------------------------------------------------------------ K-04
+  {
+    name: 'K-04 the Tilt line of MECHANICS.md gives the decay and the warnings Standard, Easy and Expert have in rules.js',
+    node: true,
+    async run(t) {
+      const doc = fs.readFileSync(path.join(GAME, 'MECHANICS.md'), 'utf8').replace(/\s+/g, ' ');
+      const line = doc.slice(doc.indexOf('- Tilt:'), doc.indexOf('- Ball search:'));
+      t.expect(line.length > 40, 'the Tilt line is there');
+      const d = DIFFICULTY;
+      t.expect(line.includes('decays ' + d.standard.bobDecay + '/s on Standard'), 'it gives the Standard decay, ' + d.standard.bobDecay + '/s');
+      t.expect(line.includes(d.easy.bobDecay + '/s on Easy') && line.includes(d.expert.bobDecay + '/s on Expert'), 'and the Easy and Expert decay: ' + [d.easy.bobDecay, d.expert.bobDecay]);
+      t.expect(line.includes(d.standard.tiltAfter + ' warnings on Standard') && line.includes(d.easy.tiltAfter + ' on Easy') && line.includes(d.expert.tiltAfter + ' on Expert'), 'and the warnings before the tilt: ' + [d.standard.tiltAfter, d.easy.tiltAfter, d.expert.tiltAfter]);
+      t.expect(!/1\.2\/s|\(3 allowed\)/.test(line), 'and none of the wave-2 numbers');
     },
   },
 ];

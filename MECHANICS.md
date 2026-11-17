@@ -74,8 +74,8 @@ One serializable object, `game` (rules) plus `physics.snapshot(w)`:
   none on Expert; 15 s, 20 s and none after a multiball starts; it always runs its full time and is not shortened by
   switch hits) → drain → end-of-ball bonus → next ball or game over → match → initials entry.
 - Skill shot: one top lane lit at plunge; landing in it within 4 s scores it.
-- Tilt: each nudge adds to a bob value that decays 1.2/s; above 2.0 a warning (3 allowed), the next tilts the
-  ball (flippers dead, no bonus).
+- Tilt: each nudge adds to a bob value that decays 0.9/s on Standard (1.6/s on Easy, 0.8/s on Expert); above 2.0 a
+  warning (2 warnings on Standard, 3 on Easy, 1 on Expert), and the next one tilts the ball (flippers dead, no bonus).
 - Ball search: if every ball has been still for 5 s outside a saucer or the shooter lane, the rules pulse the
   bumpers and saucers, then nudge the stuck ball.
 - Full rules and scoring in `PRD.md` §4.
