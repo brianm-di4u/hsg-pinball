@@ -14,7 +14,7 @@ import { createBot } from '../src/js/sim/bot.js';
 import { BATHHOUSES } from '../src/js/sim/table-spa-city.js';
 import { TICK } from '../src/js/sim/physics.js';
 
-export const TARGETS = { ballMin: 30, ballMax: 90, sideMax: 0.35, reachMin: 0.2, rotatedReachMin: 0.1 };   // rotatedReachMin (CL-02): with the ladder starting at a different mode each game, every mode is reached in at least this share of games   // ballMin was 40 until C4-03 cut the kickbacks from three to one a side (the owner's decision): the ball is shorter by design
+export const TARGETS = { ballMin: 35, ballMax: 90, sideMax: 0.35, reachMin: 0.2, rotatedReachMin: 0.1 };   // rotatedReachMin (CL-02): with the ladder starting at a different mode each game, every mode is reached in at least this share of games   // ballMin was 40, was lowered to 30 when C4-03 cut the kickbacks from three to one a side (the ball is shorter by design: 40.7 s measured), and is 35 from K-02 so a real drop is noticed
 const SHOT_SOUND = { vapors: 'saucer', lock: 'saucer', ramp: 'rampMade', orbit: 'orbit', reserve: 'orbit', bh: 'target' };
 const BH = new Set(BATHHOUSES);
 export const LADDER = [0.4, 0.6, 0.8, 0.95];

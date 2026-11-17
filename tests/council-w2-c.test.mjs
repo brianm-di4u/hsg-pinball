@@ -53,7 +53,7 @@ export const tests = [
     },
   },
   {
-    name: 'S3-03 Standard on the skill-0.8 bot over 30 games: an average ball of 30 to 90 s (C4-03: it was 40 with three kickbacks), side drains under 35 percent, Soak and Derby reached in 20 percent of games',
+    name: 'S3-03 Standard on the skill-0.8 bot over 30 games: an average ball of 35 to 90 s (C4-03: it was 40 with three kickbacks; K-02: the floor is 35), side drains under 35 percent, Soak and Derby reached in 20 percent of games',
     node: true,
     async run(t) {
       const r = simulate({ games: 30, skill: 0.8, seed: 1 });
