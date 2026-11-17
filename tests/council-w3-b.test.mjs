@@ -186,11 +186,15 @@ export const tests = [
       await t.game('step', 1);   // make sure a frame has been drawn under the test's own clock
       await t.page.evaluate(() => { window.__game.demoRestMs = 300; });
       await t.page.waitForFunction(() => window.__game.getState().resting, null, { timeout: 10000 });
+      // a frame already queued when the demo rested is drawn once more: take the baseline once the drawn count has stopped changing across two page frames (K-01)
+      await t.page.waitForFunction(() => { const w = window; const d = w.__game.getState().drawn; const same = w.__restDrawn === d; w.__restDrawn = d; w.__restSame = same ? (w.__restSame || 0) + 1 : 0; return w.__restSame >= 2; }, null, { timeout: 10000, polling: 'raf' });
       const a = await t.state();
       await t.waitFrames(30);
       const b = await t.state();
       t.equal([b.t, b.drawn], [a.t, a.drawn], 'while it rests the sim does not advance and the view is not drawn');
       t.expect(b.frame > a.frame, 'the page itself keeps running frames');
+      // the short rest delay is put back before the touch, or on a slow machine the demo rests again before the sim has had a frame to advance
+      await t.page.evaluate(() => { window.__game.demoRestMs = null; });
       await t.page.mouse.move(300, 300); await t.page.mouse.move(340, 320);
       await t.page.waitForFunction(() => !window.__game.getState().resting, null, { timeout: 5000 });
       const c = await t.state();
