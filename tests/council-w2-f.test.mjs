@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-2', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-2', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, `${name}-${t.viewportName || (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile')}.png`) }); };
 
 // Hold every asset pack back by `ms`: the game's own files are inlined, so this is what a slow network does to it.

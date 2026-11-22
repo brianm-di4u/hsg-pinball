@@ -6,7 +6,7 @@ import { DIFFICULTY } from '../src/js/sim/rules.js';
 import { audio, unlock, stopMusic, suspendAudio, resumeAudio, slowmoDip } from '../src/js/ui/audio.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-4', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 // a context whose state the test sets (iOS says 'interrupted' after a call), and a window that keeps the listeners it is given
 function fakeContext() {
