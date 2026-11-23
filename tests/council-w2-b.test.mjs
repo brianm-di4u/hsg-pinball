@@ -156,9 +156,13 @@ export const tests = [
       await t.page.waitForTimeout(120);
       r = await roll();
       t.expect(r.pan > 0.3, `on the right it sits right (${r.pan})`);
-      await t.game('act', 'placeBall', 459.5, 620, 0, 700, 2);
-      await t.page.waitForTimeout(40);
-      r = await roll();
+      // the first update after the ball is placed: it climbs and slows, so a fixed wait reads a lower speed on a slow machine
+      r = await t.page.evaluate(async () => {
+        const g = window.__game, roll = () => g.getState().audio.roll, n = roll().n;
+        g.act('placeBall', 459.5, 620, 0, 700, 2);
+        for (let i = 0; i < 120 && roll().n === n; i++) await new Promise((f) => requestAnimationFrame(f));
+        return roll();
+      });
       t.expect(r.ts > 200 && r.fs === 0 && r.layer === 2, `a ball on the ramp is voiced as the ramp and the field voice is shut (field ${r.fs}, ramp ${r.ts})`);
       await t.game('pause');
       await t.page.waitForTimeout(100);
