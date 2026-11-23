@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-3', 'shots');
 async function gesture(t) {
   if (t.viewport === 'mobile') await t.tap([20, 400]); else await t.page.mouse.click(20, 400);
   for (let i = 0; i < 40; i++) { if ((await t.state()).audio.ctx) break; await t.page.waitForTimeout(50); }

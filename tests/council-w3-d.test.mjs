@@ -25,7 +25,7 @@ const launched = (G) => { autoPlunge(G.w, 0.9); run(G, 3); };
 const nudgesToTilt = (diff, gap) => { const G = fresh(4, { difficulty: diff }); launched(G); let n = 0; while (!G.player.tilted && n < 80) { nudge(G, 'left'); n++; run(G, gap); } return G.player.tilted ? n : null; };
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-3', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 
 export const tests = [

@@ -13,7 +13,7 @@ import { textWidth, DW } from '../src/js/ui/dmd.js';
 const T = compileTable(spec);
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-3', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 const cue = (t, name, opts) => t.page.evaluate(([n, o]) => window.__game.cueRender(n, o), [name, opts]);
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];

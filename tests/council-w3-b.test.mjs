@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-3', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-3', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 async function gesture(t) {
   if (t.viewport === 'mobile') await t.tap([20, 400]); else await t.page.mouse.click(20, 400);
@@ -210,6 +210,9 @@ export const tests = [
       await t.waitIdle(30000);
       await t.game('scene', 'settings');
       await t.page.waitForFunction(() => window.__game.getState().resting, null, { timeout: 5000 });
+      // state().resting is true as soon as Settings opens, but the frame loop draws the demo once more when it starts to rest
+      // (main.js: "the view is drawn once when it starts to rest"); let that frame go by before taking the snapshot.
+      await t.waitFrames(2);
       const a = await t.state();
       await t.waitFrames(30);
       const b = await t.state();

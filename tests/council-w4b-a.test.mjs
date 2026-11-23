@@ -8,7 +8,7 @@ import { compileTable } from '../src/js/sim/table.js';
 import { spec } from '../src/js/sim/table-spa-city.js';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.resolve(GAME, '..', '_council', 'hsg-pinball', 'wave-4b', 'shots');
+const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-4b', 'shots');
 const shot = async (t, name) => { fs.mkdirSync(SHOTS, { recursive: true }); await t.page.screenshot({ path: path.join(SHOTS, name + '-' + (t.page.viewportSize().width > 600 ? 'desktop' : 'mobile') + '.png') }); };
 const T = compileTable(spec);
 // a paused game finished with a high score: the last ball drains and the initials card opens; `settings` is what the page has saved before it loads
