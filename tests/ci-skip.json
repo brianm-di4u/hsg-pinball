@@ -74,5 +74,9 @@
   {
     "test": "input: a press late in a stalled frame never lands after its release",
     "why": "stalls frames on purpose and times the press inside them; the runner adds its own stalls"
+  },
+  {
+    "test": "input: a key released behind the pause menu flips on its first press after resume",
+    "why": "opens and closes the pause menu inside fixed 60 ms waits and counts frames after resume"
   }
 ]
