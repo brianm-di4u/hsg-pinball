@@ -62,5 +62,17 @@
   {
     "test": "AC28 keyboard flippers and plunger",
     "why": "drives play on fixed timings that a shared runner overruns"
+  },
+  {
+    "test": "input: flip latency is one frame",
+    "why": "counts frames under 4x CPU throttle, which a shared runner cannot hold"
+  },
+  {
+    "test": "S1-02 two fingers landing together on one side still nudge",
+    "why": "depends on two touches landing within one frame on the runner"
+  },
+  {
+    "test": "input: a press late in a stalled frame never lands after its release",
+    "why": "stalls frames on purpose and times the press inside them; the runner adds its own stalls"
   }
 ]
