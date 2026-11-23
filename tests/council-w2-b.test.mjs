@@ -22,6 +22,13 @@ const FOLEY = ['rampEnter', 'spinner', 'rollover', 'wireDrop', 'launch', 'switch
 // rollover 0.0341, wireDrop 0.0423, switch 0.0231, launch 0.0098
 
 const render = (t, name, opts) => t.page.evaluate(([n, o]) => window.__game.cueRender(n, o), [name, opts]);
+// The same cue with the same random draws each time (cues vary their pitch, gain and noise on every repeat), so two renders differ only by opts.
+const renderSeeded = (t, name, opts) => t.page.evaluate(async ([n, o]) => {
+  const real = Math.random;
+  let x = 12345;
+  Math.random = () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 4294967296; };
+  try { return await window.__game.cueRender(n, o); } finally { Math.random = real; }
+}, [name, opts]);
 async function gesture(t) {
   if (t.viewport === 'mobile') await t.tap([20, 400]); else await t.page.mouse.click(20, 400);
   for (let i = 0; i < 40; i++) { if ((await t.state()).audio.ctx) break; await t.page.waitForTimeout(50); }
@@ -72,9 +79,9 @@ export const tests = [
     name: 'S5-02 a panned cue renders in stereo through the same chain, an unpanned one does not, and the pan is clamped',
     viewports: ['desktop'],
     async run(t) {
-      const mid = await render(t, 'bumper', { seconds: 1.5 });
-      const left = await render(t, 'bumper', { seconds: 1.5, pan: -0.7 });
-      const right = await render(t, 'bumper', { seconds: 1.5, pan: 0.7 });
+      const mid = await renderSeeded(t, 'bumper', { seconds: 1.5 });
+      const left = await renderSeeded(t, 'bumper', { seconds: 1.5, pan: -0.7 });
+      const right = await renderSeeded(t, 'bumper', { seconds: 1.5, pan: 0.7 });
       t.log(`bumper stereo spread: centre ${mid.stereo}, left ${left.stereo}, right ${right.stereo}`);
       t.expect(mid.stereo < 0.1, `centred stays centred (${mid.stereo})`);
       t.expect(left.stereo > 0.3 && right.stereo > 0.3, 'panned to either side it is clearly off centre');
