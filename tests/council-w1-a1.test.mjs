@@ -7,10 +7,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSettings, loadScores, qualifies, DEFAULT_SETTINGS } from '../src/js/save.js';
 import { autoPlunge, TICK } from '../src/js/sim/physics.js';
+import { governorUnderLoad } from './governor-load.mjs';
 
 const T = compileTable(spec);
 const run = (G, seconds) => { for (let i = 0; i < Math.round(seconds / TICK); i++) tick(G); };
 const fresh = (o = {}) => { const G = createGame(T, { seed: 5 }); newGame(G, { balls: 3, seed: 5, ...o }); run(G, 0.6); return G; };
+
 
 export const tests = [
   // ---------------------------------------------------------------------------------------------- S1-01
@@ -216,15 +218,11 @@ export const tests = [
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
       const first = (await t.state()).tier;
-      await t.cpuThrottle(4);
-      let s = await t.state();
-      for (let i = 0; i < 60 && s.tier !== 'low' && s.tier !== null; i++) { await t.page.waitForTimeout(500); s = await t.state(); }
-      const fc = await t.frameCost(3000);
-      await t.cpuThrottle(1);
-      s = await t.state();
-      t.log('tier', first, '->', s.tier, 'fps', fc.fps, 'taskMs', fc.taskMs);
+      const { load, s, fc } = await governorUnderLoad(t);
+      t.log('tier', first, '->', s.tier, load ? `(frames slow at ${load.rate}x: ${load.fps} fps)` : '(frames never slow, even at 32x)', '; at 4x: fps', fc.fps, 'taskMs', fc.taskMs);
       t.expect(first !== 'low', 'starts above the low tier: ' + first);
-      t.expect(s.tier === 'low' || s.view === '2d', 'the governor dropped the quality: ' + s.tier);
+      if (load) t.expect(s.tier === 'low' || s.view === '2d', 'the governor dropped the quality once the frames were slow: ' + s.tier);
+      else t.log('skipped the step-down check: this machine stays fast even at 32x, so there is nothing for the governor to do');
       t.expect(fc.fps > 20 || !t.gpu, 'playable frame rate at 4x throttle once the governor has acted: ' + fc.fps);
     },
   },

@@ -210,6 +210,9 @@ export const tests = [
       await t.waitIdle(30000);
       await t.game('scene', 'settings');
       await t.page.waitForFunction(() => window.__game.getState().resting, null, { timeout: 5000 });
+      // state().resting is true as soon as Settings opens, but the frame loop draws the demo once more when it starts to rest
+      // (main.js: "the view is drawn once when it starts to rest"); let that frame go by before taking the snapshot.
+      await t.waitFrames(2);
       const a = await t.state();
       await t.waitFrames(30);
       const b = await t.state();

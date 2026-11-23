@@ -2,8 +2,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { governorUnderLoad } from './governor-load.mjs';
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const kb = (f) => fs.statSync(path.join(GAME, f)).size / 1024;
+
 
 export const tests = [
   {
@@ -74,14 +76,10 @@ export const tests = [
       await t.waitIdle(30000);   // the 3D table is built behind the title now: the throttle is for playing it, not for building it
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
-      await t.cpuThrottle(4);
-      let g = await t.state();
-      for (let i = 0; i < 60 && g.tier !== 'low' && g.tier !== null; i++) { await t.page.waitForTimeout(500); g = await t.state(); }   // the governor steps down every ~2 slow windows
-      const fc = await t.frameCost(3000);
-      await t.cpuThrottle(1);
-      const s = await t.state();
-      t.log('tier', s.tier, 'fps', fc.fps, 'taskMs', fc.taskMs);
-      t.expect(!t.gpu || s.tier === 'low' || s.view === '2d', 'the governor fell to the low tier under load: ' + s.tier);
+      const { load, s, fc } = await governorUnderLoad(t);
+      t.log('tier', s.tier, load ? `(frames slow at ${load.rate}x: ${load.fps} fps)` : '(frames never slow, even at 32x)', '; at 4x: fps', fc.fps, 'taskMs', fc.taskMs);
+      if (load) t.expect(!t.gpu || s.tier === 'low' || s.view === '2d', 'the governor fell to the low tier under load: ' + s.tier);
+      else t.log('skipped the step-down check: this machine stays fast even at 32x');
       t.expect(fc.fps > 20 || !t.gpu, 'playable frame rate at 4× throttle');
     },
   },

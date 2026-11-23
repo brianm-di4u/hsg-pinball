@@ -10,6 +10,7 @@ import { dailySeed } from '../src/js/progress.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadUntilSlow } from './governor-load.mjs';
 
 const GAME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = path.resolve(GAME, 'screenshots', 'council', 'wave-3', 'shots');
@@ -229,11 +230,15 @@ export const tests = [
       await t.page.reload(); await t.waitIdle(30000);
       await t.game('newGame', { balls: 3, seed: 3 });
       await t.game('act', 'plunge', 0.9);
-      await t.cpuThrottle(6);
+      // A six-times throttle does not make a fast desktop GPU's frames slow, and the governor then rightly keeps its tier: load the CPU
+      // until the frames really are slow (tests/governor-load.mjs), then expect the step down and the saved landing tier.
+      const load = await loadUntilSlow(t);
       let s = await t.state();
-      for (let i = 0; i < 120 && s.tier !== 'low'; i++) { await t.page.waitForTimeout(500); s = await t.state(); }
+      for (let i = 0; load && i < 120 && s.tier !== 'low'; i++) { await t.page.waitForTimeout(500); s = await t.state(); }
       await t.cpuThrottle(1);
-      t.equal(s.tier, 'low', 'the governor fell to low under a six-times throttle');
+      if (!load) { t.log('skipped: this machine stays fast even at 32x, so there is nothing for the governor to do'); return; }
+      t.log(`frames slow at ${load.rate}x (${load.fps} fps); tier ${s.tier}`);
+      t.equal(s.tier, 'low', 'the governor fell to low once the frames were slow');
       t.equal(await t.page.evaluate(() => JSON.parse(localStorage.getItem('hsg-pinball:settings')).tierLearned), 'low', 'and the landing tier is saved');
     },
   },
